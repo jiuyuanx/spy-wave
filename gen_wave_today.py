@@ -39,7 +39,7 @@ def _warmup_before(day):
     end = day.strftime("%Y-%m-%dT00:00:00Z")
     params = {"symbols": "SPY", "timeframe": "3Min", "limit": 1000, "feed": "iex",
               "sort": "desc", "start": start, "end": end}
-    data = w4.api("/stocks/bars", params)
+    data = w4.data_api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     if not bars:
         raise RuntimeError(f"no warmup bars before {day}")
@@ -60,7 +60,7 @@ def _fetch_1m_day(day):
               "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "limit": 10000, "feed": "iex", "sort": "asc"}
-    data = w4.api("/stocks/bars", params)
+    data = w4.data_api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     df = pd.DataFrame(bars)
     if df.empty:
@@ -704,20 +704,39 @@ def main():
         _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
     actual_rts.sort(key=lambda x: x["o_t"])
 
-    # ---- 下方信号单表格 (以实际成交FIFO为主) ----
+    # ---- 下方信号单表格 ----
     trows = []
-    for k, ar in enumerate(actual_rts, 1):
-        o_tm = ar["o_t"].strftime("%H:%M")
-        c_tm = ar["c_t"].strftime("%H:%M") if ar["closed"] else "持仓中"
-        op_txt = ar["op"]
-        q_txt = f"{ar['qty']:.0f}"
-        oa_txt = f"{ar['o_avg']:.2f}"
-        ca_txt = f"{ar['c_avg']:.2f}" if ar["c_avg"] else "—"
-        pnl_txt, ret_txt = _money(ar["pnl"]), _pct(ar["ret"])
-        if not ar["closed"] and ar["pnl"] is not None:
-            pnl_txt += "(浮)"
-        est_txt, est_ret_txt = _money(ar["est_pnl"]), _pct(ar["est_ret"])
-        pc = "#1a9e54" if (ar["pnl"] or 0) >= 0 else "#e5484d"
+    if has_live:
+        # 实盘: 以实际成交FIFO为主
+        _table_rows = actual_rts
+        _is_live = True
+    else:
+        # 回放: 显示信号单+回测估算
+        _table_rows = rts
+        _is_live = False
+    for k, ar in enumerate(_table_rows, 1):
+        if _is_live:
+            o_tm = ar["o_t"].strftime("%H:%M")
+            c_tm = ar["c_t"].strftime("%H:%M") if ar["closed"] else "持仓中"
+            op_txt = ar["op"]
+            q_txt = f"{ar['qty']:.0f}"
+            oa_txt = f"{ar['o_avg']:.2f}"
+            ca_txt = f"{ar['c_avg']:.2f}" if ar["c_avg"] else "—"
+            pnl_txt, ret_txt = _money(ar["pnl"]), _pct(ar["ret"])
+            if not ar["closed"] and ar["pnl"] is not None:
+                pnl_txt += "(浮)"
+            est_txt, est_ret_txt = _money(ar["est_pnl"]), _pct(ar["est_ret"])
+            pc = "#1a9e54" if (ar["pnl"] or 0) >= 0 else "#e5484d"
+        else:
+            # 回放: 信号时间+操作名+预估 (实际列空)
+            o_tm = sig["t"].iloc[ar["obi"]].strftime("%H:%M")
+            c_tm = sig["t"].iloc[ar["cbi"]].strftime("%H:%M") if ar["closed"] else "持仓中"
+            op_txt = _op_name(ar.get("ors"), ar["odr"])
+            q_txt, oa_txt, ca_txt = "—", "—", "—"
+            pnl_txt, ret_txt = "—", "—"
+            est_txt = "~" + _money(ar["est_pnl"])
+            est_ret_txt = "~" + _pct(ar["est_ret"])
+            pc = "#888888"
         ec = "#1a9e54" if ar["est_pnl"] >= 0 else "#e5484d"
         trows.append(
             f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
@@ -726,9 +745,14 @@ def main():
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
             f"<td style=\"color:{ec}\">{est_txt}</td>"
             f"<td style=\"color:{ec}\">{est_ret_txt}</td></tr>")
-    tot_est = sum(r["est_pnl"] for r in actual_rts)
-    tot_est_txt = _money(tot_est)
-    _tot_real = (robust_realized + robust_unreal) if has_live else (realized + unreal)
+    if _is_live:
+        tot_est = sum(r["est_pnl"] for r in actual_rts)
+        tot_est_txt = _money(tot_est)
+        _tot_real = (robust_realized + robust_unreal)
+    else:
+        tot_est = sum(r["est_pnl"] for r in rts)
+        tot_est_txt = "~" + _money(tot_est)
+        _tot_real = 0
     trows.append(
         f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
         f"</td><td>{_money(_tot_real)}</td><td></td>"
@@ -788,7 +812,12 @@ def main():
         title_txt = (f"{page_title} {day_str} | 今日 {_s}${abs(robust_day):,.0f}{_pt} "
                      f"| 持仓:{_pos_show} | k3clean L25")
     else:
-        title_txt = f"{page_title} {day_str} | 持仓:{pos_txt} | k3clean L25"
+        # 回放模式: 显示预估收益 (回测逻辑)
+        _replay_est = sum(r["est_pnl"] for r in rts)
+        _replay_ret = _replay_est / 100000
+        _s = "+" if _replay_est >= 0 else "-"
+        title_txt = (f"{page_title} {day_str} | 预估 {_s}${abs(_replay_est):,.0f} ({_replay_ret:+.1%}) "
+                     f"| 持仓:{pos_txt} | k3clean L25")
 
     mark_area_js = "[" + ",".join(
         "[{xAxis:'%s',itemStyle:{color:'%s'}},{xAxis:'%s'}]" % (
