@@ -528,14 +528,22 @@ def main():
                 pnl, ret = p["upl"], p["uplpc"]
         rt.update({"c_qty": c_qty, "c_avg": c_avg, "pnl": pnl, "ret": ret})
         sgn = 1 if rt["odr"] == "call" else -1
-        _eq = rt["o_qty"] if rt["o_qty"] else 1
-        rt["est_pnl"] = sgn * (rt["cpx"] - rt["opx"]) * _eq * 100
-        rt["est_1lot"] = not rt["o_qty"]  # 张数未知时按1张估算
-        # 预估收益率: 信号价盈亏 / 实际期权成本 (无实际成交时无法估算期权价,显示—)
-        if rt["o_avg"] and rt["o_qty"]:
-            rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
+        _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
+        if rt["o_qty"]:
+            # 有实际成交: 预估=信号价×delta=1×实际张数; 收益率按实际期权成本
+            rt["est_pnl"] = _spy_pnl * rt["o_qty"] * 100
+            rt["est_bt"] = False
+            if rt["o_avg"]:
+                rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
+            else:
+                rt["est_ret"] = None
         else:
-            rt["est_ret"] = None
+            # 无实际成交(回放): 回测逻辑估算 (ATM delta=0.5起, |涨跌|×0.2变delta, 55张/$100k基准)
+            _d_exit = max(0.1, min(0.95, 0.5 + abs(_spy_pnl) * 0.2))
+            _avg_d = (0.5 + _d_exit) / 2
+            rt["est_pnl"] = _spy_pnl * _avg_d * 55 * 100
+            rt["est_ret"] = rt["est_pnl"] / 100000  # 占总资金比 (回测口径)
+            rt["est_bt"] = True
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
     day_pnl = realized + unreal
@@ -558,22 +566,36 @@ def main():
             s += d
         return s or d
 
-    # ---- 图上每单标签 ----
+    # ---- 图上每单标签 (回测dashboard式: 顶部横排 $+%, 防重叠错行) ----
+    _hi = float(sig["high"].iloc[today_idx].max())
+    _lo = float(sig["low"].iloc[today_idx].min())
+    _rng = _hi - _lo or 1.0
+    _closed = [r for r in rts if r["closed"]]
+    _row_of, _placed = {}, []
+    for _k in sorted(range(len(_closed)), key=lambda k: _closed[k]["cbi"]):
+        _cbi = _closed[_k]["cbi"]
+        _row = 0
+        while any(abs(_cbi - _oc) < 12 and _or == _row for (_oc, _or) in _placed):
+            _row += 1
+        _row_of[_k] = _row
+        _placed.append((_cbi, _row))
+    _max_row = max(_row_of.values()) if _row_of else 0
+    _band_top = _hi + _rng * (0.05 + (_max_row + 1) * 0.055)
+    y_max_js = round(_band_top + _rng * 0.02, 2)
     pnl_pins = []
-    for k, rt in enumerate([r for r in rts if r["closed"]]):
+    for k, rt in enumerate(_closed):
         if rt["pnl"] is not None:
-            txt = f"{_money(rt['pnl'])}\\n{_pct(rt['ret'])}"
+            txt = f"{_money(rt['pnl'])} ({_pct(rt['ret'])})"
             col = "#1a9e54" if rt["pnl"] >= 0 else "#e5484d"
         else:
-            txt = f"~{_money(rt['est_pnl'])}\\n{_pct(rt['est_ret'])}"
+            txt = f"~{_money(rt['est_pnl'])} ({_pct(rt['est_ret'])})"
             col = "#888888"
-        yhi = round(float(sig["high"].iloc[rt["cbi"]]), 2)
+        _yy = round(_band_top - _row_of[k] * _rng * 0.055, 2)
         pnl_pins.append(
             "{\"coord\":[\"%s\",%.2f],\"symbol\":\"circle\",\"symbolSize\":2,"
             "\"label\":{\"show\":true,\"formatter\":\"%s\",\"color\":\"%s\","
-            "\"fontSize\":10,\"fontWeight\":\"bold\",\"position\":\"top\",\"distance\":%d},"
-            "\"itemStyle\":{\"opacity\":0}}" % (
-                tstrs[rt["cbi"]], yhi, txt, col, 10 + (k % 3) * 18))
+            "\"fontSize\":10,\"fontWeight\":\"bold\",\"position\":\"top\",\"distance\":2},"
+            "\"itemStyle\":{\"opacity\":0}}" % (tstrs[rt["cbi"]], _yy, txt, col))
     pnlpins_js = "[" + ",".join(pnl_pins) + "]"
 
     # ---- 下方信号单表格 ----
@@ -588,7 +610,8 @@ def main():
         pnl_txt, ret_txt = _money(rt["pnl"]), _pct(rt["ret"])
         if not rt["closed"] and rt["pnl"] is not None:
             pnl_txt += "(浮)"
-        est_txt = ("~" if rt["est_1lot"] else "") + _money(rt["est_pnl"])
+        est_txt = ("~" if rt.get("est_bt") else "") + _money(rt["est_pnl"])
+        est_ret_txt = ("~" if rt.get("est_bt") else "") + _pct(rt["est_ret"])
         pc = "#1a9e54" if (rt["pnl"] or 0) >= 0 else "#e5484d"
         ec = "#1a9e54" if rt["est_pnl"] >= 0 else "#e5484d"
         trows.append(
@@ -597,12 +620,13 @@ def main():
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
             f"<td style=\"color:{ec}\">{est_txt}</td>"
-            f"<td style=\"color:{ec}\">{_pct(rt['est_ret'])}</td></tr>")
-    tot_est = sum(r["est_pnl"] for r in rts if not r["est_1lot"])
+            f"<td style=\"color:{ec}\">{est_ret_txt}</td></tr>")
+    tot_est = sum(r["est_pnl"] for r in rts)
+    tot_est_txt = ("~" if any(r.get("est_bt") for r in rts) else "") + _money(tot_est)
     trows.append(
         f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
         f"</td><td>{_money(realized + unreal)}</td><td></td>"
-        f"<td>{_money(tot_est)}</td><td></td></tr>")
+        f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
         "<div style=\"max-width:1150px;margin:14px auto;padding:0 8px\">"
         "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
@@ -614,8 +638,9 @@ def main():
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
-        "预估=信号SPY价按delta=1估算,收益率按实际期权成本算;~按1张估算(张数未知);"
-        "无实际成交时预估收益率显示—;(浮)=未实现;实际=Alpaca成交配对,信号bar前后配对</div></div>")
+        "预估=信号SPY价按delta=1×实际张数估算,收益率按实际期权成本;"
+        "~=回测逻辑估算(ATM delta0.5起, |涨跌|×0.2变delta, 55张/$100k基准, 占总资金比);"
+        "(浮)=未实现;实际=Alpaca成交配对,信号bar前后配对</div></div>")
 
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
@@ -694,7 +719,7 @@ ch.setOption({{
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}}],
-  yAxis:[{{type:'value',gridIndex:0,scale:true}},{{type:'value',gridIndex:1}}],
+  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js}}},{{type:'value',gridIndex:1}}],
   series:[
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
