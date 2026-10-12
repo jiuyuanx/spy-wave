@@ -9,7 +9,7 @@ QQE/真色/衰减/翻仓need 全部按 signal_engine(k3clean L25当前基线) �
 输出: ~/workspace/alpaca_watcher/wave-today-YYYYMMDD.html
 """
 import sys, os, json
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
 import numpy as np
@@ -24,6 +24,7 @@ WDIR = os.environ.get("WAVE_OUT_DIR", "/home/hatch/workspace/alpaca_watcher")
 WAVE_OUT_NAME_TMPL = os.environ.get("WAVE_OUT_NAME", "")  # 设了就用固定名 (如 index.html)
 _ar = int(os.environ.get("WAVE_AUTOREFRESH", "0") or 0)
 refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
+WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
 from signal_engine import (run_signals, detect_red_decay, detect_blue_decay,
@@ -32,24 +33,67 @@ from signal_engine import (run_signals, detect_red_decay, detect_blue_decay,
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
 
 
-def build_bars():
-    hist3 = w4.load_history()
-    df1m = w4.fetch_1m()
-    today3 = w4.to_3m(df1m)
-    bars3 = pd.concat([hist3, today3], ignore_index=True)
+def _warmup_before(day):
+    """某日前 7 天的 3m warmup (回放用, 不碰生产 load_history)。"""
+    start = (day - timedelta(days=7)).strftime("%Y-%m-%dT00:00:00Z")
+    end = day.strftime("%Y-%m-%dT00:00:00Z")
+    params = {"symbols": "SPY", "timeframe": "3Min", "limit": 1000, "feed": "iex",
+              "sort": "desc", "start": start, "end": end}
+    data = w4.api("/stocks/bars", params)
+    bars = data.get("bars", {}).get("SPY", [])
+    if not bars:
+        raise RuntimeError(f"no warmup bars before {day}")
+    df = pd.DataFrame(bars)
+    df["t"] = pd.to_datetime(df["t"], utc=True).dt.tz_convert(ET)
+    df = df.rename(columns={"o": "open", "h": "high", "l": "low", "c": "close", "v": "volume"})
+    df = df[(df["t"].dt.strftime("%H:%M") >= "09:30") &
+            (df["t"].dt.strftime("%H:%M") < "16:00")].copy()
+    return pd.DataFrame({"t": df["t"], "o": df["open"], "h": df["high"],
+                         "l": df["low"], "c": df["close"], "v": df["volume"]})
+
+
+def _fetch_1m_day(day):
+    """某天的全部 1m (回放用)。"""
+    s_et = datetime(day.year, day.month, day.day, 9, 30, tzinfo=ET)
+    e_et = datetime(day.year, day.month, day.day, 16, 0, tzinfo=ET)
+    params = {"symbols": "SPY", "timeframe": "1Min",
+              "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "limit": 10000, "feed": "iex", "sort": "asc"}
+    data = w4.api("/stocks/bars", params)
+    bars = data.get("bars", {}).get("SPY", [])
+    df = pd.DataFrame(bars)
+    if df.empty:
+        raise RuntimeError(f"no 1m bars for {day}")
+    df["t"] = pd.to_datetime(df["t"], utc=True).dt.tz_convert(ET)
+    return df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
+
+
+def build_bars(day=None):
+    if day is None:
+        hist3 = w4.load_history()
+        df1m = w4.fetch_1m()
+        now = datetime.now(ET)
+    else:
+        hist3 = _warmup_before(day)
+        df1m = _fetch_1m_day(day)
+    day3 = w4.to_3m(df1m)
+    bars3 = pd.concat([hist3, day3], ignore_index=True)
     bars3 = bars3.sort_values("t").drop_duplicates("t", keep="last").reset_index(drop=True)
-    now = datetime.now(ET)
-    n_complete = 0
-    for idx in range(len(bars3)):
-        bt = bars3["t"].iloc[idx]
-        bar_end = bt + pd.Timedelta(minutes=3)
-        n1m = bars3["n1m"].iloc[idx] if "n1m" in bars3.columns else 3
-        if pd.isna(n1m):
-            n1m = 3
-        if bar_end <= now and n1m == 3:
-            n_complete = idx + 1
-        else:
-            break
+    if day is not None:
+        n_complete = len(bars3)  # 回放: 当天所有bar都已走完, 缺分钟的bin也照算
+    else:
+        n_complete = 0
+        for idx in range(len(bars3)):
+            bt = bars3["t"].iloc[idx]
+            bar_end = bt + pd.Timedelta(minutes=3)
+            n1m = bars3["n1m"].iloc[idx] if "n1m" in bars3.columns else 3
+            if pd.isna(n1m):
+                n1m = 3
+            if bar_end <= now and n1m == 3:
+                n_complete = idx + 1
+            else:
+                break
     if n_complete == 0:
         raise RuntimeError("no complete 3m bar yet")
     sig = pd.DataFrame({
@@ -155,8 +199,11 @@ def huibu_mult(base):
 
 
 def main():
-    sig, df1m = build_bars()
-    today_str = datetime.now(ET).strftime("%Y-%m-%d")
+    day = datetime.strptime(WAVE_DATE, "%Y-%m-%d").date() if WAVE_DATE else None
+    sig, df1m = build_bars(day)
+    day_str = WAVE_DATE or datetime.now(ET).strftime("%Y-%m-%d")
+    page_title = "波浪回放" if WAVE_DATE else "今日波浪"
+    rtag = "" if WAVE_DATE else refresh_tag  # 回放页不自动刷新
     n = len(sig)
     close = sig["close"].values.astype(float)
     res = qqe_mod(close)
@@ -169,7 +216,7 @@ def main():
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
     dates = sig["t"].dt.date.astype(str).values
-    today_idx = [i for i in range(n) if dates[i] == today_str]
+    today_idx = [i for i in range(n) if dates[i] == day_str]
     if not today_idx:
         raise RuntimeError("no today bars")
 
@@ -414,12 +461,25 @@ def main():
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">{refresh_tag}
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">{rtag}
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>今日波浪 {today_str}</title>
+<title>{page_title} {day_str}</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <style>body{{margin:0;background:#fff;font-family:sans-serif}}#c{{width:100%;height:95vh}}</style>
 </head><body>
+<div style="text-align:center;padding:6px 0 0;font-size:13px">
+<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
+<option value="">📅 选择日期…</option>
+</select> <span id="dayhint" style="color:#888"></span>
+</div>
+<script>
+fetch('archive.json').then(function(r){{return r.json();}}).then(function(d){{
+var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
+var cur=location.pathname.split('/').pop().replace('.html','');
+days.forEach(function(x){{var o=document.createElement('option');o.value=x+'.html';o.textContent=x;if(x===cur)o.selected=true;s.appendChild(o);}});
+document.getElementById('dayhint').textContent='共'+days.length+'天';
+}}).catch(function(){{}});
+</script>
 <div id="info" style="position:absolute;top:6px;right:8px;z-index:10;background:rgba(255,255,255,.92);border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;color:#333;max-width:46%">点击信号圈查看原因</div>
 <div id="c"></div><script>
 const times = {times};
@@ -434,7 +494,7 @@ const spins = {spins};
 const barInfo = {bar_info_js};
 var ch = echarts.init(document.getElementById('c'));
 ch.setOption({{
-  title:{{text:'今日波浪 {today_str} {times[0]}→{times[-1]} ET | 持仓:{pos_txt} | k3clean L25', left:'center', textStyle:{{fontSize:14}}}},
+  title:{{text:'{page_title} {day_str} {times[0]}→{times[-1]} ET | 持仓:{pos_txt} | k3clean L25', left:'center', textStyle:{{fontSize:14}}}},
   legend:{{data:['3mK线','1m曲线','QQE','80%衰减线','翻仓线','回补门槛'], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1]}},{{type:'slider', xAxisIndex:[0,1], bottom:6}}],
@@ -462,7 +522,10 @@ ch.setOption({{
 }});
 {click_js}
 </script></body></html>"""
-    _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{today_str.replace('-', '')}.html"
+    if WAVE_DATE:
+        _out_name = f"{WAVE_DATE}.html"
+    else:
+        _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
     open(out, "w").write(html)

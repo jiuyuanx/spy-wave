@@ -30,8 +30,22 @@ jobs:
           WAVE_OUT_NAME: index.html
           WAVE_AUTOREFRESH: 180
 
+      - name: save dated copy + archive
+        run: |
+          TODAY=$(TZ=America/New_York date +%F)
+          cp public/index.html public/$TODAY.html
+          curl -sf https://jiuyuanx.github.io/spy-wave/archive.json -o public/archive.json || echo '{"days":[]}' > public/archive.json
+          python3 -c "
+          import json
+          p = 'public/archive.json'
+          d = json.load(open(p))
+          s = sorted(set(d.get('days', [])) | {'$TODAY'})
+          json.dump({'days': s}, open(p, 'w'))
+          "
+
       - name: deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
+          keep_files: true   # 保留历史日期文件, 只更新 index/当天/archive.json
