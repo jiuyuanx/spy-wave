@@ -1,9 +1,6 @@
 """Supertrend (TradingView ta.supertrend-faithful) + sanity check."""
 import pandas as pd
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from qqe_mod import rma
 
 
@@ -49,6 +46,9 @@ def supertrend(high, low, close, atr_period=10, multiplier=3.0):
 
 
 if __name__ == "__main__":
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
     df = pd.read_csv("/home/hatch/workspace/qqe_backtest/spy_3m.csv")
     df["time"] = pd.to_datetime(df["time"], utc=True).dt.tz_convert("America/New_York")
     df["tod"] = df["time"].dt.strftime("%H:%M")
