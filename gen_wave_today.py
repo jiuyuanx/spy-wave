@@ -629,29 +629,88 @@ def main():
                 tstrs[rt["cbi"]], _yy, txt, col))
     scat_js = "[" + ",".join(scat_data) + "]"
 
-    # ---- 下方信号单表格 ----
+    # ---- FIFO实际成交配对 (不依赖信号重算, 直接按成交算出真实round-trip) ----
+    _fifo_lots = {}  # symbol -> [[qty, px, t], ...]
+    actual_rts = []
+    for f in fills:  # fills已按时间排序
+        _sym = f["symbol"]
+        if f["side"] == "buy":
+            _fifo_lots.setdefault(_sym, []).append([f["qty"], f["px"], f["t"]])
+        else:
+            _lots = _fifo_lots.get(_sym, [])
+            _sq, _spx = f["qty"], f["px"]
+            _mq, _mc = 0.0, 0.0
+            _ot = None
+            while _sq > 0.001 and _lots:
+                _lq, _lpx, _lt = _lots[0]
+                _take = min(_lq, _sq)
+                _mq += _take
+                _mc += _take * _lpx
+                if _ot is None:
+                    _ot = _lt
+                _lq -= _take
+                _sq -= _take
+                if _lq <= 0.001:
+                    _lots.pop(0)
+                else:
+                    _lots[0][0] = _lq
+            if _mq > 0.001:
+                _oa = _mc / _mq
+                _pnl = (_spx - _oa) * _mq * 100
+                _ret = _pnl / (_mc * 100) if _mc else None
+                actual_rts.append({"sym": _sym, "o_t": _ot, "c_t": f["t"],
+                                   "qty": _mq, "o_avg": _oa, "c_avg": _spx,
+                                   "pnl": _pnl, "ret": _ret, "closed": True})
+    # 未平仓部分
+    for _sym, _lots in _fifo_lots.items():
+        if _lots:
+            _tq = sum(l[0] for l in _lots)
+            _tc = sum(l[0] * l[1] for l in _lots)
+            _p = poss.get(_sym, {})
+            actual_rts.append({"sym": _sym, "o_t": _lots[0][2], "c_t": None,
+                               "qty": _tq, "o_avg": _tc / _tq if _tq else 0,
+                               "c_avg": None, "pnl": _p.get("upl"),
+                               "ret": _p.get("uplpc"), "closed": False})
+    # 给每个actual_rt找最近的信号 (用于操作名, 方向必须一致)
+    for _ar in actual_rts:
+        _sym_cp = "call" if _ar["sym"][9:10] == "C" else "put"
+        _best, _best_s = None, 1e9
+        for _rt in rts:
+            if _rt["odr"] != _sym_cp:
+                continue
+            _st = sig["t"].iloc[_rt["obi"]]
+            _ds = abs((_ar["o_t"] - _st).total_seconds())
+            if _ds < _best_s:
+                _best_s, _best = _ds, _rt
+        if _best is not None and _best_s < 900:  # 15分钟内
+            _ar["op"] = _op_name(_best.get("ors"), _best["odr"])
+            _ar["odr"] = _best["odr"]
+        else:
+            _ar["op"] = f"实盘{_sym_cp.upper()}"
+            _ar["odr"] = _sym_cp
+    actual_rts.sort(key=lambda x: x["o_t"])
+
+    # ---- 下方信号单表格 (以实际成交FIFO为主) ----
     trows = []
-    for k, rt in enumerate(rts, 1):
-        o_tm = sig["t"].iloc[rt["obi"]].strftime("%H:%M")
-        c_tm = sig["t"].iloc[rt["cbi"]].strftime("%H:%M") if rt["closed"] else "持仓中"
-        op_txt = _op_name(rt.get("ors"), rt["odr"])
-        q_txt = f"{rt['o_qty']:.0f}" if rt["o_qty"] else "—"
-        oa_txt = f"{rt['o_avg']:.2f}" if rt["o_avg"] else "—"
-        ca_txt = f"{rt['c_avg']:.2f}" if rt["c_avg"] else "—"
-        pnl_txt, ret_txt = _money(rt["pnl"]), _pct(rt["ret"])
-        if not rt["closed"] and rt["pnl"] is not None:
+    for k, ar in enumerate(actual_rts, 1):
+        o_tm = ar["o_t"].strftime("%H:%M")
+        c_tm = ar["c_t"].strftime("%H:%M") if ar["closed"] else "持仓中"
+        op_txt = ar["op"]
+        q_txt = f"{ar['qty']:.0f}"
+        oa_txt = f"{ar['o_avg']:.2f}"
+        ca_txt = f"{ar['c_avg']:.2f}" if ar["c_avg"] else "—"
+        pnl_txt, ret_txt = _money(ar["pnl"]), _pct(ar["ret"])
+        if not ar["closed"] and ar["pnl"] is not None:
             pnl_txt += "(浮)"
-        est_txt = ("~" if rt.get("est_bt") else "") + _money(rt["est_pnl"])
-        est_ret_txt = ("~" if rt.get("est_bt") else "") + _pct(rt["est_ret"])
-        pc = "#1a9e54" if (rt["pnl"] or 0) >= 0 else "#e5484d"
-        ec = "#1a9e54" if rt["est_pnl"] >= 0 else "#e5484d"
+        est_txt, est_ret_txt = "—", "—"
+        pc = "#1a9e54" if (ar["pnl"] or 0) >= 0 else "#e5484d"
         trows.append(
             f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
             f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
-            f"<td style=\"color:{ec}\">{est_txt}</td>"
-            f"<td style=\"color:{ec}\">{est_ret_txt}</td></tr>")
+            f"<td>{est_txt}</td>"
+            f"<td>{est_ret_txt}</td></tr>")
     tot_est = sum(r["est_pnl"] for r in rts)
     tot_est_txt = ("~" if any(r.get("est_bt") for r in rts) else "") + _money(tot_est)
     _tot_real = (robust_realized + robust_unreal) if has_live else (realized + unreal)
@@ -670,9 +729,8 @@ def main():
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
-        "预估=信号SPY价按delta=1×实际张数估算,收益率按实际期权成本;"
-        "~=回测逻辑估算(ATM delta0.5起, |涨跌|×0.2变delta, 55张/$100k基准, 占总资金比);"
-        "(浮)=未实现;实际=Alpaca成交配对,信号bar前后配对(买卖张数对不上时显示—,以标题稳健口径为准)</div>"
+        "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内信号,无则标实盘;"
+        "(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
@@ -682,7 +740,15 @@ def main():
           "realized": round(robust_realized, 2) if has_live else round(realized, 2),
           "unrealized": round(robust_unreal, 2) if has_live else round(unreal, 2),
           "api_pos": api_pos_txt if has_live else None,
-          "orders": [{"o_t": sig["t"].iloc[r["obi"]].strftime("%H:%M"),
+          "orders": [{"o_t": r["o_t"].strftime("%H:%M"),
+                      "c_t": r["c_t"].strftime("%H:%M") if r["closed"] else None,
+                      "dir": r["odr"], "op": r["op"],
+                      "qty": round(r["qty"], 2), "symbol": r["sym"],
+                      "o_avg": round(r["o_avg"], 4), "c_avg": round(r["c_avg"], 4) if r["c_avg"] else None,
+                      "pnl": round(r["pnl"], 2) if r["pnl"] is not None else None,
+                      "ret": r["ret"]}
+                     for r in actual_rts] if has_live else
+                    [{"o_t": sig["t"].iloc[r["obi"]].strftime("%H:%M"),
                       "c_t": sig["t"].iloc[r["cbi"]].strftime("%H:%M") if r["closed"] else None,
                       "dir": r["odr"], "op": _op_name(r.get("ors"), r["odr"]),
                       "qty": r["o_qty"], "symbol": r["o_sym"],
