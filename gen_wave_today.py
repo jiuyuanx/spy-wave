@@ -583,7 +583,7 @@ def main():
     _row_h = _rng * 0.06
     _base = _hi + _rng * 0.03  # 标签带底 (高于所有K线)
     y_max_js = round(_base + (_max_row + 1) * _row_h + _rng * 0.05, 2)
-    pnl_pins = []
+    scat_data = []
     for k, rt in enumerate(_closed):
         if rt["pnl"] is not None:
             txt = f"{_money(rt['pnl'])} ({_pct(rt['ret'])})"
@@ -592,12 +592,10 @@ def main():
             txt = f"~{_money(rt['est_pnl'])} ({_pct(rt['est_ret'])})"
             col = "#888888"
         _yy = round(_base + _row_of[k] * _row_h, 2)
-        pnl_pins.append(
-            "{\"coord\":[\"%s\",%.2f],\"symbol\":\"circle\",\"symbolSize\":2,"
-            "\"label\":{\"show\":true,\"formatter\":\"%s\",\"color\":\"%s\","
-            "\"fontSize\":10,\"fontWeight\":\"bold\",\"position\":\"top\",\"distance\":2},"
-            "\"itemStyle\":{\"opacity\":0}}" % (tstrs[rt["cbi"]], _yy, txt, col))
-    pnlpins_js = "[" + ",".join(pnl_pins) + "]"
+        scat_data.append(
+            "{\"value\":[\"%s\",%.2f],\"lbl\":\"%s\",\"label\":{\"color\":\"%s\"}}" % (
+                tstrs[rt["cbi"]], _yy, txt, col))
+    scat_js = "[" + ",".join(scat_data) + "]"
 
     # ---- 下方信号单表格 ----
     trows = []
@@ -716,7 +714,7 @@ ch.setOption({{
   legend:{{data:['3mK线','1m曲线','QQE','80%衰减线','翻仓线','回补门槛'], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1]}},{{type:'slider', xAxisIndex:[0,1], bottom:6}}],
-  grid:[{{left:'6%',right:'4%',top:'15%',height:'30%'}},{{left:'6%',right:'4%',top:'52%',height:'34%'}}],
+  grid:[{{left:'6%',right:'4%',top:'15%',height:'30%',containLabel:true}},{{left:'6%',right:'4%',top:'52%',height:'34%',containLabel:true}}],
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}}],
@@ -724,19 +722,22 @@ ch.setOption({{
   series:[
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
-      markArea:{mark_area_opt},
-      markPoint:{{data:{pnlpins_js}}}}},
+      markArea:{mark_area_opt}}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
-      lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none',
+      lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:36, data:spins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
     }},
     {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:36, data:pins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
     }},
-    {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none'}},
-    {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none'}},
-    {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none'}},
+    {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
+    {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
+    {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
+    {{name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{{opacity:0}},
+      label:{{show:true, fontSize:10, fontWeight:'bold', position:'top', distance:2,
+              formatter:function(p){{return p.data.lbl;}}}},
+      data:{scat_js}}},
   ]
 }});
 {click_js}
