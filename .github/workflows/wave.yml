@@ -34,7 +34,8 @@ jobs:
         run: |
           TODAY=$(TZ=America/New_York date +%F)
           cp public/index.html public/$TODAY.html
-          curl -sf https://jiuyuanx.github.io/spy-wave/archive.json -o public/archive.json || echo '{"days":[]}' > public/archive.json
+          git fetch origin gh-pages --depth=1 2>/dev/null || true
+          git show origin/gh-pages:archive.json > public/archive.json 2>/dev/null || echo '{"days":[]}' > public/archive.json
           python3 -c "
           import json
           p = 'public/archive.json'
