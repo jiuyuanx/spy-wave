@@ -767,7 +767,7 @@ ch.setOption({{
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{{opacity:0}},
-      label:{{show:true, fontSize:10, fontWeight:'bold', position:'top', distance:2,
+      label:{{show:true, opacity:1, fontSize:10, fontWeight:'bold', position:'top', distance:2,
               formatter:function(p){{return p.data.lbl;}}}},
       data:{scat_js}}},
   ]
