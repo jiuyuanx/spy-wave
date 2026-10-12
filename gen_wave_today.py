@@ -602,6 +602,7 @@ def main():
         "实际=Alpaca成交配对，信号bar前后配对</div></div>")
 
     # ---- JSON 存档 ----
+    os.makedirs(WDIR, exist_ok=True)
     tj = {"day": day_str, "equity": equity, "realized": round(realized, 2),
           "unrealized": round(unreal, 2),
           "orders": [{"o_t": sig["t"].iloc[r["obi"]].strftime("%H:%M"),
