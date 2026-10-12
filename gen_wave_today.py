@@ -518,8 +518,8 @@ def main():
             c_pro = sum(f["qty"] * f["px"] for f in c_f)
             c_avg = c_pro / c_qty if c_qty else None
             if rt["o_qty"] and c_qty:
-                pnl = c_pro - rt["o_cost"]
-                ret = pnl / rt["o_cost"] if rt["o_cost"] else None
+                pnl = (c_pro - rt["o_cost"]) * 100  # 1张=100股
+                ret = pnl / (rt["o_cost"] * 100) if rt["o_cost"] else None
         else:  # 持仓中: 未实现盈亏
             p = poss.get(rt["o_sym"]) if rt["o_sym"] else None
             if p:
