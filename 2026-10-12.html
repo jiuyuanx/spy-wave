@@ -32,7 +32,14 @@ const barInfo = {"09:30": {"o": 778.74, "h": 779.38, "l": 778.67, "c": 778.81, "
 var ch = echarts.init(document.getElementById('c'));
 ch.setOption({
   title:{text:'实盘dashboard 2026-10-12 | 今日 +$11,422 (+8.7%) | 持仓:实盘:call 398张@778(信号:call) | k3clean L25', left:'center', textStyle:{fontSize:14}},
-  legend:{data:['3mK线','1m曲线','QQE','80%衰减线','翻仓线','回补门槛'], top:30},
+  legend:{data:[
+    {name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'},
+    {name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'},
+    {name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'},
+    {name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+    {name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'},
+    {name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+  ], top:30},
   tooltip:{trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){var t=ps[0].axisValue;var b=barInfo[t];if(!b)return t;var s='<b>'+t+'</b><br/>开'+b.o+' 高'+b.h+' 低'+b.l+' 收'+b.c+'<br/>QQE '+b.qqe+'('+b.col+')';if(b.acts&&b.acts.length)s+='<br/>'+b.acts.join('<br/>');return s;}},
   dataZoom:[{type:'inside', xAxisIndex:[0,1]},{type:'slider', xAxisIndex:[0,1], bottom:6}],
   grid:[{left:'6%',right:'4%',top:'15%',height:'30%',containLabel:true},{left:'6%',right:'4%',top:'52%',height:'34%',containLabel:true}],
