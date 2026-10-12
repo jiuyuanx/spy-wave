@@ -101,6 +101,7 @@ def fetch_day_fills(day_str):
     try:
         for p in trt.api("/v2/positions") or []:
             poss[p["symbol"]] = {"qty": float(p["qty"]),
+                                 "avg_px": float(p.get("avg_entry_price") or 0),
                                  "upl": float(p.get("unrealized_pl") or 0),
                                  "uplpc": float(p.get("unrealized_plpc") or 0)}
     except Exception as e:
@@ -548,6 +549,28 @@ def main():
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
     day_pnl = realized + unreal
     has_live = bool(fills or poss or equity)
+    # ---- 稳健口径 (直接按成交算, 不依赖信号配对; 标题用这个) ----
+    _buy_cost = sum(f["qty"] * f["px"] for f in fills if f["side"] == "buy")
+    _sell_pro = sum(f["qty"] * f["px"] for f in fills if f["side"] == "sell")
+    _open_cost = sum(p["qty"] * p["avg_px"] for p in poss.values())
+    robust_realized = (_sell_pro - _buy_cost + _open_cost) * 100
+    robust_unreal = sum(p["upl"] for p in poss.values())
+    robust_day = robust_realized + robust_unreal
+    # ---- Alpaca真实持仓 ----
+    def _parse_opt(sym):
+        # SPY261015C00777000 -> (call, 777.0)
+        try:
+            cp = "call" if sym[9:10] == "C" else "put"
+            strike = int(sym[-8:]) / 1000.0
+            return cp, strike
+        except Exception:
+            return None, None
+    _api_poss = []
+    for _sym, _p in poss.items():
+        _cp, _sk = _parse_opt(_sym)
+        if _cp:
+            _api_poss.append(f"{'call' if _cp=='call' else 'put'} {abs(_p['qty']):.0f}张@{_sk:.0f}")
+    api_pos_txt = "、".join(_api_poss) if _api_poss else "空仓"
 
     def _money(x):
         return "—" if x is None else f"{'+' if x >= 0 else '-'}" \
@@ -643,8 +666,10 @@ def main():
 
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
-    tj = {"day": day_str, "equity": equity, "realized": round(realized, 2),
-          "unrealized": round(unreal, 2),
+    tj = {"day": day_str, "equity": equity,
+          "realized": round(robust_realized, 2) if has_live else round(realized, 2),
+          "unrealized": round(robust_unreal, 2) if has_live else round(unreal, 2),
+          "api_pos": api_pos_txt if has_live else None,
           "orders": [{"o_t": sig["t"].iloc[r["obi"]].strftime("%H:%M"),
                       "c_t": sig["t"].iloc[r["cbi"]].strftime("%H:%M") if r["closed"] else None,
                       "dir": r["odr"], "op": _op_name(r.get("ors"), r["odr"]),
@@ -657,10 +682,17 @@ def main():
         json.dumps(tj, ensure_ascii=False))
 
     if has_live:
-        _s = "+" if day_pnl >= 0 else "-"
-        _pt = f" ({day_pnl / equity:+.1%})" if equity else ""
-        title_txt = (f"{page_title} {day_str} | 今日 {_s}${abs(day_pnl):,.0f}{_pt} "
-                     f"| 持仓:{pos_txt} | k3clean L25")
+        _s = "+" if robust_day >= 0 else "-"
+        _pt = f" ({robust_day / equity:+.1%})" if equity else ""
+        _pos_show = f"实盘:{api_pos_txt}"
+        if pos_txt not in ("空仓",) and api_pos_txt == "空仓":
+            _pos_show += f"(信号:{pos_txt})"
+        elif api_pos_txt != "空仓" and pos_txt != "空仓":
+            # 信号和实盘方向都非空但可能不一致, 都显示
+            _sig_dr = "call" if "call" in pos_txt else ("put" if "put" in pos_txt else pos_txt)
+            _pos_show += f"(信号:{_sig_dr})"
+        title_txt = (f"{page_title} {day_str} | 今日 {_s}${abs(robust_day):,.0f}{_pt} "
+                     f"| 持仓:{_pos_show} | k3clean L25")
     else:
         title_txt = f"{page_title} {day_str} | 持仓:{pos_txt} | k3clean L25"
 
