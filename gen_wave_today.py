@@ -580,8 +580,9 @@ def main():
         _row_of[_k] = _row
         _placed.append((_cbi, _row))
     _max_row = max(_row_of.values()) if _row_of else 0
-    _band_top = _hi + _rng * (0.05 + (_max_row + 1) * 0.055)
-    y_max_js = round(_band_top + _rng * 0.02, 2)
+    _row_h = _rng * 0.06
+    _base = _hi + _rng * 0.03  # 标签带底 (高于所有K线)
+    y_max_js = round(_base + (_max_row + 1) * _row_h + _rng * 0.05, 2)
     pnl_pins = []
     for k, rt in enumerate(_closed):
         if rt["pnl"] is not None:
@@ -590,7 +591,7 @@ def main():
         else:
             txt = f"~{_money(rt['est_pnl'])} ({_pct(rt['est_ret'])})"
             col = "#888888"
-        _yy = round(_band_top - _row_of[k] * _rng * 0.055, 2)
+        _yy = round(_base + _row_of[k] * _row_h, 2)
         pnl_pins.append(
             "{\"coord\":[\"%s\",%.2f],\"symbol\":\"circle\",\"symbolSize\":2,"
             "\"label\":{\"show\":true,\"formatter\":\"%s\",\"color\":\"%s\","
