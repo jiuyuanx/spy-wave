@@ -478,27 +478,29 @@ def main():
             {"xAxis": s, "itemStyle": {"color": _col}},
             {"xAxis": tstrs[cbi]},
         ])
-    rts = []  # round-trips: {obi,odr,opx,cbi,cpx,closed}
+    rts = []  # round-trips: {obi,odr,opx,ors,cbi,cpx,crs,closed}
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if act == "平" and _open is not None:
-            obi, odr, opx = _open
+            obi, odr, opx, ors = _open
             if bi in today_set:
                 _emit(obi, odr, opx, bi, px)
-                rts.append({"obi": obi, "odr": odr, "opx": opx,
-                            "cbi": bi, "cpx": px, "closed": True})
+                rts.append({"obi": obi, "odr": odr, "opx": opx, "ors": ors,
+                            "cbi": bi, "cpx": px, "crs": rs, "closed": True})
             _open = None
         elif act == "开":
             if _open is not None and bi in today_set:
-                obi, odr, opx = _open
+                obi, odr, opx, ors = _open
                 _emit(obi, odr, opx, bi, px)
-                rts.append({"obi": obi, "odr": odr, "opx": opx,
-                            "cbi": bi, "cpx": px, "closed": True})
-            _open = (bi, dr, px)
+                rts.append({"obi": obi, "odr": odr, "opx": opx, "ors": ors,
+                            "cbi": bi, "cpx": px, "crs": rs, "closed": True})
+            _open = (bi, dr, px, rs)
     if _open is not None and today_idx:  # 未平仓: 按最新bar算浮动方向
-        obi, odr, opx = _open
+        obi, odr, opx, ors = _open
         _emit(obi, odr, opx, today_idx[-1], float(sig["close"].iloc[today_idx[-1]]))
-        rts.append({"obi": obi, "odr": odr, "opx": opx, "cbi": today_idx[-1],
-                    "cpx": float(sig["close"].iloc[today_idx[-1]]), "closed": False})
+        rts.append({"obi": obi, "odr": odr, "opx": opx, "ors": ors,
+                    "cbi": today_idx[-1],
+                    "cpx": float(sig["close"].iloc[today_idx[-1]]),
+                    "crs": None, "closed": False})
     # ---- 实盘每单收益: 信号配对实际成交 ----
     fills, poss, equity = ([], {}, None) if WAVE_DATE else fetch_day_fills(day_str)
     for rt in rts:
@@ -526,10 +528,14 @@ def main():
                 pnl, ret = p["upl"], p["uplpc"]
         rt.update({"c_qty": c_qty, "c_avg": c_avg, "pnl": pnl, "ret": ret})
         sgn = 1 if rt["odr"] == "call" else -1
-        rt["est_ret"] = sgn * (rt["cpx"] - rt["opx"]) / rt["opx"] if rt["opx"] else None
         _eq = rt["o_qty"] if rt["o_qty"] else 1
         rt["est_pnl"] = sgn * (rt["cpx"] - rt["opx"]) * _eq * 100
         rt["est_1lot"] = not rt["o_qty"]  # 张数未知时按1张估算
+        # 预估收益率: 信号价盈亏 / 实际期权成本 (无实际成交时无法估算期权价,显示—)
+        if rt["o_avg"] and rt["o_qty"]:
+            rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
+        else:
+            rt["est_ret"] = None
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
     day_pnl = realized + unreal
@@ -541,6 +547,16 @@ def main():
 
     def _pct(x):
         return "—" if x is None else f"{x:+.1%}"
+
+    def _op_name(rs, dr):
+        d = "C" if dr == "call" else "P"
+        s = (rs or "").replace("call", "C").replace("put", "P")
+        if s.startswith("翻仓开"):
+            return "翻" + d
+        s = s.replace("翻仓", "翻")
+        if d not in s:
+            s += d
+        return s or d
 
     # ---- 图上每单标签 ----
     pnl_pins = []
@@ -565,7 +581,7 @@ def main():
     for k, rt in enumerate(rts, 1):
         o_tm = sig["t"].iloc[rt["obi"]].strftime("%H:%M")
         c_tm = sig["t"].iloc[rt["cbi"]].strftime("%H:%M") if rt["closed"] else "持仓中"
-        dr_txt = "看涨Call" if rt["odr"] == "call" else "看跌Put"
+        op_txt = _op_name(rt.get("ors"), rt["odr"])
         q_txt = f"{rt['o_qty']:.0f}" if rt["o_qty"] else "—"
         oa_txt = f"{rt['o_avg']:.2f}" if rt["o_avg"] else "—"
         ca_txt = f"{rt['c_avg']:.2f}" if rt["c_avg"] else "—"
@@ -576,7 +592,7 @@ def main():
         pc = "#1a9e54" if (rt["pnl"] or 0) >= 0 else "#e5484d"
         ec = "#1a9e54" if rt["est_pnl"] >= 0 else "#e5484d"
         trows.append(
-            f"<tr><td>{k}</td><td>{o_tm}</td><td>{dr_txt}</td><td>{q_txt}</td>"
+            f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
             f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
@@ -593,13 +609,13 @@ def main():
         "实盘信号单（实际成交 vs 信号预估）</div>"
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
         "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
-        "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>方向</th><th>张数</th>"
+        "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
         "<th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th>"
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
-        "预估=信号SPY价按delta=1估算；~按1张估算（张数未知）；(浮)=未实现；"
-        "实际=Alpaca成交配对，信号bar前后配对</div></div>")
+        "预估=信号SPY价按delta=1估算,收益率按实际期权成本算;~按1张估算(张数未知);"
+        "无实际成交时预估收益率显示—;(浮)=未实现;实际=Alpaca成交配对,信号bar前后配对</div></div>")
 
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
@@ -607,7 +623,8 @@ def main():
           "unrealized": round(unreal, 2),
           "orders": [{"o_t": sig["t"].iloc[r["obi"]].strftime("%H:%M"),
                       "c_t": sig["t"].iloc[r["cbi"]].strftime("%H:%M") if r["closed"] else None,
-                      "dir": r["odr"], "qty": r["o_qty"], "symbol": r["o_sym"],
+                      "dir": r["odr"], "op": _op_name(r.get("ors"), r["odr"]),
+                      "qty": r["o_qty"], "symbol": r["o_sym"],
                       "o_avg": r["o_avg"], "c_avg": r["c_avg"],
                       "pnl": r["pnl"], "ret": r["ret"],
                       "est_pnl": round(r["est_pnl"], 2), "est_ret": r["est_ret"]}
