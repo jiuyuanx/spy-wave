@@ -528,6 +528,15 @@ def main():
             if p:
                 pnl, ret = p["upl"], p["uplpc"]
         rt.update({"c_qty": c_qty, "c_avg": c_avg, "pnl": pnl, "ret": ret})
+        # 严格配对: 买卖张数必须基本一致, 否则不算实际 (防时间窗误配)
+        if rt["o_qty"] and c_qty:
+            _qok = abs(rt["o_qty"] - c_qty) / max(rt["o_qty"], c_qty) < 0.05
+        else:
+            _qok = False
+        rt["qok"] = _qok
+        if not _qok:
+            rt["pnl"] = None
+            rt["ret"] = None
         sgn = 1 if rt["odr"] == "call" else -1
         _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
         if rt["o_qty"]:
@@ -598,12 +607,12 @@ def main():
     for _k in sorted(range(len(_closed)), key=lambda k: _closed[k]["cbi"]):
         _cbi = _closed[_k]["cbi"]
         _row = 0
-        while any(abs(_cbi - _oc) < 12 and _or == _row for (_oc, _or) in _placed):
+        while any(abs(_cbi - _oc) < 15 and _or == _row for (_oc, _or) in _placed):
             _row += 1
         _row_of[_k] = _row
         _placed.append((_cbi, _row))
     _max_row = max(_row_of.values()) if _row_of else 0
-    _row_h = _rng * 0.06
+    _row_h = _rng * 0.075
     _base = _hi + _rng * 0.03  # 标签带底 (高于所有K线)
     y_max_js = round(_base + (_max_row + 1) * _row_h + _rng * 0.05, 2)
     scat_data = []
@@ -645,9 +654,10 @@ def main():
             f"<td style=\"color:{ec}\">{est_ret_txt}</td></tr>")
     tot_est = sum(r["est_pnl"] for r in rts)
     tot_est_txt = ("~" if any(r.get("est_bt") for r in rts) else "") + _money(tot_est)
+    _tot_real = (robust_realized + robust_unreal) if has_live else (realized + unreal)
     trows.append(
         f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
-        f"</td><td>{_money(realized + unreal)}</td><td></td>"
+        f"</td><td>{_money(_tot_real)}</td><td></td>"
         f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
         "<div style=\"max-width:1150px;margin:14px auto;padding:0 8px\">"
@@ -662,7 +672,9 @@ def main():
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "预估=信号SPY价按delta=1×实际张数估算,收益率按实际期权成本;"
         "~=回测逻辑估算(ATM delta0.5起, |涨跌|×0.2变delta, 55张/$100k基准, 占总资金比);"
-        "(浮)=未实现;实际=Alpaca成交配对,信号bar前后配对</div></div>")
+        "(浮)=未实现;实际=Alpaca成交配对,信号bar前后配对(买卖张数对不上时显示—,以标题稳健口径为准)</div>"
+        f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
+        + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
@@ -767,7 +779,7 @@ ch.setOption({{
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{{opacity:0}},
-      label:{{show:true, opacity:1, fontSize:10, fontWeight:'bold', position:'top', distance:2,
+      label:{{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,
               formatter:function(p){{return p.data.lbl;}}}},
       data:{scat_js}}},
   ]
