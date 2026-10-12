@@ -831,11 +831,11 @@ ch.setOption({{
   ], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1]}},{{type:'slider', xAxisIndex:[0,1], bottom:6}}],
-  grid:[{{left:'6%',right:'4%',top:'15%',height:'30%',containLabel:true}},{{left:'6%',right:'4%',top:'52%',height:'34%',containLabel:true}}],
+  grid:[{{left:34,right:'4%',top:'15%',height:'30%'}},{{left:34,right:'4%',top:'52%',height:'34%'}}],
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}}],
-  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js}}},{{type:'value',gridIndex:1}}],
+  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js},axisLabel:{{fontSize:9}}}},{{type:'value',gridIndex:1,axisLabel:{{fontSize:9}}}}],
   series:[
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
