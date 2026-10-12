@@ -28,7 +28,7 @@ jobs:
           ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
           WAVE_OUT_DIR: public
           WAVE_OUT_NAME: index.html
-          WAVE_AUTOREFRESH: 180
+          WAVE_AUTOREFRESH: 60
 
       - name: save dated copy + archive
         run: |
