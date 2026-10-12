@@ -69,6 +69,50 @@ def _fetch_1m_day(day):
     return df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
 
 
+def fetch_day_fills(day_str):
+    """当日 Alpaca 期权成交 + 持仓未实现 + 账户权益 (仅实盘日用, 回放跳过)。"""
+    import trader as trt
+    fills, poss, equity = [], {}, None
+    try:
+        d = datetime.strptime(day_str, "%Y-%m-%d").date()
+        s_utc = datetime(d.year, d.month, d.day, 0, 0, tzinfo=ET).astimezone(
+            ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
+        e_utc = (datetime(d.year, d.month, d.day, 0, 0, tzinfo=ET)
+                 + timedelta(days=1)).astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
+        orders = trt.api("/v2/orders", params={"status": "all", "direction": "desc",
+                                               "limit": 500, "after": s_utc, "until": e_utc})
+        for o in orders or []:
+            if o.get("status") not in ("filled", "partially_filled"):
+                continue
+            fq = float(o.get("filled_qty") or 0)
+            if fq <= 0:
+                continue
+            try:
+                ft = datetime.fromisoformat(
+                    str(o.get("filled_at")).replace("Z", "+00:00")).astimezone(ET)
+            except Exception:
+                continue
+            if ft.strftime("%Y-%m-%d") != day_str:
+                continue
+            fills.append({"t": ft, "symbol": o.get("symbol"), "side": o.get("side"),
+                          "qty": fq, "px": float(o.get("filled_avg_price") or 0)})
+    except Exception as e:
+        print(f"fills fetch failed: {e}", flush=True)
+    try:
+        for p in trt.api("/v2/positions") or []:
+            poss[p["symbol"]] = {"qty": float(p["qty"]),
+                                 "upl": float(p.get("unrealized_pl") or 0),
+                                 "uplpc": float(p.get("unrealized_plpc") or 0)}
+    except Exception as e:
+        print(f"positions fetch failed: {e}", flush=True)
+    try:
+        equity = float((trt.api("/v2/account") or {}).get("equity") or 0)
+    except Exception:
+        pass
+    fills.sort(key=lambda x: x["t"])
+    return fills, poss, equity
+
+
 def build_bars(day=None):
     if day is None:
         hist3 = w4.load_history()
@@ -202,7 +246,7 @@ def main():
     day = datetime.strptime(WAVE_DATE, "%Y-%m-%d").date() if WAVE_DATE else None
     sig, df1m = build_bars(day)
     day_str = WAVE_DATE or datetime.now(ET).strftime("%Y-%m-%d")
-    page_title = "波浪回放" if WAVE_DATE else "今日波浪"
+    page_title = "实盘dashboard回放" if WAVE_DATE else "实盘dashboard"
     rtag = "" if WAVE_DATE else refresh_tag  # 回放页不自动刷新
     n = len(sig)
     close = sig["close"].values.astype(float)
@@ -434,20 +478,150 @@ def main():
             {"xAxis": s, "itemStyle": {"color": _col}},
             {"xAxis": tstrs[cbi]},
         ])
+    rts = []  # round-trips: {obi,odr,opx,cbi,cpx,closed}
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if act == "平" and _open is not None:
             obi, odr, opx = _open
             if bi in today_set:
                 _emit(obi, odr, opx, bi, px)
+                rts.append({"obi": obi, "odr": odr, "opx": opx,
+                            "cbi": bi, "cpx": px, "closed": True})
             _open = None
         elif act == "开":
             if _open is not None and bi in today_set:
                 obi, odr, opx = _open
                 _emit(obi, odr, opx, bi, px)
+                rts.append({"obi": obi, "odr": odr, "opx": opx,
+                            "cbi": bi, "cpx": px, "closed": True})
             _open = (bi, dr, px)
     if _open is not None and today_idx:  # 未平仓: 按最新bar算浮动方向
         obi, odr, opx = _open
         _emit(obi, odr, opx, today_idx[-1], float(sig["close"].iloc[today_idx[-1]]))
+        rts.append({"obi": obi, "odr": odr, "opx": opx, "cbi": today_idx[-1],
+                    "cpx": float(sig["close"].iloc[today_idx[-1]]), "closed": False})
+    # ---- 实盘每单收益: 信号配对实际成交 ----
+    fills, poss, equity = ([], {}, None) if WAVE_DATE else fetch_day_fills(day_str)
+    for rt in rts:
+        o_t = sig["t"].iloc[rt["obi"]]
+        o_f = [f for f in fills if f["side"] == "buy"
+               and o_t - timedelta(minutes=2) <= f["t"] <= o_t + timedelta(minutes=12)]
+        rt["o_qty"] = sum(f["qty"] for f in o_f)
+        rt["o_cost"] = sum(f["qty"] * f["px"] for f in o_f)
+        rt["o_avg"] = rt["o_cost"] / rt["o_qty"] if rt["o_qty"] else None
+        rt["o_sym"] = o_f[0]["symbol"] if o_f else None
+        c_f, c_qty, c_avg, pnl, ret = [], 0, None, None, None
+        if rt["closed"]:
+            c_t = sig["t"].iloc[rt["cbi"]]
+            c_f = [f for f in fills if f["side"] == "sell"
+                   and c_t - timedelta(minutes=2) <= f["t"] <= c_t + timedelta(minutes=12)]
+            c_qty = sum(f["qty"] for f in c_f)
+            c_pro = sum(f["qty"] * f["px"] for f in c_f)
+            c_avg = c_pro / c_qty if c_qty else None
+            if rt["o_qty"] and c_qty:
+                pnl = c_pro - rt["o_cost"]
+                ret = pnl / rt["o_cost"] if rt["o_cost"] else None
+        else:  # 持仓中: 未实现盈亏
+            p = poss.get(rt["o_sym"]) if rt["o_sym"] else None
+            if p:
+                pnl, ret = p["upl"], p["uplpc"]
+        rt.update({"c_qty": c_qty, "c_avg": c_avg, "pnl": pnl, "ret": ret})
+        sgn = 1 if rt["odr"] == "call" else -1
+        rt["est_ret"] = sgn * (rt["cpx"] - rt["opx"]) / rt["opx"] if rt["opx"] else None
+        _eq = rt["o_qty"] if rt["o_qty"] else 1
+        rt["est_pnl"] = sgn * (rt["cpx"] - rt["opx"]) * _eq * 100
+        rt["est_1lot"] = not rt["o_qty"]  # 张数未知时按1张估算
+    realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
+    unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
+    day_pnl = realized + unreal
+    has_live = bool(fills or poss or equity)
+
+    def _money(x):
+        return "—" if x is None else f"{'+' if x >= 0 else '-'}" \
+            f"${abs(x):,.0f}"
+
+    def _pct(x):
+        return "—" if x is None else f"{x:+.1%}"
+
+    # ---- 图上每单标签 ----
+    pnl_pins = []
+    for k, rt in enumerate([r for r in rts if r["closed"]]):
+        if rt["pnl"] is not None:
+            txt = f"{_money(rt['pnl'])}\\n{_pct(rt['ret'])}"
+            col = "#1a9e54" if rt["pnl"] >= 0 else "#e5484d"
+        else:
+            txt = f"~{_money(rt['est_pnl'])}\\n{_pct(rt['est_ret'])}"
+            col = "#888888"
+        yhi = round(float(sig["high"].iloc[rt["cbi"]]), 2)
+        pnl_pins.append(
+            "{\"coord\":[\"%s\",%.2f],\"symbol\":\"circle\",\"symbolSize\":2,"
+            "\"label\":{\"show\":true,\"formatter\":\"%s\",\"color\":\"%s\","
+            "\"fontSize\":10,\"fontWeight\":\"bold\",\"position\":\"top\",\"distance\":%d},"
+            "\"itemStyle\":{\"opacity\":0}}" % (
+                tstrs[rt["cbi"]], yhi, txt, col, 10 + (k % 3) * 18))
+    pnlpins_js = "[" + ",".join(pnl_pins) + "]"
+
+    # ---- 下方信号单表格 ----
+    trows = []
+    for k, rt in enumerate(rts, 1):
+        o_tm = sig["t"].iloc[rt["obi"]].strftime("%H:%M")
+        c_tm = sig["t"].iloc[rt["cbi"]].strftime("%H:%M") if rt["closed"] else "持仓中"
+        dr_txt = "看涨Call" if rt["odr"] == "call" else "看跌Put"
+        q_txt = f"{rt['o_qty']:.0f}" if rt["o_qty"] else "—"
+        oa_txt = f"{rt['o_avg']:.2f}" if rt["o_avg"] else "—"
+        ca_txt = f"{rt['c_avg']:.2f}" if rt["c_avg"] else "—"
+        pnl_txt, ret_txt = _money(rt["pnl"]), _pct(rt["ret"])
+        if not rt["closed"] and rt["pnl"] is not None:
+            pnl_txt += "(浮)"
+        est_txt = ("~" if rt["est_1lot"] else "") + _money(rt["est_pnl"])
+        pc = "#1a9e54" if (rt["pnl"] or 0) >= 0 else "#e5484d"
+        ec = "#1a9e54" if rt["est_pnl"] >= 0 else "#e5484d"
+        trows.append(
+            f"<tr><td>{k}</td><td>{o_tm}</td><td>{dr_txt}</td><td>{q_txt}</td>"
+            f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
+            f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
+            f"<td style=\"color:{pc}\">{ret_txt}</td>"
+            f"<td style=\"color:{ec}\">{est_txt}</td>"
+            f"<td style=\"color:{ec}\">{_pct(rt['est_ret'])}</td></tr>")
+    tot_est = sum(r["est_pnl"] for r in rts if not r["est_1lot"])
+    trows.append(
+        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
+        f"</td><td>{_money(realized + unreal)}</td><td></td>"
+        f"<td>{_money(tot_est)}</td><td></td></tr>")
+    table_html = (
+        "<div style=\"max-width:1150px;margin:14px auto;padding:0 8px\">"
+        "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+        "实盘信号单（实际成交 vs 信号预估）</div>"
+        "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
+        "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
+        "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>方向</th><th>张数</th>"
+        "<th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th>"
+        "<th>预估收益</th><th>预估收益率</th></tr>"
+        + "".join(trows) + "</table></div>"
+        "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
+        "预估=信号SPY价按delta=1估算；~按1张估算（张数未知）；(浮)=未实现；"
+        "实际=Alpaca成交配对，信号bar前后配对</div></div>")
+
+    # ---- JSON 存档 ----
+    tj = {"day": day_str, "equity": equity, "realized": round(realized, 2),
+          "unrealized": round(unreal, 2),
+          "orders": [{"o_t": sig["t"].iloc[r["obi"]].strftime("%H:%M"),
+                      "c_t": sig["t"].iloc[r["cbi"]].strftime("%H:%M") if r["closed"] else None,
+                      "dir": r["odr"], "qty": r["o_qty"], "symbol": r["o_sym"],
+                      "o_avg": r["o_avg"], "c_avg": r["c_avg"],
+                      "pnl": r["pnl"], "ret": r["ret"],
+                      "est_pnl": round(r["est_pnl"], 2), "est_ret": r["est_ret"]}
+                     for r in rts]}
+    open(f"{WDIR}/{day_str}.trades.json", "w").write(
+        json.dumps(tj, ensure_ascii=False))
+
+    if has_live:
+        _s = "+" if day_pnl >= 0 else "-"
+        _pt = f" ({day_pnl / equity:+.1%})" if equity else ""
+        title_txt = (f"{page_title} {day_str} | 今日 {_s}${abs(day_pnl):,.0f}{_pt} "
+                     f"| 持仓:{pos_txt} | k3clean L25")
+    else:
+        title_txt = f"{page_title} {day_str} | 持仓:{pos_txt} | k3clean L25"
+
     mark_area_js = "[" + ",".join(
         "[{xAxis:'%s',itemStyle:{color:'%s'}},{xAxis:'%s'}]" % (
             a[0]["xAxis"], a[0]["itemStyle"]["color"], a[1]["xAxis"])
@@ -494,7 +668,7 @@ const spins = {spins};
 const barInfo = {bar_info_js};
 var ch = echarts.init(document.getElementById('c'));
 ch.setOption({{
-  title:{{text:'{page_title} {day_str} {times[0]}→{times[-1]} ET | 持仓:{pos_txt} | k3clean L25', left:'center', textStyle:{{fontSize:14}}}},
+  title:{{text:'{title_txt}', left:'center', textStyle:{{fontSize:14}}}},
   legend:{{data:['3mK线','1m曲线','QQE','80%衰减线','翻仓线','回补门槛'], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1]}},{{type:'slider', xAxisIndex:[0,1], bottom:6}}],
@@ -506,7 +680,8 @@ ch.setOption({{
   series:[
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
-      markArea:{mark_area_opt}}},
+      markArea:{mark_area_opt},
+      markPoint:{{data:{pnlpins_js}}}}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none',
       markPoint:{{symbol:'pin', symbolSize:36, data:spins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
@@ -521,7 +696,9 @@ ch.setOption({{
   ]
 }});
 {click_js}
-</script></body></html>"""
+</script>
+{table_html}
+</body></html>"""
     if WAVE_DATE:
         _out_name = f"{WAVE_DATE}.html"
     else:
