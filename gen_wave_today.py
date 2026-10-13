@@ -355,11 +355,14 @@ def main():
         yq = round(h * 1.15 + (0.5 if h > 0 else -0.5), 1) if not np.isnan(h) else 5
         qpins.append({"coord": [tstrs[bi], yq], "value": value,
                       "itemStyle": {"color": color}, "rs": rs_txt})
-    # 方向颜色 (2026-10-12 用户): 做多(call)=绿色, 做空(put)=红色, 统一所有信号
-    _COL_CALL = "#00aa00"
-    _COL_PUT = "#ff0000"
-    def _dir_color(dr):
-        return _COL_CALL if dr == "call" else _COL_PUT
+    # 方向颜色 (2026-10-12 用户): 做多(call)=绿色, 做空(put)=红色
+    # 颜色层级: 跟/翻/补深色, 持/开浅色
+    def _dir_color(dr, act=None):
+        is_call = (dr == "call")
+        if act in ("跟", "翻", "补"):
+            return "#006600" if is_call else "#cc0000"  # 深
+        else:
+            return "#66cc66" if is_call else "#ff6666"  # 浅
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if bi not in today_idx:
             continue
@@ -367,7 +370,7 @@ def main():
         xp = round(p + 2.5 / 3, 4)
         yp = round(float(sig["close"].iloc[bi]), 2)
         rsc = rs.replace("'", "")
-        _dc = _dir_color(dr)
+        _dc = _dir_color(dr, act)
         # 回补 (长波回补 + 重涨回补都算): 整根bar只标一个'补C'/'补P' (按方向着色)
         if bi in repl_bars:
             if act == "开":
@@ -385,13 +388,15 @@ def main():
             _qpins_add(bi, v, _dc, rsc)
         elif act == "平":
             # 止损单独标签 (2026-10-12 用户: 止损C/止损P要看得出来)
+            # 平仓: 平C灰红 / 平P灰绿 (2026-10-12 用户)
+            _pc = "#b27a7a" if dr == "call" else "#7ab27a"
             if "止损" in rs:
                 v = "止损" + ("C" if dr == "call" else "P")
             else:
                 v = "平" + ("C" if dr == "call" else "P")
             spins.append({"coord": [xp, yp], "value": v,
-                          "itemStyle": {"color": _dc}, "rs": rsc})
-            _qpins_add(bi, v, _dc, rsc)
+                          "itemStyle": {"color": _pc}, "rs": rsc})
+            _qpins_add(bi, v, _pc, rsc)
         elif act == "持":
             # 持有/跳过信号 (2026-10-12 用户: 跳P/跳C也要圈圈)
             v = "持" + ("C" if dr == "call" else "P")
@@ -407,7 +412,7 @@ def main():
         d, frs = flip_info.get(b, (None, ""))
         frs = frs.replace("'", "")
         v = "翻" + ("C" if d == "call" else "P")
-        _dc = _dir_color(d)
+        _dc = _dir_color(d, "翻")
         spins.append({"coord": [xp, yp], "value": v,
                       "itemStyle": {"color": _dc}, "rs": frs})
         _qpins_add(b, v, _dc, frs)
@@ -885,11 +890,11 @@ ch.setOption({{
       markArea:{mark_area_opt}}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
-      markPoint:{{symbol:'pin', symbolSize:36, data:spins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
+      markPoint:{{symbol:'pin', symbolSize:26, data:spins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
     }},
     {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
       xAxisIndex:1, yAxisIndex:1,
-      markPoint:{{symbol:'pin', symbolSize:36, data:pins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
+      markPoint:{{symbol:'pin', symbolSize:26, data:pins, label:{{color:'#fff', fontSize:10}}, itemStyle:{{opacity:0.75}}}},
     }},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
