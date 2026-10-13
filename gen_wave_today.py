@@ -466,10 +466,7 @@ def main():
         }
     bar_info_js = json.dumps(bar_info, ensure_ascii=False)
     tooltip_js = ("tooltip:{trigger:'axis',axisPointer:{type:'cross'},"
-        "formatter:function(ps){var t=ps[0].axisValue;var b=barInfo[t];if(!b)return t;"
-        "var s='<b>'+t+'</b><br/>开'+b.o+' 收'+b.c"
-        "+'<br/>QQE '+b.qqe+'('+b.col+')';"
-        "if(b.acts&&b.acts.length)s+='<br/>'+b.acts.join('<br/>');return s;}},")
+        "formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},")
     click_js = ("ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){"
         "document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});")
 
@@ -863,6 +860,7 @@ def main():
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{page_title} {day_str}</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="theme.js"></script>
 <style>body{{margin:0;background:#fff;font-family:sans-serif}}#c{{width:100%;height:95vh}}</style>
 </head><body>
 <div style="text-align:center;padding:6px 0 0;font-size:13px">
@@ -890,6 +888,7 @@ const pins = {qpins};
 const line1m = {line1m};
 const spins = {spins};
 const filldots = {filldots};
+if (typeof THEME !== 'undefined') {{ THEME.applyColors(spins); THEME.applyColors(pins); }}
 const barInfo = {bar_info_js};
 var ch = echarts.init(document.getElementById('c'));
 ch.setOption({{
@@ -915,7 +914,7 @@ ch.setOption({{
       markArea:{mark_area_opt}}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
-      markPoint:{{symbol:'pin', symbolSize:26, data:spins, label:{{color:'#fff', fontSize:7}}, itemStyle:{{opacity:0.75}}}},
+      markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
     {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
       itemStyle:{{opacity:0.75}}, data:filldots,
@@ -923,7 +922,7 @@ ch.setOption({{
     }},
     {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
       xAxisIndex:1, yAxisIndex:1,
-      markPoint:{{symbol:'pin', symbolSize:26, data:pins, label:{{color:'#fff', fontSize:7}}, itemStyle:{{opacity:0.75}}}},
+      markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
