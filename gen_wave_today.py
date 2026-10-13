@@ -379,17 +379,19 @@ def main():
         if bi in repl_bars:
             if act == "开":
                 v = "补" + ("C" if dr == "call" else "P")
+                _bdc = _dir_color(dr, "补")
                 spins.append({"coord": [xp, yp], "value": v,
-                              "itemStyle": {"color": _dc}, "rs": rsc})
-                _qpins_add(bi, v, _dc, rsc)
+                              "itemStyle": {"color": _bdc}, "rs": rsc})
+                _qpins_add(bi, v, _bdc, rsc)
             continue
         if bi in flip_bars:
             continue  # 纯翻仓只在后面标一个'翻C'/'翻P'
         if act == "开":
             v = "跟" + ("C" if dr == "call" else "P")
+            _gdc = _dir_color(dr, "跟")
             spins.append({"coord": [xp, yp], "value": v,
-                          "itemStyle": {"color": _dc}, "rs": rsc})
-            _qpins_add(bi, v, _dc, rsc)
+                          "itemStyle": {"color": _gdc}, "rs": rsc})
+            _qpins_add(bi, v, _gdc, rsc)
         elif act == "平":
             # 止损单独标签 (2026-10-12 用户: 止损C/止损P要看得出来)
             # 平仓: 平C灰红 / 平P灰绿 (2026-10-12 用户)
