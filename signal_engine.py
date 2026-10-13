@@ -1508,7 +1508,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             if _bwlo >= 15 and _pk_b > 0 and not np.isnan(hist[i]):
                 if abs(hist[i]) / _pk_b > 0.5:
                     _deep_p = False
-            if sig == "RED_DECAY_LONG" and _pk_r >= _OPEN_MIN_PEAK and _deep_c:
+            if sig == "RED_DECAY_LONG" and _pk_r >= _OPEN_MIN_PEAK and _deep_c and tstr[6:] >= "15:00":
                 actions.append((i, tstr, "开", "call", px, f"红衰减信号(峰{_pk_r:.0f})"))
                 pos = "call"; _init_stop_vars("call", px, i); _was_above_zero_wk = False; _was_below_zero_wk = False; was_on_top = False
                 _fav_peak = abs(hist[i]) if (not np.isnan(hist[i]) and hist[i] > 0) else 0; _fav_sign = 1 if (not np.isnan(hist[i]) and hist[i] > 0) else 0
@@ -1521,7 +1521,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 while _wsr > 0 and _ws_cont_red(_wsr-1):
                     _wsr -= 1
                 _call_red_ws = _wsr
-            elif sig == "BLUE_DECAY_SHORT" and _pk_b >= _OPEN_MIN_PEAK and _deep_p:
+            elif sig == "BLUE_DECAY_SHORT" and _pk_b >= _OPEN_MIN_PEAK and _deep_p and tstr[6:] < "10:00":
                 actions.append((i, tstr, "开", "put", px, f"蓝衰减信号(峰{_pk_b:.0f})"))
                 pos = "put"; _init_stop_vars("put", px, i); _was_above_zero_wk = False; _was_below_zero_wk = False; was_on_bottom = False
                 _fav_peak = abs(hist[i]) if (not np.isnan(hist[i]) and hist[i] < 0) else 0; _fav_sign = -1 if (not np.isnan(hist[i]) and hist[i] < 0) else 0
