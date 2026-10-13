@@ -1085,10 +1085,10 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                         # 长波翻仓更严 (2026-10-03 用户, 蓝对称): wl_adj>=15时need*0.7
                         if _wl_adj >= 15:
                             _need *= 0.7
-                        # 反复翻仓惩罚 (2026-10-08 用户, 蓝对称): 同波浪内翻过2次以上, need*0.9
-                        _rf_b = [b for b in _recent_flips if b >= _ws]
+                        # 反复翻仓惩罚 (2026-10-13 用户, 蓝同红): 30根内(只数当天)翻过2次以上, need*0.7
+                        _rf_b = [b for b in _recent_flips if i - b <= 30 and _day_arr[b] == _day_arr[i]]
                         if len(_rf_b) >= 2:
-                            _need *= 0.9
+                            _need *= 0.7
                         # 2026-10-07 用户: 最不济40%, need不低于0.40
                         _need = max(0.30, _need)
                         _ratio = abs(hist[i]) / pk if pk > 0 else 1
