@@ -467,7 +467,7 @@ def main():
     bar_info_js = json.dumps(bar_info, ensure_ascii=False)
     tooltip_js = ("tooltip:{trigger:'axis',axisPointer:{type:'cross'},"
         "formatter:function(ps){var t=ps[0].axisValue;var b=barInfo[t];if(!b)return t;"
-        "var s='<b>'+t+'</b><br/>开'+b.o+' 高'+b.h+' 低'+b.l+' 收'+b.c"
+        "var s='<b>'+t+'</b><br/>开'+b.o+' 收'+b.c"
         "+'<br/>QQE '+b.qqe+'('+b.col+')';"
         "if(b.acts&&b.acts.length)s+='<br/>'+b.acts.join('<br/>');return s;}},")
     click_js = ("ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){"
