@@ -360,7 +360,7 @@ def main():
     def _dir_color(dr, act=None):
         is_call = (dr == "call")
         if act == "翻":
-            return "#003d00" if is_call else "#990000"  # 翻: 更深(往黑)
+            return "#005000" if is_call else "#a80000"  # 翻: 深(少一点黑)
         elif act == "跟":
             return "#006600" if is_call else "#cc0000"  # 跟: 深
         elif act == "补":
@@ -893,11 +893,11 @@ ch.setOption({{
       markArea:{mark_area_opt}}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
-      markPoint:{{symbol:'pin', symbolSize:26, data:spins, label:{{color:'#fff', fontSize:8}}, itemStyle:{{opacity:0.75}}}},
+      markPoint:{{symbol:'pin', symbolSize:26, data:spins, label:{{color:'#fff', fontSize:7}}, itemStyle:{{opacity:0.75}}}},
     }},
     {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
       xAxisIndex:1, yAxisIndex:1,
-      markPoint:{{symbol:'pin', symbolSize:26, data:pins, label:{{color:'#fff', fontSize:8}}, itemStyle:{{opacity:0.75}}}},
+      markPoint:{{symbol:'pin', symbolSize:26, data:pins, label:{{color:'#fff', fontSize:7}}, itemStyle:{{opacity:0.75}}}},
     }},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
