@@ -337,26 +337,9 @@ def main():
                 _ahp = abs(_hp)
                 hubu_line[i] = round(sgn * _ahp * huibu_mult(_ahp), 2)
 
-    # markPoints: 波峰留在QQE柱上; 信号点(开/平/翻/补)点在1m曲线上
+    # markPoints: 信号点(开/平/翻/补/持)点在1m曲线上; QQE上同步一份
+    # (2026-10-12 用户: 不用显示蓝峰红峰圈圈)
     qpins = []
-    # 分波找峰
-    seen_ws = set()
-    for i in today_idx:
-        if abs(hist[i]) < 1 or np.isnan(hist[i]):
-            continue
-        _wl, _chop, _wl_adj, _ws, _pk_idx = fav_wave_info(hist, i, day_arr)
-        if _ws in seen_ws:
-            continue
-        seen_ws.add(_ws)
-        seg_idx = [j for j in range(_ws, min(i + 1, n)) if not np.isnan(hist[j])]
-        if not seg_idx:
-            continue
-        pk_j = max(seg_idx, key=lambda j: abs(hist[j]))
-        if abs(hist[pk_j]) < 6:
-            continue
-        qpins.append({"coord": [tstrs[pk_j], round(float(hist[pk_j]) * 1.15, 1)],
-                      "value": "蓝峰" if hist[pk_j] > 0 else "红峰",
-                      "itemStyle": {"color": BLUE if hist[pk_j] > 0 else RED}})
 
     # 信号点: 点在1m曲线上 (x=分数类目坐标, y=信号bar收盘价); QQE上同步一份
     flip_set = set(flip_bars)
@@ -372,35 +355,49 @@ def main():
         yq = round(h * 1.15 + (0.5 if h > 0 else -0.5), 1) if not np.isnan(h) else 5
         qpins.append({"coord": [tstrs[bi], yq], "value": value,
                       "itemStyle": {"color": color}, "rs": rs_txt})
+    # 方向颜色 (2026-10-12 用户): 做多(call)=绿色, 做空(put)=红色, 统一所有信号
+    _COL_CALL = "#00aa00"
+    _COL_PUT = "#ff0000"
+    def _dir_color(dr):
+        return _COL_CALL if dr == "call" else _COL_PUT
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if bi not in today_idx:
             continue
         p = today_idx.index(bi)
         xp = round(p + 2.5 / 3, 4)
         yp = round(float(sig["close"].iloc[bi]), 2)
-        # 回补 (长波回补 + 重涨回补都算): 整根bar只标一个橙色'补C'/'补P'
+        rsc = rs.replace("'", "")
+        _dc = _dir_color(dr)
+        # 回补 (长波回补 + 重涨回补都算): 整根bar只标一个'补C'/'补P' (按方向着色)
         if bi in repl_bars:
             if act == "开":
                 v = "补" + ("C" if dr == "call" else "P")
-                rsc = rs.replace("'", "")
                 spins.append({"coord": [xp, yp], "value": v,
-                              "itemStyle": {"color": "#ff6600"}, "rs": rsc})
-                _qpins_add(bi, v, "#ff6600", rsc)
+                              "itemStyle": {"color": _dc}, "rs": rsc})
+                _qpins_add(bi, v, _dc, rsc)
             continue
         if bi in flip_bars:
             continue  # 纯翻仓只在后面标一个'翻C'/'翻P'
         if act == "开":
             v = "跟" + ("C" if dr == "call" else "P")
-            rsc = rs.replace("'", "")
             spins.append({"coord": [xp, yp], "value": v,
-                          "itemStyle": {"color": "#00aa00"}, "rs": rsc})
-            _qpins_add(bi, v, "#00aa00", rsc)
+                          "itemStyle": {"color": _dc}, "rs": rsc})
+            _qpins_add(bi, v, _dc, rsc)
         elif act == "平":
-            v = "平" + ("C" if dr == "call" else "P")
-            rsc = rs.replace("'", "")
+            # 止损单独标签 (2026-10-12 用户: 止损C/止损P要看得出来)
+            if "止损" in rs:
+                v = "止损" + ("C" if dr == "call" else "P")
+            else:
+                v = "平" + ("C" if dr == "call" else "P")
             spins.append({"coord": [xp, yp], "value": v,
-                          "itemStyle": {"color": "#999999"}, "rs": rsc})
-            _qpins_add(bi, v, "#999999", rsc)
+                          "itemStyle": {"color": _dc}, "rs": rsc})
+            _qpins_add(bi, v, _dc, rsc)
+        elif act == "持":
+            # 持有/跳过信号 (2026-10-12 用户: 跳P/跳C也要圈圈)
+            v = "持" + ("C" if dr == "call" else "P")
+            spins.append({"coord": [xp, yp], "value": v,
+                          "itemStyle": {"color": _dc}, "rs": rsc})
+            _qpins_add(bi, v, _dc, rsc)
     for b in flip_bars:
         if b not in today_idx:
             continue
@@ -410,9 +407,10 @@ def main():
         d, frs = flip_info.get(b, (None, ""))
         frs = frs.replace("'", "")
         v = "翻" + ("C" if d == "call" else "P")
+        _dc = _dir_color(d)
         spins.append({"coord": [xp, yp], "value": v,
-                      "itemStyle": {"color": "#ff0000"}, "rs": frs})
-        _qpins_add(b, v, "#ff0000", frs)
+                      "itemStyle": {"color": _dc}, "rs": frs})
+        _qpins_add(b, v, _dc, frs)
 
     # 1m曲线数据: x=分数类目坐标(分钟中点), y=1m收盘
     t0 = sig["t"].iloc[today_idx[0]]
