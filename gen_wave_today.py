@@ -361,10 +361,12 @@ def main():
         is_call = (dr == "call")
         if act == "翻":
             return "#003d00" if is_call else "#990000"  # 翻: 更深(往黑)
-        elif act in ("跟", "补"):
-            return "#006600" if is_call else "#cc0000"  # 深
+        elif act == "跟":
+            return "#006600" if is_call else "#cc0000"  # 跟: 深
+        elif act == "补":
+            return "#00a0a0" if is_call else "#ff4500"  # 补: C青色/P橘红
         else:
-            return "#66cc66" if is_call else "#ff6666"  # 浅
+            return "#66cc66" if is_call else "#ff6666"  # 开: 浅
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if bi not in today_idx:
             continue
