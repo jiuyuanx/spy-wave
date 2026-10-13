@@ -1,0 +1,81 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="60">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>实盘dashboard 2026-10-13</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="theme.js"></script>
+<style>body{margin:0;background:#fff;font-family:sans-serif}#c{width:100%;height:95vh}</style>
+</head><body>
+<div style="text-align:center;padding:6px 0 0;font-size:13px">
+<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
+<option value="">📅 选择日期…</option>
+</select> <span id="dayhint" style="color:#888"></span>
+</div>
+<script>
+fetch('archive.json').then(function(r){return r.json();}).then(function(d){
+var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
+var cur=location.pathname.split('/').pop().replace('.html','');
+days.forEach(function(x){var o=document.createElement('option');o.value=x+'.html';o.textContent=x;if(x===cur)o.selected=true;s.appendChild(o);});
+document.getElementById('dayhint').textContent='共'+days.length+'天';
+}).catch(function(){});
+</script>
+<div id="info" style="position:absolute;top:6px;right:8px;z-index:10;background:rgba(255,255,255,.92);border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;color:#333;max-width:46%">点击信号圈查看原因</div>
+<div id="c"></div><script>
+const times = ['09:30', '09:33', '09:36', '09:39', '09:42', '09:45', '09:48'];
+const vals = [5.92,3.05,9.17,13.34,13.77,12.28,9.15];
+const colors = ['#2f80ed', '#b0b0b0', '#2f80ed', '#2f80ed', '#2f80ed', '#2f80ed', '#2f80ed'];
+const decayReal = [null,null,7.34,10.67,11.02,11.02,11.02];
+const flipBlue = [null,null,7.34,10.67,11.02,11.02,11.02];
+const hubuThr = [null,null,null,null,null,null,null];
+const pins = [{'coord': ['09:39', 15.8], 'value': '跟C', 'itemStyle': {'color': '#006600'}, 'rs': '两根长蓝跟随'}, {'coord': ['09:48', 11.0], 'value': '平C', 'itemStyle': {'color': '#b27a7a'}, 'rs': '蓝衰减短峰只平(峰14)'}];
+const line1m = [[0.1667, 777.73], [0.5, 777.68], [0.8333, 777.46], [1.1667, 777.66], [1.5, 777.73], [1.8333, 777.68], [2.1667, 777.72], [2.5, 778.04], [2.8333, 778.58], [3.1667, 778.58], [3.5, 778.53], [3.8333, 778.6], [4.1667, 778.71], [4.5, 778.3], [4.8333, 778.45], [5.1667, 778.34], [5.5, 778.39], [5.8333, 778.33], [6.1667, 778.42], [6.5, 778.43], [6.8333, 778.19], [7.1667, 778.18]];
+const spins = [{'coord': [3.8333, 778.6], 'value': '跟C', 'itemStyle': {'color': '#006600'}, 'rs': '两根长蓝跟随'}, {'coord': [6.8333, 778.19], 'value': '平C', 'itemStyle': {'color': '#b27a7a'}, 'rs': '蓝衰减短峰只平(峰14)'}];
+const filldots = [];
+if (typeof THEME !== 'undefined') { THEME.applyColors(spins); THEME.applyColors(pins); }
+const barInfo = {"09:30": {"o": 777.32, "h": 777.8, "l": 777.17, "c": 777.46, "qqe": 5.92, "col": "蓝", "acts": []}, "09:33": {"o": 777.4, "h": 777.91, "l": 777.4, "c": 777.68, "qqe": 3.05, "col": "灰", "acts": []}, "09:36": {"o": 777.71, "h": 778.58, "l": 777.67, "c": 778.58, "qqe": 9.17, "col": "蓝", "acts": []}, "09:39": {"o": 778.53, "h": 778.75, "l": 778.42, "c": 778.6, "qqe": 13.34, "col": "蓝", "acts": ["开call@778.595 两根长蓝跟随"]}, "09:42": {"o": 778.67, "h": 778.71, "l": 778.3, "c": 778.45, "qqe": 13.77, "col": "蓝", "acts": []}, "09:45": {"o": 778.39, "h": 778.52, "l": 778.25, "c": 778.33, "qqe": 12.28, "col": "蓝", "acts": []}, "09:48": {"o": 778.33, "h": 778.5, "l": 778.17, "c": 778.19, "qqe": 9.15, "col": "蓝", "acts": ["平call@778.19 蓝衰减短峰只平(峰14)"]}};
+var ch = echarts.init(document.getElementById('c'));
+ch.setOption({
+  title:{text:'实盘dashboard 2026-10-13 | 今日 -$7,429 (-5.9%) | 持仓:实盘:空仓 | k3clean L25', left:'center', textStyle:{fontSize:14}},
+  legend:{data:[
+    {name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'},
+    {name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'},
+    {name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'},
+    {name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+    {name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'},
+    {name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+  ], top:30},
+  tooltip:{trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},
+  dataZoom:[{type:'inside', xAxisIndex:[0,1]},{type:'slider', xAxisIndex:[0,1], bottom:6}],
+  grid:[{left:34,right:'4%',top:'15%',height:'30%'},{left:34,right:'4%',top:'52%',height:'34%'}],
+  axisPointer:{link:{xAxisIndex:'all'}},
+  xAxis:[{type:'category',data:times,gridIndex:0,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false}},
+         {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}}],
+  yAxis:[{type:'value',gridIndex:0,scale:true,max:778.99,axisLabel:{fontSize:9}},{type:'value',gridIndex:1,axisLabel:{fontSize:9}}],
+  series:[
+    {name:'3mK线', type:'candlestick', data:[[777.32,777.46,777.17,777.8],[777.4,777.68,777.4,777.91],[777.71,778.58,777.67,778.58],[778.53,778.6,778.42,778.75],[778.67,778.45,778.3,778.71],[778.39,778.33,778.25,778.52],[778.33,778.19,778.17,778.5]], xAxisIndex:0, yAxisIndex:0,
+      itemStyle:{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'},
+      markArea:{silent:true,data:[[{xAxis:'09:39',itemStyle:{color:'rgba(229,72,77,0.262)'}},{xAxis:'09:48'}]]}},
+    {name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
+      lineStyle:{color:'#4da6ff', width:1.2, opacity:0.55}, symbol:'none', showSymbol:false,
+      markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
+    },
+    {name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
+      itemStyle:{opacity:0.75}, data:filldots,
+      tooltip:{trigger:'item', formatter:function(p){return p.data&&p.data.tip?p.data.tip:'';}},
+    },
+    {name:'QQE', type:'bar', data: vals.map((v,i)=>({value:v, itemStyle:{color:colors[i]}})),
+      xAxisIndex:1, yAxisIndex:1,
+      markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
+    },
+    {name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff9900', type:'dashed', width:3}, symbol:'none', showSymbol:false},
+    {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
+    {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
+    {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},
+      label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,
+              formatter:function(p){return p.data.lbl;}},
+      data:[{"value":["09:48",778.80],"lbl":"-$7,429 (-5.9%)","label":{"color":"#e5484d"}}]},
+  ]
+});
+ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
+</script>
+<div style="max-width:1150px;margin:14px auto;padding:0 8px"><div style="font-size:14px;font-weight:bold;margin-bottom:6px">实盘信号单（实际成交 vs 信号预估）</div><div style="overflow-x:auto"><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap"><tr style="background:#f2f2f2"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:42</td><td>两根长蓝跟随C</td><td>391</td><td>3.23</td><td>09:51</td><td>3.04</td><td style="color:#e5484d;font-weight:bold">-$7,429</td><td style="color:#e5484d">-5.9%</td><td style="color:#e5484d">-$15,835</td><td style="color:#e5484d">-12.5%</td></tr><tr style="background:#f2f2f2;font-weight:bold"><td colspan="7">合计</td><td>-$7,429</td><td></td><td>-$15,835</td><td></td></tr></table></div><div style="font-size:11px;color:#888;margin-top:4px">实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;预估=SPY价变化×delta=1×实际张数,收益率按实际期权成本;(浮)=未实现</div><div style="font-size:11px;color:#888;">Alpaca实际成交: 2笔, 最新09:51:07</div></div>
+</body></html>
