@@ -425,6 +425,27 @@ def main():
     df1 = df1m[df1m["t"] >= t0].sort_values("t")
     line1m = [[round((r["t"] - t0).total_seconds() / 180.0 + 1 / 6, 4),
                round(float(r["c"]), 2)] for _, r in df1.iterrows()]
+    # 实际成交点 (live): 绿=买入 红=卖出, 落在1m曲线上 (y取所在1m bar收盘价)
+    filldots = []
+    if fills:
+        _ts1 = df1["t"]
+        for _f in fills:
+            _ft = _f["t"]
+            _i1 = _ts1.searchsorted(_ft, side="right") - 1
+            if _i1 < 0 or _i1 >= len(df1):
+                continue
+            _bt = _ts1.iloc[_i1]
+            if not (_bt <= _ft < _bt + pd.Timedelta(minutes=1)):
+                continue
+            _fx = round((_bt - t0).total_seconds() / 180.0 + 1 / 6, 4)
+            _fy = round(float(df1["c"].iloc[_i1]), 2)
+            _fc = "#00aa00" if _f["side"] == "buy" else "#ff0000"
+            _ftip = ("%s %s %.2f x%d" % (
+                _ft.strftime("%H:%M:%S"),
+                "买入" if _f["side"] == "buy" else "卖出",
+                _f["px"], int(_f["qty"])))
+            filldots.append({"value": [_fx, _fy],
+                             "itemStyle": {"color": _fc}, "tip": _ftip})
     # tooltip用: 每根bar的OHLC + QQE + 动作原因
     acts_by_bar = {}
     for (bi, ts, act, dr, px, rs) in acts_sorted:
@@ -868,6 +889,7 @@ const hubuThr = {js_arr(hb)};
 const pins = {qpins};
 const line1m = {line1m};
 const spins = {spins};
+const filldots = {filldots};
 const barInfo = {bar_info_js};
 var ch = echarts.init(document.getElementById('c'));
 ch.setOption({{
@@ -894,6 +916,10 @@ ch.setOption({{
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:26, data:spins, label:{{color:'#fff', fontSize:7}}, itemStyle:{{opacity:0.75}}}},
+    }},
+    {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
+      itemStyle:{{opacity:0.75}}, data:filldots,
+      tooltip:{{trigger:'item', formatter:function(p){{return p.data&&p.data.tip?p.data.tip:'';}}}},
     }},
     {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
       xAxisIndex:1, yAxisIndex:1,
