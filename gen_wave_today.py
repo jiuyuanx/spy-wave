@@ -427,6 +427,7 @@ def main():
                round(float(r["c"]), 2)] for _, r in df1.iterrows()]
     # 实际成交点 (live): 绿=买入 红=卖出, 落在1m曲线上 (y取所在1m bar收盘价)
     filldots = []
+    fills = []  # 回放模式无实盘成交, 先初始化避免 UnboundLocalError
     if fills:
         _ts1 = df1["t"]
         for _f in fills:
