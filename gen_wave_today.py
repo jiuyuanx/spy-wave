@@ -267,6 +267,11 @@ def main():
     dates = sig["t"].dt.date.astype(str).values
     today_idx = [i for i in range(n) if dates[i] == day_str]
     if not today_idx:
+        # 开盘5分钟内没数据是正常的，等下轮（不报错）
+        now_et = datetime.now(ET)
+        if not WAVE_DATE and now_et.hour == 9 and now_et.minute < 35:
+            print(f"[{now_et.strftime('%H:%M:%S')}] market just opened, no bars yet, skip gracefully")
+            return
         raise RuntimeError("no today bars")
 
     # 真色
