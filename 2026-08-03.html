@@ -42,12 +42,12 @@ ch.setOption({
     {name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
     {name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'},
     {name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
-    '9mK线',
-    '9m QQE'
+    {name:'9mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(221,34,34,0.25)%22 stroke=%22rgba(221,34,34,1)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(0,170,68,0.25)%22 stroke=%22rgba(0,170,68,1)%22/></svg>'},
+    {name:'9m QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(30,170,255,0.25)%22 stroke=%22rgba(30,170,255,0.7)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(255,130,180,0.25)%22 stroke=%22rgba(255,130,180,0.7)%22/></svg>'}
   ], top:30},
   tooltip:{trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},
   dataZoom:[{type:'inside', xAxisIndex:[0,1,2,3]},{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}],
-  grid:[{left:34,right:'4%',top:'15%',height:'30%'},{left:34,right:'4%',top:'52%',height:'34%'}],
+  grid:[{left:34,right:'4%',top:'12%',height:'38%'},{left:34,right:'4%',top:'53%',height:'42%'}],
   axisPointer:{link:{xAxisIndex:'all'}},
   xAxis:[{type:'category',data:times,gridIndex:0,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false}},
          {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}},{type:'category',data:times,gridIndex:1,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}},{type:'value',gridIndex:0,min:-0.5,max:129.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],

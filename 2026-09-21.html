@@ -42,7 +42,7 @@ ch.setOption({
     {name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}], top:30},
   tooltip:{trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},
   dataZoom:[{type:'inside', xAxisIndex:[0,1,2,3]},{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}],
-  grid:[{left:34,right:'4%',top:'15%',height:'30%'},{left:34,right:'4%',top:'52%',height:'34%'}],
+  grid:[{left:34,right:'4%',top:'12%',height:'38%'},{left:34,right:'4%',top:'53%',height:'42%'}],
   axisPointer:{link:{xAxisIndex:'all'}},
   xAxis:[{type:'category',data:times,gridIndex:0,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false}},
          {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}},{type:'category',data:times,gridIndex:1,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}},{type:'value',gridIndex:0,min:-0.5,max:129.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],
