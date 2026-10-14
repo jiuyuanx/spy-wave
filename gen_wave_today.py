@@ -881,14 +881,10 @@ def main():
             hv = round(float(hv), 2)
             if hv >= 0:
                 qqe9_js_parts[k] = (
-                    "{value:%s,itemStyle:{color:'rgba(0,180,200,0.25)',"
-                    "borderColor:'rgba(0,180,200,1)',borderWidth:2,"
-                    "shadowColor:'rgba(255,255,255,0.5)',shadowBlur:8}}" % hv)
+                    "{value:%s,itemStyle:THEME.qqe9.up}" % hv)
             else:
                 qqe9_js_parts[k] = (
-                    "{value:%s,itemStyle:{color:'rgba(230,70,110,0.25)',"
-                    "borderColor:'rgba(230,70,110,1)',borderWidth:2,"
-                    "shadowColor:'rgba(255,255,255,0.5)',shadowBlur:8}}" % hv)
+                    "{value:%s,itemStyle:THEME.qqe9.down}" % hv)
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
 
@@ -969,10 +965,8 @@ ch.setOption({{
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
       markArea:{mark_area_opt}}},
     {{name:'9mK线', type:'candlestick', data:{ohlc9_js}, xAxisIndex:0, yAxisIndex:0,
-      barWidth:'280%',
-      itemStyle:{{color:'rgba(0,170,68,0.25)', color0:'rgba(221,34,34,0.25)',
-                  borderColor:'rgba(0,170,68,1)', borderColor0:'rgba(221,34,34,1)', borderWidth:2,
-                  shadowColor:'rgba(255,255,255,0.5)', shadowBlur:8}}}},
+      barWidth:THEME.k9.barWidth,
+      itemStyle:THEME.k9.style}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
@@ -985,7 +979,7 @@ ch.setOption({{
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:2, yAxisIndex:1, barWidth:'260%', z:3}},
+    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:2, yAxisIndex:1, barWidth:THEME.qqe9.barWidth, z:3}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
