@@ -91,5 +91,56 @@ var THEME = {
             '<br/>QQE ' + b.qqe + '(' + b.col + ')';
     if (b.acts && b.acts.length) s += '<br/>' + b.acts.join('<br/>');
     return s;
+  },
+
+  // 注入3m开关按钮 (2026-10-14) - 所有历史页面自动生效，无需重生成
+  inject3mButtons: function() {
+    // 如果已经有3mK按钮，说明新版生成器已包含，跳过
+    if (document.getElementById('tg3mk')) return;
+    var tg1m = document.getElementById('tg1m');
+    if (!tg1m || !tg1m.parentNode) return;
+    var parent = tg1m.parentNode;
+
+    function mkBtn(id, label, seriesName, borderColor, bgColor) {
+      var b = document.createElement('button');
+      b.id = id;
+      b.textContent = label;
+      b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid ' +
+        borderColor + ';background:' + bgColor + ';border-radius:4px;cursor:pointer';
+      b.onclick = function() { toggleSeries(seriesName); };
+      return b;
+    }
+
+    // 在1m按钮前插入3mK，在9mK后插入3mQ
+    var btn3mk = mkBtn('tg3mk', '3mK', '3mK线', '#666', '#f0f0f0');
+    parent.insertBefore(btn3mk, tg1m);
+
+    var tg9mk = document.getElementById('tg9mk');
+    var btn3mq = mkBtn('tg3mq', '3mQ', 'QQE', '#888', '#f5f5f5');
+    if (tg9mk && tg9mk.nextSibling) {
+      parent.insertBefore(btn3mq, tg9mk.nextSibling);
+    } else {
+      parent.appendChild(btn3mq);
+    }
+
+    // 更新toggleSeries的id映射 (如果还是旧版)
+    if (typeof toggleSeries === 'function') {
+      var origToggle = toggleSeries;
+      window.toggleSeries = function(name) {
+        origToggle(name);
+        var id = name==='1m曲线'?'tg1m':name==='9mK线'?'tg9mk':name==='9m QQE'?'tg9mq':name==='3mK线'?'tg3mk':'tg3mq';
+        var btn = document.getElementById(id);
+        if (btn) {
+          btn.style.opacity = (btn.style.opacity==='0.35'?'1':'0.35');
+        }
+      };
+    }
   }
 };
+
+// 页面加载后自动注入3m按钮
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() { THEME.inject3mButtons(); });
+} else {
+  THEME.inject3mButtons();
+}
