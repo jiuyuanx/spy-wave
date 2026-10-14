@@ -880,12 +880,12 @@ def main():
                 hv = round(float(hv), 2)
                 if hv >= 0:
                     qqe9_js_parts.append(
-                        "{value:%s,itemStyle:{color:'rgba(26,95,208,0.08)',"
-                        "borderColor:'rgba(26,95,208,0.45)',borderWidth:1.5}}" % hv)
+                        "{value:%s,itemStyle:{color:'rgba(26,95,208,0.04)',"
+                        "borderColor:'rgba(26,95,208,0.5)',borderWidth:1.5}}" % hv)
                 else:
                     qqe9_js_parts.append(
-                        "{value:%s,itemStyle:{color:'rgba(192,32,32,0.08)',"
-                        "borderColor:'rgba(192,32,32,0.45)',borderWidth:1.5}}" % hv)
+                        "{value:%s,itemStyle:{color:'rgba(192,32,32,0.04)',"
+                        "borderColor:'rgba(192,32,32,0.5)',borderWidth:1.5}}" % hv)
         else:
             ohlc9_js_parts.append("[NaN,NaN,NaN,NaN]")  # candlestick不能用null，用NaN表示空位
             qqe9_js_parts.append("null")
@@ -928,7 +928,6 @@ days.forEach(function(x){{var o=document.createElement('option');o.value=x+'.htm
 document.getElementById('dayhint').textContent='共'+days.length+'天';
 }}).catch(function(){{}});
 </script>
-<div id="info" style="position:absolute;top:6px;right:8px;z-index:10;background:rgba(255,255,255,.92);border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;color:#333;max-width:46%">点击信号圈查看原因</div>
 <div id="c"></div><script>
 const times = {times};
 const vals = {js_arr(vals)};
@@ -983,7 +982,7 @@ ch.setOption({{
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'180%', z:1}},
+    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'260%'}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
