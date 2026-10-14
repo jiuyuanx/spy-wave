@@ -880,12 +880,12 @@ def main():
                 hv = round(float(hv), 2)
                 if hv >= 0:
                     qqe9_js_parts.append(
-                        "{value:%s,itemStyle:{color:'rgba(26,95,208,0.14)',"
-                        "borderColor:'rgba(26,95,208,0.6)',borderWidth:2}}" % hv)
+                        "{value:%s,itemStyle:{color:'rgba(26,95,208,0.08)',"
+                        "borderColor:'rgba(26,95,208,0.45)',borderWidth:1.5}}" % hv)
                 else:
                     qqe9_js_parts.append(
-                        "{value:%s,itemStyle:{color:'rgba(192,32,32,0.14)',"
-                        "borderColor:'rgba(192,32,32,0.6)',borderWidth:2}}" % hv)
+                        "{value:%s,itemStyle:{color:'rgba(192,32,32,0.08)',"
+                        "borderColor:'rgba(192,32,32,0.45)',borderWidth:1.5}}" % hv)
         else:
             ohlc9_js_parts.append("[NaN,NaN,NaN,NaN]")  # candlestick不能用null，用NaN表示空位
             qqe9_js_parts.append("null")
@@ -906,7 +906,20 @@ def main():
 <select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
 <option value="">📅 选择日期…</option>
 </select> <span id="dayhint" style="color:#888"></span>
+<span style="margin-left:10px;white-space:nowrap">
+<button id="tg1m" onclick="toggleSeries('1m曲线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #4da6ff;background:#e8f2ff;border-radius:4px;cursor:pointer">1m</button><button id="tg9mk" onclick="toggleSeries('9mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #00aa44;background:#e8f8f0;border-radius:4px;cursor:pointer">9mK</button><button id="tg9mq" onclick="toggleSeries('9m QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #1a5fd0;background:#e8efff;border-radius:4px;cursor:pointer">9mQ</button>
+</span>
 </div>
+<script>
+function toggleSeries(name){{{{
+  var c = window._waveChart;
+  if(!c) return;
+  c.dispatchAction({{type:'legendToggleSelect', name:name}});
+  var id = name==='1m曲线'?'tg1m':(name==='9mK线'?'tg9mk':'tg9mq');
+  var b = document.getElementById(id);
+  if(b){{{{ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }}}}
+}}}}
+</script>
 <script>
 fetch('archive.json').then(function(r){{return r.json();}}).then(function(d){{
 var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
@@ -930,6 +943,7 @@ const filldots = {filldots};
 if (typeof THEME !== 'undefined') {{ THEME.applyColors(spins); THEME.applyColors(pins); }}
 const barInfo = {bar_info_js};
 var ch = echarts.init(document.getElementById('c'));
+window._waveChart = ch;
 ch.setOption({{
   title:{{text:'{title_txt}', left:'center', textStyle:{{fontSize:14}}}},
   legend:{{data:[
@@ -969,7 +983,7 @@ ch.setOption({{
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'260%'}},
+    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'180%', z:1}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
