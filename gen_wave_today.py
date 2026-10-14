@@ -918,7 +918,7 @@ def main():
 <option value="">📅 选择日期…</option>
 </select> <span id="dayhint" style="color:#888"></span>
 <span style="margin-left:10px;white-space:nowrap">
-<button id="tg3mk" onclick="toggleSeries('3mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #666;background:#f0f0f0;border-radius:4px;cursor:pointer">3mK</button><button id="tg1m" onclick="toggleSeries('1m曲线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #4da6ff;background:#e8f2ff;border-radius:4px;cursor:pointer">1m</button><button id="tg9mk" onclick="toggleSeries('9mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #00aa44;background:#e8f8f0;border-radius:4px;cursor:pointer">9mK</button><button id="tg3mq" onclick="toggleSeries('QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #888;background:#f5f5f5;border-radius:4px;cursor:pointer">3mQ</button><button id="tg9mq" onclick="toggleSeries('9m QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #1a5fd0;background:#e8efff;border-radius:4px;cursor:pointer">9mQ</button>
+<button id="tg3mk" onclick="toggleSeries('3mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #666;background:#f0f0f0;border-radius:4px;cursor:pointer">3mK</button><button id="tg1m" onclick="toggleSeries('1m曲线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #2b6fd6;background:#e8efff;border-radius:4px;cursor:pointer">1m</button><button id="tg9mk" onclick="toggleSeries('9mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #00aa44;background:#e8f8f0;border-radius:4px;cursor:pointer">9mK</button><button id="tg3mq" onclick="toggleSeries('QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #888;background:#f5f5f5;border-radius:4px;cursor:pointer">3mQ</button><button id="tg9mq" onclick="toggleSeries('9m QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #1a5fd0;background:#e8efff;border-radius:4px;cursor:pointer">9mQ</button>
 </span>
 </div>
 <script>
@@ -958,7 +958,7 @@ ch.setOption({{
   title:{{text:'{title_txt}', left:'center', textStyle:{{fontSize:14}}}},
   legend:{{data:[
     {{name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'}},
-    {{name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'}},
+    {{name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%232b6fd6%22 stroke-width=%222%22/></svg>'}},
     {{name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'}},
     {{name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
     {{name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'}},
@@ -983,7 +983,7 @@ ch.setOption({{
       barWidth:THEME.k9.barWidth,
       itemStyle:THEME.k9.style}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
-      lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
+      lineStyle:{{color:'#2b6fd6', width:1.2, opacity:0.85}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
     {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
