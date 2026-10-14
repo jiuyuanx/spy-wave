@@ -982,7 +982,7 @@ ch.setOption({{
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'260%'}},
+    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'260%', barGap:'-100%'}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
