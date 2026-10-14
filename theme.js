@@ -25,6 +25,32 @@ var THEME = {
     opacity: 0.75
   },
 
+  // 9m K线：染色雾面玻璃 (user picked B, 2026-10-14)
+  k9: {
+    barWidth: '280%',
+    style: {
+      color: 'rgba(0,170,68,0.25)', color0: 'rgba(221,34,34,0.25)',
+      borderColor: 'rgba(0,170,68,1)', borderColor0: 'rgba(221,34,34,1)',
+      borderWidth: 2,
+      shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
+    }
+  },
+
+  // 9m QQE：蓝青/玫瑰红 + 玻璃光影 (2026-10-14)
+  qqe9: {
+    barWidth: '260%',
+    up: {
+      color: 'rgba(0,180,200,0.25)',
+      borderColor: 'rgba(0,180,200,1)', borderWidth: 2,
+      shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
+    },
+    down: {
+      color: 'rgba(230,70,110,0.25)',
+      borderColor: 'rgba(230,70,110,1)', borderWidth: 2,
+      shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
+    }
+  },
+
   // Chinese label (e.g. '翻C') -> semantic key
   keyFor: function(value) {
     var m = {
