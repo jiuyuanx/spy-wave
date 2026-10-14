@@ -863,32 +863,30 @@ def main():
     # 9m 聚合 (3根3m合成1根): O=首根开, H=3根最高, L=3根最低, C=末根收, QQE=末根hist
     # 放在每组最后一根3m的位置, 其余位置null
     n3 = len(today_idx)
-    ohlc9_js_parts = []
-    qqe9_js_parts = []
-    for k in range(n3):
-        if (k + 1) % 3 == 0:  # 每组第3根
-            g = [today_idx[k - 2], today_idx[k - 1], today_idx[k]]
-            o9 = round(float(sig["open"].iloc[g[0]]), 2)
-            h9 = round(max(float(sig["high"].iloc[j]) for j in g), 2)
-            l9 = round(min(float(sig["low"].iloc[j]) for j in g), 2)
-            c9 = round(float(sig["close"].iloc[g[2]]), 2)
-            ohlc9_js_parts.append(f"[{o9},{c9},{l9},{h9}]")
-            hv = hist[g[2]]
-            if np.isnan(hv):
-                qqe9_js_parts.append("null")
+    ohlc9_js_parts = ["[NaN,NaN,NaN,NaN]"] * n3
+    qqe9_js_parts = ["null"] * n3
+    # 9m放在每组中间那根(k=1,4,7...)，280%宽度以该位置为中心覆盖3根
+    for k in range(1, n3, 3):
+        g = [today_idx[k - 1], today_idx[k]]
+        if k + 1 < n3:
+            g.append(today_idx[k + 1])
+        # else: 最后一组不足3根，用现有2根
+        o9 = round(float(sig["open"].iloc[g[0]]), 2)
+        h9 = round(max(float(sig["high"].iloc[j]) for j in g), 2)
+        l9 = round(min(float(sig["low"].iloc[j]) for j in g), 2)
+        c9 = round(float(sig["close"].iloc[g[-1]]), 2)
+        ohlc9_js_parts[k] = f"[{o9},{c9},{l9},{h9}]"
+        hv = hist[g[-1]]
+        if not np.isnan(hv):
+            hv = round(float(hv), 2)
+            if hv >= 0:
+                qqe9_js_parts[k] = (
+                    "{value:%s,itemStyle:{color:'rgba(26,95,208,0.04)',"
+                    "borderColor:'rgba(26,95,208,0.5)',borderWidth:1.5}}" % hv)
             else:
-                hv = round(float(hv), 2)
-                if hv >= 0:
-                    qqe9_js_parts.append(
-                        "{value:%s,itemStyle:{color:'rgba(26,95,208,0.04)',"
-                        "borderColor:'rgba(26,95,208,0.5)',borderWidth:1.5}}" % hv)
-                else:
-                    qqe9_js_parts.append(
-                        "{value:%s,itemStyle:{color:'rgba(192,32,32,0.04)',"
-                        "borderColor:'rgba(192,32,32,0.5)',borderWidth:1.5}}" % hv)
-        else:
-            ohlc9_js_parts.append("[NaN,NaN,NaN,NaN]")  # candlestick不能用null，用NaN表示空位
-            qqe9_js_parts.append("null")
+                qqe9_js_parts[k] = (
+                    "{value:%s,itemStyle:{color:'rgba(192,32,32,0.04)',"
+                    "borderColor:'rgba(192,32,32,0.5)',borderWidth:1.5}}" % hv)
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
 
