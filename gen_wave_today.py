@@ -847,7 +847,9 @@ def main():
 
     if has_live:
         _s = "+" if robust_day >= 0 else "-"
-        _pt = f" ({robust_day / equity:+.1%})" if equity else ""
+        # 当日收益率按开盘资金算：开盘 = 当前 - 当日盈亏 (2026-10-14 用户指出原用当前总资金不对)
+        _day_open = equity - robust_day if equity else 0
+        _pt = f" ({robust_day / _day_open:+.1%})" if _day_open else ""
         _pos_show = f"实盘:{api_pos_txt}"
         if pos_txt not in ("空仓",) and api_pos_txt == "空仓":
             _pos_show += f"(信号:{pos_txt})"
