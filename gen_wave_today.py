@@ -954,7 +954,7 @@ ch.setOption({{
     '9m QQE',
   ], top:30}},
   {tooltip_js}
-  dataZoom:[{{type:'inside', xAxisIndex:[0,1]}},{{type:'slider', xAxisIndex:[0,1], bottom:6}}],
+  dataZoom:[{{type:'inside', xAxisIndex:[0,1,2]}},{{type:'slider', xAxisIndex:[0,1,2], bottom:6}}],
   grid:[{{left:34,right:'4%',top:'15%',height:'30%'}},{{left:34,right:'4%',top:'52%',height:'34%'}}],
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
@@ -981,7 +981,7 @@ ch.setOption({{
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:2, yAxisIndex:1, barWidth:'260%', z:1}},
+    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:2, yAxisIndex:1, barWidth:'260%', z:3}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
