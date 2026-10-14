@@ -887,7 +887,7 @@ def main():
                         "{value:%s,itemStyle:{color:'rgba(192,32,32,0.07)',"
                         "borderColor:'#c02020',borderWidth:2}}" % hv)
         else:
-            ohlc9_js_parts.append("null")
+            ohlc9_js_parts.append("[NaN,NaN,NaN,NaN]")  # candlestick不能用null，用NaN表示空位
             qqe9_js_parts.append("null")
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
