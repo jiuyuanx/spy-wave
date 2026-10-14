@@ -9,7 +9,7 @@
 <select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
 <option value="">📅 选择日期…</option>
 </select> <span id="dayhint" style="color:#888"><span style="margin-left:10px;white-space:nowrap">
-<button id="tg1m" onclick="toggleSeries('1m曲线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #4da6ff;background:#e8f2ff;border-radius:4px;cursor:pointer">1m</button><button id="tg9mk" onclick="toggleSeries('9mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #00aa44;background:#e8f8f0;border-radius:4px;cursor:pointer">9mK</button><button id="tg9mq" onclick="toggleSeries('9m QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #1a5fd0;background:#e8efff;border-radius:4px;cursor:pointer">9mQ</button>
+<button id="tg3mk" onclick="toggleSeries('3mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #c00;background:#ffe8e8;border-radius:4px;cursor:pointer">3mK</button><button id="tg1m" onclick="toggleSeries('1m曲线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #4da6ff;background:#e8f2ff;border-radius:4px;cursor:pointer">1m</button><button id="tg9mk" onclick="toggleSeries('9mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #00aa44;background:#e8f8f0;border-radius:4px;cursor:pointer">9mK</button><button id="tg3mq" onclick="toggleSeries('QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #d00;background:#ffe8e8;border-radius:4px;cursor:pointer">3mQ</button><button id="tg9mq" onclick="toggleSeries('9m QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #1a5fd0;background:#e8efff;border-radius:4px;cursor:pointer">9mQ</button>
 </span>
 </div>
 <script>
@@ -17,7 +17,7 @@ function toggleSeries(name){
   var c = window._waveChart;
   if(!c) return;
   c.dispatchAction({type:'legendToggleSelect', name:name});
-  var id = name==='1m曲线'?'tg1m':(name==='9mK线'?'tg9mk':'tg9mq');
+  var id = name==='3mK线'?'tg3mk':(name==='1m曲线'?'tg1m':(name==='9mK线'?'tg9mk':(name==='QQE'?'tg3mq':'tg9mq')));
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
@@ -30,7 +30,7 @@ days.forEach(function(x){var o=document.createElement('option');o.value=x+'.html
 document.getElementById('dayhint').textContent='共'+days.length+'天';
 }).catch(function(){});
 </script>
-<div id="info" style="position:absolute;top:6px;right:8px;z-index:10;background:rgba(255,255,255,.92);border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;color:#333;max-width:46%">点击信号圈查看原因</div>
+<div id="info" style="position:absolute;top:6px;right:8px;z-index:10;background:rgba(255,255,255,.92);border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:12px;color:#333;max-width:46%"></div>
 <div id="c"></div><script>
 const times = ['09:30', '09:33', '09:36', '09:39', '09:42', '09:45', '09:48', '09:51', '09:54', '09:57', '10:00', '10:03', '10:06', '10:09', '10:12', '10:15', '10:18', '10:21', '10:24', '10:27', '10:30', '10:33', '10:36', '10:39', '10:42', '10:45', '10:48', '10:51', '10:54', '10:57', '11:00', '11:03', '11:06', '11:09', '11:12', '11:15', '11:18', '11:21', '11:24', '11:27', '11:30', '11:33', '11:36', '11:39', '11:42', '11:45', '11:48', '11:51', '11:54', '11:57', '12:00', '12:03', '12:06', '12:09', '12:12', '12:15', '12:18', '12:21', '12:24', '12:27', '12:30', '12:33', '12:36', '12:39', '12:42', '12:45', '12:48', '12:51', '12:54', '12:57', '13:00', '13:03', '13:06', '13:09', '13:12', '13:15', '13:18', '13:21', '13:24', '13:27', '13:30', '13:33', '13:36', '13:39', '13:42', '13:45', '13:48', '13:51', '13:54', '13:57', '14:00', '14:03', '14:06', '14:09', '14:12', '14:15', '14:18', '14:21', '14:24', '14:27', '14:30', '14:33', '14:36', '14:39', '14:42', '14:45', '14:48', '14:51', '14:54', '14:57', '15:00', '15:03', '15:06', '15:09', '15:12', '15:15', '15:18', '15:21', '15:24', '15:27', '15:30', '15:33', '15:36', '15:39', '15:42', '15:45', '15:48', '15:51', '15:54', '15:57'];
 const vals = [-5.55,-13.31,-19.04,-21.33,-23.76,-24.5,-22.01,-13.11,-5.41,1.6,8.47,11.92,11.42,11.99,6.6,0.03,-8.45,-12.5,-15.84,-13.16,-8.16,-5.64,-1.11,-3.46,-3.57,-7.23,-10.06,-7.68,-3.59,1.35,3.14,-1.25,-7.71,-8.02,-1.84,1.73,5.06,8.05,6.8,5.28,1.27,-0.85,0.16,3.19,5.6,11.55,13.61,15.83,17.57,13.5,14.49,16.18,17.59,18.63,11.19,7.72,0.72,-7.0,-13.02,-14.11,-13.99,-8.72,-12.26,-10.59,-7.52,-8.99,-12.88,-9.18,-5.54,-2.1,3.07,5.62,6.66,15.44,19.89,25.78,30.7,25.6,24.1,23.25,23.81,24.31,24.81,27.62,29.69,31.17,32.46,34.87,36.13,28.75,22.31,12.44,10.32,5.96,1.11,-3.18,-1.01,0.52,3.19,4.05,2.37,0.98,-0.72,2.89,6.41,1.68,-5.18,-15.31,-23.39,-22.92,-20.25,-16.06,-10.12,-5.76,-0.46,4.35,6.44,8.24,8.99,10.04,11.44,12.88,12.4,8.15,2.3,4.03,8.29,4.95,5.59,4.84];
