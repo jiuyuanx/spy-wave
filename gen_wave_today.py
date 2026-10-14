@@ -110,8 +110,18 @@ def fetch_day_fills(day_str):
         equity = float((trt.api("/v2/account") or {}).get("equity") or 0)
     except Exception:
         pass
+    # 当日开盘资金：从portfolio history拿09:30的equity (2026-10-14 用户要求直接从Alpaca拉)
+    day_open_equity = None
+    try:
+        _ph = trt.api("/v2/account/portfolio/history?period=1D&timeframe=5Min") or {}
+        _eq = _ph.get("equity") or []
+        if _eq:
+            # 取第一个有效值作为开盘资金
+            day_open_equity = float(_eq[0]) if _eq[0] else None
+    except Exception:
+        pass
     fills.sort(key=lambda x: x["t"])
-    return fills, poss, equity
+    return fills, poss, equity, day_open_equity
 
 
 def build_bars(day=None):
@@ -547,7 +557,7 @@ def main():
                     "cpx": float(sig["close"].iloc[today_idx[-1]]),
                     "crs": None, "closed": False})
     # ---- 实盘每单收益: 信号配对实际成交 ----
-    fills, poss, equity = ([], {}, None) if WAVE_DATE else fetch_day_fills(day_str)
+    fills, poss, equity, day_open_equity = ([], {}, None, None) if WAVE_DATE else fetch_day_fills(day_str)
     for rt in rts:
         o_t = sig["t"].iloc[rt["obi"]]
         o_f = [f for f in fills if f["side"] == "buy"
@@ -847,8 +857,9 @@ def main():
 
     if has_live:
         _s = "+" if robust_day >= 0 else "-"
-        # 当日收益率按开盘资金算：开盘 = 当前 - 当日盈亏 (2026-10-14 用户指出原用当前总资金不对)
-        _day_open = equity - robust_day if equity else 0
+        # 当日收益率按开盘资金算：优先用Alpaca portfolio history的开盘equity，fallback用 当前-当日盈亏
+        # (2026-10-14 用户要求直接从Alpaca拉开盘资金)
+        _day_open = day_open_equity or (equity - robust_day if equity else 0)
         _pt = f" ({robust_day / _day_open:+.1%})" if _day_open else ""
         _pos_show = f"实盘:{api_pos_txt}"
         if pos_txt not in ("空仓",) and api_pos_txt == "空仓":
