@@ -124,21 +124,25 @@ def build_bars(day=None):
         df1m = _fetch_1m_day(day)
     day3 = w4.to_3m(df1m)
     bars3 = pd.concat([hist3, day3], ignore_index=True)
-    bars3 = bars3.sort_values("t").drop_duplicates("t", keep="last").reset_index(drop=True)
+    # 与 watcher_v4 一致: (t,n1m)排序优先保留n1m=3的行 (NaN=server聚合视为完整)
+    # Fix 2026-10-13: 13:43的1m永久缺失致13:42桶n1m=2, 旧sort(t)+break逻辑会把13:39之后全卡掉
+    bars3 = bars3.sort_values(["t", "n1m"]).drop_duplicates("t", keep="last").reset_index(drop=True)
     if day is not None:
         n_complete = len(bars3)  # 回放: 当天所有bar都已走完, 缺分钟的bin也照算
     else:
+        # 与 watcher_v4 一致: n1m!=3只跳过不break (未来bar才break), 否则中间缺1m会卡住后面所有bar
         n_complete = 0
         for idx in range(len(bars3)):
             bt = bars3["t"].iloc[idx]
             bar_end = bt + pd.Timedelta(minutes=3)
+            if bar_end > now:
+                break  # 未来 bar，停止
             n1m = bars3["n1m"].iloc[idx] if "n1m" in bars3.columns else 3
             if pd.isna(n1m):
                 n1m = 3
-            if bar_end <= now and n1m == 3:
+            if n1m == 3:
                 n_complete = idx + 1
-            else:
-                break
+            # n1m!=3: 跳过这根，继续往后找完整的
     if n_complete == 0:
         raise RuntimeError("no complete 3m bar yet")
     sig = pd.DataFrame({
@@ -565,18 +569,19 @@ def main():
         sgn = 1 if rt["odr"] == "call" else -1
         _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
         if rt["o_qty"]:
-            # 有实际成交: 预估=信号价×delta=1×实际张数; 收益率按实际期权成本
-            rt["est_pnl"] = _spy_pnl * rt["o_qty"] * 100
+            # 有实际成交: 预估=信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本
+            # delta_eff = 0.5 + 0.1*min(|SPY|,3) (2026-10-13 用户: gamma线性公式)
+            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
+            rt["est_pnl"] = _spy_pnl * _deff * rt["o_qty"] * 100
             rt["est_bt"] = False
             if rt["o_avg"]:
                 rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
             else:
                 rt["est_ret"] = None
         else:
-            # 无实际成交(回放): 回测逻辑估算 (ATM delta=0.5起, |涨跌|×0.2变delta, 55张/$100k基准)
-            _d_exit = max(0.1, min(0.95, 0.5 + abs(_spy_pnl) * 0.2))
-            _avg_d = (0.5 + _d_exit) / 2
-            rt["est_pnl"] = _spy_pnl * _avg_d * 55 * 100
+            # 无实际成交(回放): delta_eff = 0.5 + 0.1*min(|SPY|,3), 55张/$100k基准 (2026-10-13 用户)
+            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
+            rt["est_pnl"] = _spy_pnl * _deff * 55 * 100
             rt["est_ret"] = rt["est_pnl"] / 100000  # 占总资金比 (回测口径)
             rt["est_bt"] = True
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
@@ -721,10 +726,11 @@ def main():
                 _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
             else:
                 _ar["_cpx"] = float(sig["close"].iloc[-1])
-        # 预估: 信号SPY价变化×delta=1×实际张数; 收益率按实际期权成本
+        # 预估: 信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
         _sgn = 1 if _ar["odr"] == "call" else -1
         _spy_chg = _sgn * (_ar["_cpx"] - _ar["_opx"])
-        _ar["est_pnl"] = _spy_chg * _ar["qty"] * 100
+        _deff2 = 0.5 + 0.1 * min(abs(_spy_chg), 3)
+        _ar["est_pnl"] = _spy_chg * _deff2 * _ar["qty"] * 100
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
         _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
     actual_rts.sort(key=lambda x: x["o_t"])
@@ -794,7 +800,7 @@ def main():
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=SPY价变化×delta=1×实际张数,收益率按实际期权成本;(浮)=未实现</div>"
+        "预估=SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
