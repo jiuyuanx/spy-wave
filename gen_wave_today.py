@@ -39,7 +39,7 @@ def _warmup_before(day):
     end = day.strftime("%Y-%m-%dT00:00:00Z")
     params = {"symbols": "SPY", "timeframe": "3Min", "limit": 1000, "feed": "iex",
               "sort": "desc", "start": start, "end": end}
-    data = w4.data_api("/stocks/bars", params)
+    data = w4.api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     if not bars:
         raise RuntimeError(f"no warmup bars before {day}")
@@ -60,7 +60,7 @@ def _fetch_1m_day(day):
               "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "limit": 10000, "feed": "iex", "sort": "asc"}
-    data = w4.data_api("/stocks/bars", params)
+    data = w4.api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     df = pd.DataFrame(bars)
     if df.empty:
