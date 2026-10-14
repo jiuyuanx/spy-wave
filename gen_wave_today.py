@@ -889,6 +889,19 @@ def main():
                     "borderColor:'rgba(192,32,32,0.5)',borderWidth:1.5}}" % hv)
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
+    # 9m QQE用markArea画背景，不参与bar布局，避免挤压3m
+    qqe9_area_parts = []
+    for k in range(1, n3, 3):
+        hv = hist[today_idx[k+1]] if k+1 < n3 else hist[today_idx[k]]
+        if np.isnan(hv):
+            continue
+        t0 = times[k-1] if k-1 >= 0 else times[0]
+        t1 = times[k+1] if k+1 < n3 else times[n3-1]
+        col = 'rgba(26,95,208,0.10)' if hv >= 0 else 'rgba(192,32,32,0.10)'
+        bcol = 'rgba(26,95,208,0.6)' if hv >= 0 else 'rgba(192,32,32,0.6)'
+        qqe9_area_parts.append(
+            "[{xAxis:'%s',itemStyle:{color:'%s',borderColor:'%s',borderWidth:1.5}},{xAxis:'%s'}]" % (t0, col, bcol, t1))
+    qqe9_area_js = "[" + ",".join(qqe9_area_parts) + "]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
@@ -977,10 +990,10 @@ ch.setOption({{
       tooltip:{{trigger:'item', formatter:function(p){{return p.data&&p.data.tip?p.data.tip:'';}}}},
     }},
     {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
-      xAxisIndex:1, yAxisIndex:1, barGap:'-100%',
+      xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:'260%', barGap:'-100%', z:1}},
+    {{name:'9m QQE', type:'line', data:[], xAxisIndex:1, yAxisIndex:1, silent:true, markArea:{silent:true, data:{qqe9_area_js}}}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
