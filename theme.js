@@ -40,13 +40,13 @@ var THEME = {
   qqe9: {
     barWidth: '260%',
     up: {
-      color: 'rgba(0,180,200,0.25)',
-      borderColor: 'rgba(0,180,200,1)', borderWidth: 2,
+      color: 'rgba(30,170,255,0.25)',
+      borderColor: 'rgba(30,170,255,1)', borderWidth: 2,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     },
     down: {
-      color: 'rgba(230,70,110,0.25)',
-      borderColor: 'rgba(230,70,110,1)', borderWidth: 2,
+      color: 'rgba(255,130,180,0.25)',
+      borderColor: 'rgba(255,130,180,1)', borderWidth: 2,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
   },
