@@ -39,8 +39,8 @@ var THEME = {
   // 9m QQE：蓝青/玫瑰红 + 玻璃光影 (2026-10-14)
   qqe9: {
     barWidth: '260%',
-    up: { color: 'rgba(30,170,255,0.25)' },
-    down: { color: 'rgba(255,130,180,0.25)' }
+    up: { color: 'rgba(30,170,255,0.25)', borderColor: 'rgba(30,170,255,0.7)', borderWidth: 1 },
+    down: { color: 'rgba(255,130,180,0.25)', borderColor: 'rgba(255,130,180,0.7)', borderWidth: 1 }
   },
 
   // Chinese label (e.g. '翻C') -> semantic key
