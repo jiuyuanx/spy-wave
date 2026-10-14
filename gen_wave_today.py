@@ -490,6 +490,16 @@ def main():
     pos_txt = {"call": "call", "put": "put"}.get(pos, "空仓")
 
     times = [tstrs[i] for i in today_idx]
+    # 固定x轴为全天 09:30-16:00 (130根3m), 数据左对齐, 右侧留白
+    _FULL_DAY_TIMES = []
+    _h, _m = 9, 30
+    for _k in range(130):
+        _FULL_DAY_TIMES.append(f"{_h:02d}:{_m:02d}")
+        _m += 3
+        if _m >= 60:
+            _h += 1
+            _m -= 60
+    times = _FULL_DAY_TIMES
     vals = [round(float(hist[i]), 2) if not np.isnan(hist[i]) else None for i in today_idx]
     cols = [colors[i] for i in today_idx]
     d80 = [decay80[i] for i in today_idx]
@@ -957,8 +967,8 @@ ch.setOption({{
     '9m QQE',
   ], top:30}},
   {tooltip_js}
-  dataZoom:[{{type:'inside', xAxisIndex:[0,1,2,3]}},{{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}}],
-  grid:[{{left:34,right:'4%',top:'15%',height:'30%'}},{{left:34,right:'4%',top:'52%',height:'34%'}}],
+  dataZoom:[{{type:'inside', xAxisIndex:[0,1,2,3]}}],
+  grid:[{{left:34,right:'4%',top:'12%',height:'38%'}},{{left:34,right:'4%',top:'53%',height:'42%'}}],
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}},
