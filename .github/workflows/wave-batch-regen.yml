@@ -1,0 +1,63 @@
+name: wave-batch-regen-9m-style
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: install deps
+        run: pip install -r requirements.txt
+
+      - name: fetch gh-pages archive
+        run: |
+          git fetch origin gh-pages --depth=1 2>/dev/null || true
+          git show origin/gh-pages:archive.json > /tmp/archive.json 2>/dev/null || echo '{"days":[]}' > /tmp/archive.json
+          cat /tmp/archive.json | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('days',[])), 'dates')"
+
+      - name: regenerate all dates with new 9m style
+        run: |
+          mkdir -p public
+          # 从archive.json取日期列表，逐个重生成
+          python3 << 'PYEOF'
+          import json, os, subprocess, sys
+          archive = json.load(open('/tmp/archive.json'))
+          days = sorted(archive.get('days', []))
+          print(f"Regenerating {len(days)} dates...")
+          failed = []
+          for i, day in enumerate(days):
+              print(f"[{i+1}/{len(days)}] {day}...", flush=True)
+              env = dict(os.environ)
+              env['WAVE_DATE'] = day
+              env['WAVE_OUT_DIR'] = 'public'
+              env['WAVE_OUT_NAME'] = f'{day}.html'
+              env['WAVE_AUTOREFRESH'] = '60'
+              env['ALPACA_KEY'] = os.environ.get('ALPACA_KEY', '')
+              env['ALPACA_SECRET'] = os.environ.get('ALPACA_SECRET', '')
+              r = subprocess.run([sys.executable, 'gen_wave_today.py'],
+                               env=env, capture_output=True, text=True, timeout=300)
+              if r.returncode != 0:
+                  print(f"  FAILED: {r.stderr[-500:]}")
+                  failed.append(day)
+          print(f"Done. Failed: {failed}")
+          PYEOF
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+
+      - name: deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: true
