@@ -31,7 +31,7 @@ var THEME = {
     style: {
       color: 'rgba(0,170,68,0.25)', color0: 'rgba(221,34,34,0.25)',
       borderColor: 'rgba(0,170,68,1)', borderColor0: 'rgba(221,34,34,1)',
-      borderWidth: 2,
+      borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
   },
