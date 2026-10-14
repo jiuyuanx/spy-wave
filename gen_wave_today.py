@@ -860,6 +860,38 @@ def main():
             for i in today_idx]
     ohlc_js = "[" + ",".join(f"[{o},{c},{l},{h}]" for o, c, l, h in ohlc) + "]"
 
+    # 9m 聚合 (3根3m合成1根): O=首根开, H=3根最高, L=3根最低, C=末根收, QQE=末根hist
+    # 放在每组最后一根3m的位置, 其余位置null
+    n3 = len(today_idx)
+    ohlc9_js_parts = []
+    qqe9_js_parts = []
+    for k in range(n3):
+        if (k + 1) % 3 == 0:  # 每组第3根
+            g = [today_idx[k - 2], today_idx[k - 1], today_idx[k]]
+            o9 = round(float(sig["open"].iloc[g[0]]), 2)
+            h9 = round(max(float(sig["high"].iloc[j]) for j in g), 2)
+            l9 = round(min(float(sig["low"].iloc[j]) for j in g), 2)
+            c9 = round(float(sig["close"].iloc[g[2]]), 2)
+            ohlc9_js_parts.append(f"[{o9},{c9},{l9},{h9}]")
+            hv = hist[g[2]]
+            if np.isnan(hv):
+                qqe9_js_parts.append("null")
+            else:
+                hv = round(float(hv), 2)
+                if hv >= 0:
+                    qqe9_js_parts.append(
+                        "{value:%s,itemStyle:{color:'rgba(26,95,208,0.07)',"
+                        "borderColor:'#1a5fd0',borderWidth:2}}" % hv)
+                else:
+                    qqe9_js_parts.append(
+                        "{value:%s,itemStyle:{color:'rgba(192,32,32,0.07)',"
+                        "borderColor:'#c02020',borderWidth:2}}" % hv)
+        else:
+            ohlc9_js_parts.append("null")
+            qqe9_js_parts.append("null")
+    ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
+    qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
+
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
@@ -907,6 +939,8 @@ ch.setOption({{
     {{name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
     {{name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'}},
     {{name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
+    {{name:'9mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%2212%22 y1=%221%22 x2=%2212%22 y2=%2211%22 stroke=%22%2300aa44%22 stroke-width=%222%22/><rect x=%227%22 y=%223%22 width=%2210%22 height=%226%22 fill=%22%2300aa44%22 opacity=%220.12%22 stroke=%22%2300aa44%22 stroke-width=%221.5%22/></svg>'}},
+    {{name:'9m QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%226%22 y=%222%22 width=%2212%22 height=%228%22 fill=%22%231a5fd0%22 opacity=%220.12%22 stroke=%22%231a5fd0%22 stroke-width=%221.5%22/></svg>'}},
   ], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1]}},{{type:'slider', xAxisIndex:[0,1], bottom:6}}],
@@ -919,6 +953,10 @@ ch.setOption({{
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
       markArea:{mark_area_opt}}},
+    {{name:'9mK线', type:'candlestick', data:{ohlc9_js}, xAxisIndex:0, yAxisIndex:0,
+      barWidth:16,
+      itemStyle:{{color:'rgba(0,170,68,0.06)', color0:'rgba(221,34,34,0.06)',
+                  borderColor:'#00aa44', borderColor0:'#dd2222', borderWidth:2.5, opacity:0.92}}}},
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:0, yAxisIndex:0,
       lineStyle:{{color:'#4da6ff', width:1.2, opacity:0.55}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
@@ -931,6 +969,7 @@ ch.setOption({{
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
+    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:1, yAxisIndex:1, barWidth:14}},
     {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
     {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
     {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
