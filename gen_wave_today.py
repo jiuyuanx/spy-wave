@@ -881,12 +881,14 @@ def main():
             hv = round(float(hv), 2)
             if hv >= 0:
                 qqe9_js_parts[k] = (
-                    "{value:%s,itemStyle:{color:'rgba(26,95,208,0.04)',"
-                    "borderColor:'rgba(26,95,208,0.5)',borderWidth:1.5}}" % hv)
+                    "{value:%s,itemStyle:{color:'rgba(0,180,200,0.25)',"
+                    "borderColor:'rgba(0,180,200,1)',borderWidth:2,"
+                    "shadowColor:'rgba(255,255,255,0.5)',shadowBlur:8}}" % hv)
             else:
                 qqe9_js_parts[k] = (
-                    "{value:%s,itemStyle:{color:'rgba(192,32,32,0.04)',"
-                    "borderColor:'rgba(192,32,32,0.5)',borderWidth:1.5}}" % hv)
+                    "{value:%s,itemStyle:{color:'rgba(230,70,110,0.25)',"
+                    "borderColor:'rgba(230,70,110,1)',borderWidth:2,"
+                    "shadowColor:'rgba(255,255,255,0.5)',shadowBlur:8}}" % hv)
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
 
