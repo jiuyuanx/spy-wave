@@ -917,20 +917,9 @@ def main():
 <select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
 <option value="">📅 选择日期…</option>
 </select> <span id="dayhint" style="color:#888"></span>
-<span style="margin-left:10px;white-space:nowrap">
-<button id="tg3mk" onclick="toggleSeries('3mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #666;background:#f0f0f0;border-radius:4px;cursor:pointer">3mK</button><button id="tg1m" onclick="toggleSeries('1m曲线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #2b6fd6;background:#e8efff;border-radius:4px;cursor:pointer">1m</button><button id="tg9mk" onclick="toggleSeries('9mK线')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #00aa44;background:#e8f8f0;border-radius:4px;cursor:pointer">9mK</button><button id="tg3mq" onclick="toggleSeries('QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #888;background:#f5f5f5;border-radius:4px;cursor:pointer">3mQ</button><button id="tg9mq" onclick="toggleSeries('9m QQE')" style="font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid #1a5fd0;background:#e8efff;border-radius:4px;cursor:pointer">9mQ</button>
-</span>
+
 </div>
-<script>
-function toggleSeries(name){{{{
-  var c = window._waveChart;
-  if(!c) return;
-  c.dispatchAction({{type:'legendToggleSelect', name:name}});
-  var id = name==='1m曲线'?'tg1m':name==='9mK线'?'tg9mk':name==='9m QQE'?'tg9mq':name==='3mK线'?'tg3mk':'tg3mq';
-  var b = document.getElementById(id);
-  if(b){{{{ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }}}}
-}}}}
-</script>
+
 <script>
 fetch('archive.json').then(function(r){{return r.json();}}).then(function(d){{
 var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
