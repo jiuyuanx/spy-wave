@@ -32,18 +32,18 @@ document.getElementById('dayhint').textContent='共'+days.length+'天';
 }).catch(function(){});
 </script>
 <div id="c"></div><script>
-const times = ['09:30', '09:33'];
-const vals = [-21.5,-28.55];
-const colors = ['#e5484d', '#e5484d'];
-const decayReal = [-17.2,-22.84];
-const flipBlue = [-17.2,-22.84];
-const hubuThr = [null,null];
+const times = ['09:30', '09:33', '09:36'];
+const vals = [-21.5,-28.55,-26.35];
+const colors = ['#e5484d', '#e5484d', '#e5484d'];
+const decayReal = [-17.2,-22.84,-22.84];
+const flipBlue = [-17.2,-22.84,-22.84];
+const hubuThr = [null,null,null];
 const pins = [];
-const line1m = [[0.1667, 774.77], [0.5, 774.86], [0.8333, 774.87], [1.1667, 775.54], [1.5, 775.2], [1.8333, 774.73], [2.1667, 774.95]];
+const line1m = [[0.1667, 774.77], [0.5, 774.86], [0.8333, 774.87], [1.1667, 775.54], [1.5, 775.2], [1.8333, 774.73], [2.1667, 774.95], [2.5, 774.85], [2.8333, 775.53]];
 const spins = [];
 const filldots = [];
 if (typeof THEME !== 'undefined') { THEME.applyColors(spins); THEME.applyColors(pins); }
-const barInfo = {"09:30": {"o": 774.93, "h": 775.25, "l": 774.47, "c": 774.87, "qqe": -21.5, "col": "红", "acts": []}, "09:33": {"o": 775.01, "h": 775.54, "l": 774.73, "c": 774.73, "qqe": -28.55, "col": "红", "acts": []}};
+const barInfo = {"09:30": {"o": 774.93, "h": 775.25, "l": 774.47, "c": 774.87, "qqe": -21.5, "col": "红", "acts": []}, "09:33": {"o": 775.01, "h": 775.54, "l": 774.73, "c": 774.73, "qqe": -28.55, "col": "红", "acts": []}, "09:36": {"o": 774.77, "h": 775.53, "l": 774.58, "c": 775.53, "qqe": -26.35, "col": "红", "acts": []}};
 var ch = echarts.init(document.getElementById('c'));
 window._waveChart = ch;
 ch.setOption({
@@ -65,13 +65,13 @@ ch.setOption({
   xAxis:[{type:'category',data:times,gridIndex:0,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false}},
          {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}},
          {type:'category',data:times,gridIndex:1,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}},
-         {type:'value',gridIndex:0,min:-0.5,max:1.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],
+         {type:'value',gridIndex:0,min:-0.5,max:2.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],
   yAxis:[{type:'value',gridIndex:0,scale:true,max:775.71,axisLabel:{fontSize:9}},{type:'value',gridIndex:1,axisLabel:{fontSize:9}}],
   series:[
-    {name:'3mK线', type:'candlestick', data:[[774.93,774.87,774.47,775.25],[775.01,774.73,774.73,775.54]], xAxisIndex:0, yAxisIndex:0,
+    {name:'3mK线', type:'candlestick', data:[[774.93,774.87,774.47,775.25],[775.01,774.73,774.73,775.54],[774.77,775.53,774.58,775.53]], xAxisIndex:0, yAxisIndex:0,
       itemStyle:{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'},
       markArea:{silent:true,data:[]}},
-    {name:'9mK线', type:'candlestick', data:[[NaN,NaN,NaN,NaN],[774.93,774.73,774.47,775.54]], xAxisIndex:0, yAxisIndex:0,
+    {name:'9mK线', type:'candlestick', data:[[NaN,NaN,NaN,NaN],[774.93,775.53,774.47,775.54],[NaN,NaN,NaN,NaN]], xAxisIndex:0, yAxisIndex:0,
       barWidth:THEME.k9.barWidth,
       itemStyle:THEME.k9.style},
     {name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
@@ -86,7 +86,7 @@ ch.setOption({
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
     },
-    {name:'9m QQE', type:'bar', data:[null,{value:-28.55,itemStyle:THEME.qqe9.down}], xAxisIndex:2, yAxisIndex:1, barWidth:THEME.qqe9.barWidth, z:3},
+    {name:'9m QQE', type:'bar', data:[null,{value:-26.35,itemStyle:THEME.qqe9.down},null], xAxisIndex:2, yAxisIndex:1, barWidth:THEME.qqe9.barWidth, z:3},
     {name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff9900', type:'dashed', width:3}, symbol:'none', showSymbol:false},
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
