@@ -99,7 +99,21 @@ def fetch_1m():
             if df.empty:
                 return df
             df["t"] = pd.to_datetime(df["t"], utc=True).dt.tz_convert(ET)
-            return df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
+            df = df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
+            # 2026-10-15: 用 Yahoo 数据补 Alpaca 缺失的 1m bar (12:56-14:11 第三方断层),
+            # 与生产 watcher_v4.py 同逻辑 (gapfill_YYYY-MM-DD.csv 同目录, 只补当天)
+            _gapf = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "gapfill_%s.csv" % today.strftime("%Y-%m-%d"))
+            if os.path.exists(_gapf):
+                try:
+                    _gdf = pd.read_csv(_gapf, parse_dates=["t"])
+                    _gdf["t"] = pd.to_datetime(_gdf["t"], utc=True).dt.tz_convert(ET)
+                    _gdf = _gdf[["t", "o", "h", "l", "c", "v"]]
+                    df = pd.concat([df, _gdf], ignore_index=True).sort_values("t") \
+                           .drop_duplicates("t", keep="first").reset_index(drop=True)
+                except Exception as e:
+                    print(f"gapfill 失败: {e}")
+            return df
         except Exception as e:
             last_err = e
             time.sleep(2 ** attempt)
