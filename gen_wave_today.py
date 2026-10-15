@@ -754,12 +754,12 @@ def main():
         else:
             _ar["op"] = f"实盘{_sym_cp.upper()}"
             _ar["odr"] = _sym_cp
-        # 2026-10-15: SPY开平价一律用实际成交时间最接近bar的收盘价(不用信号价,信号时间常错开)
-        _ar["_opx"] = float(sig.iloc[(sig["t"] - _ar["o_t"]).abs().argsort()[:1]]["close"].iloc[0])
+        # 2026-10-15: SPY开平价用实际成交时间最接近的1m bar收盘价(1分钟精度,不用信号价)
+        _ar["_opx"] = float(df1m.iloc[(df1m["t"] - _ar["o_t"]).abs().argsort()[:1]]["c"].iloc[0])
         if _ar["c_t"] is not None:
-            _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
+            _ar["_cpx"] = float(df1m.iloc[(df1m["t"] - _ar["c_t"]).abs().argsort()[:1]]["c"].iloc[0])
         else:
-            _ar["_cpx"] = float(sig["close"].iloc[-1])
+            _ar["_cpx"] = float(df1m["c"].iloc[-1])
         # 预估: Gamma公式ROI×$100k基准按张数折算; 收益率按实际期权成本 (2026-10-14 用户)
         _dspy2 = _ar["_cpx"] - _ar["_opx"]
         if _ar["odr"] == "call":
@@ -847,7 +847,7 @@ def main():
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=Gamma公式ROI×实际期权成本;开/平SPY=实际成交时间最接近bar收盘价;(浮)=未实现</div>"
+        "预估=Gamma公式ROI×实际期权成本;开/平SPY=实际成交时间最接近1m bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
