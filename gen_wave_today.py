@@ -593,21 +593,32 @@ def main():
             rt["ret"] = None
         sgn = 1 if rt["odr"] == "call" else -1
         _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
+        # Gamma公式 (2026-10-14 用户定死):
+        # Call ROI(%) = 9.88×ΔSPY + 0.311×ΔSPY²
+        # Put  ROI(%) = -9.88×ΔSPY + 0.311×ΔSPY²
+        # ΔSPY = 平仓价 - 开仓价(原始值); 下限-20%; 不利方向钳制≤0
+        _dspy = rt["cpx"] - rt["opx"]
+        if rt["odr"] == "call":
+            _groi = 9.88 * _dspy + 0.311 * _dspy * _dspy
+            if _dspy < 0:
+                _groi = min(_groi, 0.0)
+        else:
+            _groi = -9.88 * _dspy + 0.311 * _dspy * _dspy
+            if _dspy > 0:
+                _groi = min(_groi, 0.0)
+        _groi = max(_groi, -20.0)
         if rt["o_qty"]:
-            # 有实际成交: 预估=信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本
-            # delta_eff = 0.5 + 0.1*min(|SPY|,3) (2026-10-13 用户: gamma线性公式)
-            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
-            rt["est_pnl"] = _spy_pnl * _deff * rt["o_qty"] * 100
+            # 有实际成交: Gamma ROI×$100k基准按张数折算; 收益率按实际期权成本
+            rt["est_pnl"] = _groi / 100 * 100000 * (rt["o_qty"] / 55)
             rt["est_bt"] = False
             if rt["o_avg"]:
                 rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
             else:
                 rt["est_ret"] = None
         else:
-            # 无实际成交(回放): delta_eff = 0.5 + 0.1*min(|SPY|,3), 55张/$100k基准 (2026-10-13 用户)
-            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
-            rt["est_pnl"] = _spy_pnl * _deff * 55 * 100
-            rt["est_ret"] = rt["est_pnl"] / 100000  # 占总资金比 (回测口径)
+            # 无实际成交(回放): Gamma ROI×$100k基准
+            rt["est_pnl"] = _groi / 100 * 100000
+            rt["est_ret"] = _groi / 100  # 占总资金比 (回测口径)
             rt["est_bt"] = True
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
@@ -751,11 +762,18 @@ def main():
                 _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
             else:
                 _ar["_cpx"] = float(sig["close"].iloc[-1])
-        # 预估: 信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
-        _sgn = 1 if _ar["odr"] == "call" else -1
-        _spy_chg = _sgn * (_ar["_cpx"] - _ar["_opx"])
-        _deff2 = 0.5 + 0.1 * min(abs(_spy_chg), 3)
-        _ar["est_pnl"] = _spy_chg * _deff2 * _ar["qty"] * 100
+        # 预估: Gamma公式ROI×$100k基准按张数折算; 收益率按实际期权成本 (2026-10-14 用户)
+        _dspy2 = _ar["_cpx"] - _ar["_opx"]
+        if _ar["odr"] == "call":
+            _groi2 = 9.88 * _dspy2 + 0.311 * _dspy2 * _dspy2
+            if _dspy2 < 0:
+                _groi2 = min(_groi2, 0.0)
+        else:
+            _groi2 = -9.88 * _dspy2 + 0.311 * _dspy2 * _dspy2
+            if _dspy2 > 0:
+                _groi2 = min(_groi2, 0.0)
+        _groi2 = max(_groi2, -20.0)
+        _ar["est_pnl"] = _groi2 / 100 * 100000 * (_ar["qty"] / 55)
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
         _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
     actual_rts.sort(key=lambda x: x["o_t"])
@@ -803,7 +821,7 @@ def main():
             f"<td style=\"color:{ec}\">{est_ret_txt}</td></tr>")
     if _is_live:
         tot_est = sum(r["est_pnl"] for r in actual_rts)
-        tot_est_txt = _money(tot_est)
+        tot_est_txt = "~" + _money(tot_est)
         _tot_real = (robust_realized + robust_unreal)
     else:
         tot_est = sum(r["est_pnl"] for r in rts)
@@ -825,7 +843,7 @@ def main():
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;(浮)=未实现</div>"
+        "预估=Gamma公式ROI×$100k基准,收益率按实际期权成本;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
