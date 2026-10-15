@@ -80,7 +80,7 @@ ch.setOption({
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},
       label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,
               formatter:function(p){return p.data.lbl;}},
-      data:[{"value":["09:54",744.15],"lbl":"+1.7%","label":{"color":"#1a9e54"}},{"value":["10:36",744.78],"lbl":"+5.7%","label":{"color":"#1a9e54"}},{"value":["10:51",744.15],"lbl":"-2.1%","label":{"color":"#e5484d"}},{"value":["13:33",744.15],"lbl":"+13.8%","label":{"color":"#1a9e54"}},{"value":["13:54",744.78],"lbl":"-0.2%","label":{"color":"#e5484d"}},{"value":["14:30",744.15],"lbl":"-1.1%","label":{"color":"#e5484d"}},{"value":["14:51",744.78],"lbl":"+0.6%","label":{"color":"#1a9e54"}},{"value":["15:00",745.41],"lbl":"-0.8%","label":{"color":"#e5484d"}},{"value":["15:57",744.15],"lbl":"+0.4%","label":{"color":"#1a9e54"}}]},
+      data:[{"value":["09:54",744.15],"lbl":"+1.7%","label":{"color":"#1a9e54"}},{"value":["10:36",744.78],"lbl":"+14.8%","label":{"color":"#1a9e54"}},{"value":["10:51",744.15],"lbl":"-6.9%","label":{"color":"#e5484d"}},{"value":["13:33",744.15],"lbl":"+13.8%","label":{"color":"#1a9e54"}},{"value":["13:54",744.78],"lbl":"+0.5%","label":{"color":"#1a9e54"}},{"value":["14:30",744.15],"lbl":"-1.1%","label":{"color":"#e5484d"}},{"value":["14:51",744.78],"lbl":"-0.3%","label":{"color":"#e5484d"}},{"value":["15:00",745.41],"lbl":"-0.8%","label":{"color":"#e5484d"}},{"value":["15:57",744.15],"lbl":"+0.2%","label":{"color":"#1a9e54"}}]},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
