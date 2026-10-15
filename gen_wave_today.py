@@ -771,8 +771,9 @@ def main():
             if _dspy2 > 0:
                 _groi2 = min(_groi2, 0.0)
         _groi2 = max(_groi2, -20.0)
-        _ar["est_pnl"] = _groi2 / 100 * 100000 * (_ar["qty"] / 55)
+        # 2026-10-15 fix: 预估直接按实际成本算, 不再用$100k/55张折算(回测假设, 实盘每张成本差4-5倍)
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
+        _ar["est_pnl"] = _groi2 / 100 * _ocost
         _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
     actual_rts.sort(key=lambda x: x["o_t"])
 
@@ -846,7 +847,7 @@ def main():
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=Gamma公式ROI×$100k基准,收益率按实际期权成本;开/平SPY=实际成交时间最接近bar收盘价;(浮)=未实现</div>"
+        "预估=Gamma公式ROI×实际期权成本;开/平SPY=实际成交时间最接近bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
