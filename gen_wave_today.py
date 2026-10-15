@@ -751,17 +751,15 @@ def main():
         if _best is not None and _best_s < 900:  # 15分钟内
             _ar["op"] = _op_name(_best.get("ors"), _best["odr"])
             _ar["odr"] = _best["odr"]
-            _ar["_opx"] = _best["opx"]
-            _ar["_cpx"] = _best["cpx"]
         else:
             _ar["op"] = f"实盘{_sym_cp.upper()}"
             _ar["odr"] = _sym_cp
-            # 无匹配信号: 用成交时间最接近的bar收盘价做SPY价
-            _ar["_opx"] = float(sig.iloc[(sig["t"] - _ar["o_t"]).abs().argsort()[:1]]["close"].iloc[0])
-            if _ar["c_t"] is not None:
-                _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
-            else:
-                _ar["_cpx"] = float(sig["close"].iloc[-1])
+        # 2026-10-15: SPY开平价一律用实际成交时间最接近bar的收盘价(不用信号价,信号时间常错开)
+        _ar["_opx"] = float(sig.iloc[(sig["t"] - _ar["o_t"]).abs().argsort()[:1]]["close"].iloc[0])
+        if _ar["c_t"] is not None:
+            _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
+        else:
+            _ar["_cpx"] = float(sig["close"].iloc[-1])
         # 预估: Gamma公式ROI×$100k基准按张数折算; 收益率按实际期权成本 (2026-10-14 用户)
         _dspy2 = _ar["_cpx"] - _ar["_opx"]
         if _ar["odr"] == "call":
@@ -801,6 +799,9 @@ def main():
                 pnl_txt += "(浮)"
             est_txt, est_ret_txt = _money(ar["est_pnl"]), _pct(ar["est_ret"])
             pc = "#1a9e54" if (ar["pnl"] or 0) >= 0 else "#e5484d"
+            # 2026-10-15: 显示实际成交时间的SPY开平价,方便手动验算gamma公式
+            spy_o_txt = f"{ar['_opx']:.2f}"
+            spy_c_txt = f"{ar['_cpx']:.2f}" if ar["closed"] else "—"
         else:
             # 回放: 信号时间+操作名+预估 (实际列空)
             o_tm = sig["t"].iloc[ar["obi"]].strftime("%H:%M")
@@ -811,10 +812,12 @@ def main():
             est_txt = "~" + _money(ar["est_pnl"])
             est_ret_txt = "~" + _pct(ar["est_ret"])
             pc = "#888888"
+            spy_o_txt = f"{ar['opx']:.2f}"
+            spy_c_txt = f"{ar['cpx']:.2f}" if ar["closed"] else "—"
         ec = "#1a9e54" if ar["est_pnl"] >= 0 else "#e5484d"
         trows.append(
             f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
-            f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
+            f"<td>{oa_txt}</td><td>{spy_o_txt}</td><td>{c_tm}</td><td>{ca_txt}</td><td>{spy_c_txt}</td>"
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
             f"<td style=\"color:{ec}\">{est_txt}</td>"
@@ -828,7 +831,7 @@ def main():
         tot_est_txt = "~" + _money(tot_est)
         _tot_real = 0
     trows.append(
-        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
+        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
         f"</td><td>{_money(_tot_real)}</td><td></td>"
         f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
@@ -838,12 +841,12 @@ def main():
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
         "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
         "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
-        "<th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th>"
+        "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=Gamma公式ROI×$100k基准,收益率按实际期权成本;(浮)=未实现</div>"
+        "预估=Gamma公式ROI×$100k基准,收益率按实际期权成本;开/平SPY=实际成交时间最接近bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
