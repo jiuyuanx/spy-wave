@@ -23,13 +23,14 @@ _SKIP_DATES = {"2026-06-17"}  # Warsh FOMC, permanently excluded
 
 
 # ---------- detect functions (from watcher_v3, pure) ----------
-def _detect_peak_pullback(hist, mask, opp_mask, lookback=6, rise_mult=2.0,
+def _detect_peak_pullback(hist, mask, opp_mask, lookback=10, rise_mult=2.0,
                           pullback=0.8, min_peak=6, target_sign=1, skip_rise_mult=False,
                           day=None):
     """峰值回落衰减: 从当前往回找连续同色段 (遇真反色或空柱断开, 最多 lookback 根),
     段内同色峰值>=min_peak 且 >= 段内最小*2 ("涨起来了"), 当前回落到峰值*0.8 -> 信号。
     灰柱: 段内可计入目标色用于算峰值 (须与目标色同号), 触发柱可以是真色或灰柱
     (|hist|>=SIG_MIN_LEN) (2026-10-06 用户: "灰柱子感觉比蓝柱子更算衰减")。
+    2026-10-14: lookback 6→10 (LB10)。
     skip_rise_mult: 早盘跳过"2倍"检查 (2026-10-01 用户: 早盘一上来就很长)
     target_sign: +1 目标为蓝柱(hist>0), -1 目标为红柱(hist<0)。
     day: 可选, 与hist等长的日期数组; 回看不跨日 (2026-10-02 用户: "这里蓝色哪有衰减?"
@@ -257,6 +258,58 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     peak_blue_m = {idx: pk for idx, pk in trig_blue_m}
     set_red = set(peak_red.keys())
     set_blue = set(peak_blue.keys())
+
+    # ---------- 9mK聚合 + cumslope + 红侧反弹惩罚 (2026-10-17 红0.05上线) ----------
+    # CUMSLOPE = (上一根走完9m收 - 当日首根9m收) / 已走完根数, _prev>=1
+    # 强下跌日(cumslope < -0.05)红侧翻仓(put→call)加惩罚: need *= min(1,max(0.2,2.0*rebound_rate))
+    _REBOUND_SLOPE = 2.0
+    _CUM_SLOPE_TH = 0.05
+    _9m_h4 = np.full(n, np.nan)
+    _9m_l4 = np.full(n, np.nan)
+    _9m_cumslope = np.full(n, np.nan)
+    _wt = warm["t"]
+    _wdate = _wt.dt.date.astype(str).values
+    for _d in sorted(set(_wdate)):
+        _idx = np.where(_wdate == _d)[0]
+        if len(_idx) < 6:
+            continue
+        _t0 = _wt.iloc[_idx[0]]
+        _day0 = _t0.replace(hour=9, minute=30, second=0, microsecond=0)
+        _k9 = np.array([int((_wt.iloc[_j] - _day0).total_seconds() // 540) for _j in _idx])
+        _maxk = _k9.max()
+        _9h, _9l, _9c = {}, {}, {}
+        for _kk in range(_maxk + 1):
+            _m = _idx[_k9 == _kk]
+            if len(_m) == 0:
+                continue
+            _9h[_kk] = float(high[_m].max())
+            _9l[_kk] = float(low[_m].min())
+            _9c[_kk] = float(close[_m[-1]])
+        for _ii, _j in enumerate(_idx):
+            _kk = _k9[_ii]
+            _prev = _kk - 1
+            _kk4 = [_prev - 3, _prev - 2, _prev - 1, _prev]
+            if all(_k in _9h for _k in _kk4):
+                _9m_h4[_j] = max(_9h[_k] for _k in _kk4)
+                _9m_l4[_j] = min(_9l[_k] for _k in _kk4)
+        if 0 in _9c:
+            _open_c = _9c[0]
+            for _ii, _j in enumerate(_idx):
+                _kk = _k9[_ii]
+                _prev = _kk - 1
+                if _prev >= 1 and _prev in _9c:
+                    _9m_cumslope[_j] = (_9c[_prev] - _open_c) / _prev
+    def _rebound_factor_red(_i):
+        _cs = _9m_cumslope[_i]
+        if np.isnan(_cs) or _cs >= -_CUM_SLOPE_TH:
+            return 1.0
+        if np.isnan(_9m_h4[_i]) or np.isnan(_9m_l4[_i]):
+            return 1.0
+        _rng = _9m_h4[_i] - _9m_l4[_i]
+        if _rng <= 0:
+            return 1.0
+        _rate = (float(close[_i]) - _9m_l4[_i]) / _rng
+        return min(1.0, max(0.2, _REBOUND_SLOPE * _rate))
 
     # ---------- state ----------
     actions = []  # (bar_idx, time_str, action, direction, price, reason)
@@ -535,7 +588,8 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                     k3_wait_bars = 0
                     k3_wait_is_put = False
                     _tstr_kws = f"{day}T{hm}"
-                    actions.append((i, _tstr_kws, "持", pos, px, f"3K等待开始(净{_k3_net:.2f})"))
+                    # Fix 2026-10-14: 确保记录的pos与触发条件一致
+                    actions.append((i, _tstr_kws, "持", "call", px, f"3K等待开始(净{_k3_net:.2f})"))
                     _stop_triggered = True
                     continue
             except Exception:
@@ -610,7 +664,8 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 if _k3_nett is not None and _k3_nett < -_K3_THRESH and hm < "15:55":
                     k3_tp_bar = i
                     _tstr_ktps = f"{day}T{hm}"
-                    actions.append((i, _tstr_ktps, "持", pos, px, f"3K止盈开始(净{_k3_nett:.2f})"))
+                    # Fix 2026-10-14: 7/10 bug - 确保记录的pos与触发条件一致，用字面量"put"而非变量pos
+                    actions.append((i, _tstr_ktps, "持", "put", px, f"3K止盈开始(净{_k3_nett:.2f})"))
                     _stop_triggered = True
                     continue
             except Exception:
@@ -936,8 +991,10 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; last_action_bar = i
                 _flip_to = "call"; _flip_peak = 0; _flip_is_huibu = (not _cont_call and _long_call_sig)
             # (已删除: 红/蓝连续变长 & 柱子消失平仓, 2026-10-01 10天回测胜率3%/0%)
-            # 反向翻仓: 长峰值(>=10)才翻, 短峰值只平仓观望
-            FLIP_MIN_PEAK = 14
+            # 反向翻仓: 长峰值才翻, 短峰值只平仓观望
+            # 2026-10-14: 红14/蓝11不对称 (蓝侧更容易翻)
+            FLIP_MIN_PEAK_RED = 14
+            FLIP_MIN_PEAK_BLUE = 11
             if pos and not in_cooldown:
                 # 波浪自适应翻仓 (2026-10-03 用户): 起伏越厉害越减震. 起伏率=方向反转次数/(根数-1).
                 # 灰柱两边同向不断浪. wl_adj = wl*(1.0+chop).
@@ -994,7 +1051,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 if sig == "RED_DECAY_LONG" and pos == "put":
                     _pk_map = peak_red_m if _is_morning else peak_red
                     pk = _pk_map.get(i, 0)
-                    if pk >= FLIP_MIN_PEAK:
+                    if pk >= FLIP_MIN_PEAK_RED:
                         _wl, _chop, _wl_adj, _ws, _pk = _fav_wave_info(-1)
                         # 4次操作后才减震, 且随时间衰减
                         _op_cnt = _count_ops_from_open(_pk)
@@ -1013,6 +1070,8 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                             _need *= 0.7
                         # 2026-10-07 用户: 最不济40%, need不低于0.40
                         _need = max(0.30, _need)
+                        # 2026-10-17 红0.05上线: 红侧翻仓反弹惩罚(强下跌日弱反弹更难翻)
+                        _need *= _rebound_factor_red(i)
                         _ratio = abs(hist[i]) / pk if pk > 0 else 1
                         if _ratio <= _need:
                             # 前根对比抗震 (2026-10-03 用户): 长波(wl_adj>=10)且前4根内同日操作>=2次, 要求<=前根70%才翻
@@ -1074,7 +1133,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 elif sig == "BLUE_DECAY_SHORT" and pos == "call":
                     _pk_map = peak_blue_m if _is_morning else peak_blue
                     pk = _pk_map.get(i, 0)
-                    if pk >= FLIP_MIN_PEAK:
+                    if pk >= FLIP_MIN_PEAK_BLUE:
                         _wl, _chop, _wl_adj, _ws, _pk = _fav_wave_info(1)
                         _op_cnt = _count_ops_from_open(_pk)
                         if _op_cnt >= 4:
