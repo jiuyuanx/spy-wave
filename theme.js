@@ -89,6 +89,12 @@ var THEME = {
     if (!b) return t;
     var s = '<b>' + t + '</b><br/>开' + b.o + ' 收' + b.c +
             '<br/>QQE ' + b.qqe + '(' + b.col + ')';
+    for (var i = 0; i < ps.length; i++) {
+      if (ps[i].seriesName === 'cumslope' && ps[i].value !== null && ps[i].value !== 'null') {
+        s += '<br/><span style="color:#20b2aa">cumslope ' + ps[i].value + '</span>';
+        break;
+      }
+    }
     if (b.acts && b.acts.length) s += '<br/>' + b.acts.join('<br/>');
     return s;
   }

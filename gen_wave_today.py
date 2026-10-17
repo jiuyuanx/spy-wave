@@ -938,6 +938,26 @@ def main():
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
 
+    # cumslope: (上一根走完9m收 - 当日首根9m收) / 已走完根数，ffill到3m轴
+    cumslope_parts = ["null"] * n3
+    _m9closes = []  # (k位置, 收盘价)
+    for k in range(1, n3, 3):
+        g = [today_idx[k - 1], today_idx[k]]
+        if k + 1 < n3:
+            g.append(today_idx[k + 1])
+        c9 = round(float(sig["close"].iloc[g[-1]]), 2)
+        _m9closes.append((k, c9))
+    if len(_m9closes) >= 2:
+        _first_c = _m9closes[0][1]
+        for idx9 in range(1, len(_m9closes)):
+            _k, _c = _m9closes[idx9]
+            _cs = round((_c - _first_c) / idx9, 3)
+            # ffill: 从这根9m位置到下一根9m位置之前
+            _kend = _m9closes[idx9 + 1][0] if idx9 + 1 < len(_m9closes) else n3
+            for _kk in range(_k, _kend):
+                cumslope_parts[_kk] = str(_cs)
+    cumslope_js = "[" + ",".join(cumslope_parts) + "]"
+
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
@@ -989,16 +1009,17 @@ ch.setOption({{
     {{name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
     '9mK线',
     '9m QQE',
+    'cumslope',
   ], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1,2,3]}}],
-  grid:[{{left:34,right:'4%',top:'12%',height:'38%'}},{{left:34,right:'4%',top:'53%',height:'42%'}}],
+  grid:[{{left:34,right:'8%',top:'12%',height:'38%'}},{{left:34,right:'8%',top:'53%',height:'42%'}}],
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}},splitLine:{{show:false}}}},
          {{type:'value',gridIndex:0,min:-0.5,max:{len(times)-0.5},axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}},splitLine:{{show:false}}}}],
-  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js},axisLabel:{{fontSize:9}}}},{{type:'value',gridIndex:1,axisLabel:{{fontSize:9}}}}],
+  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js},axisLabel:{{fontSize:8}}}},{{type:'value',gridIndex:1,axisLabel:{{fontSize:8}}}},{{type:'value',gridIndex:0,scale:true,position:'right',offset:0,splitLine:{{show:false}},axisLabel:{{fontSize:8,color:'#20b2aa'}},name:'cumslope'}}],
   series:[
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
@@ -1009,6 +1030,9 @@ ch.setOption({{
     {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
       lineStyle:{{color:'#2b6fd6', width:1.2, opacity:0.85}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
+    }},
+    {{name:'cumslope', type:'line', data:{cumslope_js}, xAxisIndex:0, yAxisIndex:2,
+      lineStyle:{{color:'#20b2aa', width:1.5}}, symbol:'none', showSymbol:false,
     }},
     {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
       itemStyle:{{opacity:0.75}}, data:filldots,
