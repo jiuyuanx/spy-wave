@@ -95,6 +95,12 @@ var THEME = {
         break;
       }
     }
+    for (var i = 0; i < ps.length; i++) {
+      if (ps[i].seriesName === 'slope5' && ps[i].value !== null && ps[i].value !== 'null') {
+        s += '<br/><span style="color:#ff9900">slope5 ' + ps[i].value + '</span>';
+        break;
+      }
+    }
     if (b.acts && b.acts.length) s += '<br/>' + b.acts.join('<br/>');
     return s;
   }
