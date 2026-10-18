@@ -285,14 +285,15 @@ def main():
         raise RuntimeError("no today bars")
 
     # 真色
+    # 2026-10-18: colors用theme标记，由THEME.qqe3映射（solve once for all）
     colors = []
     for j in range(n):
         if q_up[j] and abs(hist[j]) >= SIG_MIN_LEN:
-            colors.append(BLUE)
+            colors.append("up")
         elif q_down[j] and abs(hist[j]) >= SIG_MIN_LEN:
-            colors.append(RED)
+            colors.append("down")
         else:
-            colors.append(GRAY)
+            colors.append("gray")
 
     # 翻仓bar集合 (同bar既平又开)
     by_bar = {}
@@ -481,7 +482,7 @@ def main():
             "l": round(float(sig["low"].iloc[i]), 2),
             "c": round(float(sig["close"].iloc[i]), 2),
             "qqe": round(float(hist[i]), 2) if not np.isnan(hist[i]) else None,
-            "col": "蓝" if colors[i] == BLUE else ("红" if colors[i] == RED else "灰"),
+            "col": "蓝" if colors[i] == "up" else ("红" if colors[i] == "down" else "灰"),
             "acts": acts_by_bar.get(i, []),
         }
     bar_info_js = json.dumps(bar_info, ensure_ascii=False)
@@ -1060,7 +1061,7 @@ ch.setOption({{
       itemStyle:{{opacity:0.75}}, data:filldots,
       tooltip:{{trigger:'item', formatter:function(p){{return p.data&&p.data.tip?p.data.tip:'';}}}},
     }},
-    {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
+    {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:THEME.qqe3[colors[i]]}}}})),
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
