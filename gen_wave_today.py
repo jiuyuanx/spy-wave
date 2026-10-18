@@ -938,7 +938,8 @@ def main():
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
 
-    # cumslope: (上一根走完9m收 - 当日首根9m收) / 已走完根数，ffill到3m轴
+    # cumslope: (上一根走完9m收 - 当日首根9m收) / 已走完根数，无未来函数
+    # 第g组9mK在3m bar 3g+2收盘才走完；在3m bar j处，已走完组数n_done=(j+1)//3（j>=2）
     cumslope_parts = ["null"] * n3
     _m9closes = []  # (k位置, 收盘价)
     for k in range(1, n3, 3):
@@ -947,22 +948,21 @@ def main():
             g.append(today_idx[k + 1])
         c9 = round(float(sig["close"].iloc[g[-1]]), 2)
         _m9closes.append((k, c9))
-    if len(_m9closes) >= 2:
-        _first_c = _m9closes[0][1]
-        for idx9 in range(1, len(_m9closes)):
-            _k, _c = _m9closes[idx9]
-            _cs = round((_c - _first_c) / idx9, 3)
-            # ffill: 从这根9m位置到下一根9m位置之前
-            _kend = _m9closes[idx9 + 1][0] if idx9 + 1 < len(_m9closes) else n3
-            for _kk in range(_k, _kend):
-                cumslope_parts[_kk] = str(_cs)
+    _closes9 = [c for _, c in _m9closes]  # 按9m顺序的收盘价
+    if len(_closes9) >= 2:
+        _first_c = _closes9[0]
+        for _j in range(n3):
+            _n_done = (_j + 1) // 3 if _j >= 2 else 0
+            # 已走完>=2组时：(最后一根已走完收 - 首根收) / (已走完组数-1)
+            if _n_done >= 2:
+                _cs = round((_closes9[_n_done - 1] - _first_c) / (_n_done - 1), 3)
+                cumslope_parts[_j] = str(_cs)
     cumslope_js = "[" + ",".join(cumslope_parts) + "]"
 
     # slope5: 最近5根(最少2根)已走完9mK收盘价的线性回归斜率，无未来函数
     # 第g组9mK在3m bar 3g+2收盘才走完；在3m bar j处，已走完组数n_done=(j+1)//3（j>=2）
     import numpy as _np5
     slope5_parts = ["null"] * n3
-    _closes9 = [c for _, c in _m9closes]  # 按9m顺序的收盘价
     for _j in range(n3):
         _n_done = (_j + 1) // 3 if _j >= 2 else 0
         _win = _closes9[max(0, _n_done - 5):_n_done]
