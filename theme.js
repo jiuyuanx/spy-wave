@@ -89,6 +89,14 @@ var THEME = {
     return arr;
   },
 
+  // tooltip style (2026-10-18 user's: 背景透明度统一在theme改)
+  tooltip: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderColor: 'rgba(0,0,0,0.15)',
+    borderWidth: 1,
+    textStyle: { color: '#333', fontSize: 12 }
+  },
+
   // tooltip: only open / close / QQE (no high/low)
   tooltipFormatter: function(ps, barInfo) {
     var t = ps[0].axisValue;

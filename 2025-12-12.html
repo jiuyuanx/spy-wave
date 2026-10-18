@@ -46,7 +46,7 @@ ch.setOption({
     {name:'9mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(221,34,34,0.25)%22 stroke=%22rgba(221,34,34,1)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(0,170,68,0.25)%22 stroke=%22rgba(0,170,68,1)%22/></svg>'},
     {name:'9m QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(30,170,255,0.25)%22 stroke=%22rgba(30,170,255,0.7)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(255,130,180,0.25)%22 stroke=%22rgba(255,130,180,0.7)%22/></svg>'}
   ], top:30},
-  tooltip:{trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},
+  tooltip:Object.assign({trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
   dataZoom:[{type:'inside', xAxisIndex:[0,1,2,3]},{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}],
   grid:[{left:34,right:'8%',top:'12%',height:'38%'},{left:34,right:'8%',top:'53%',height:'42%'}],
   axisPointer:{link:{xAxisIndex:'all'}},
@@ -67,7 +67,7 @@ ch.setOption({
     },
     {name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
       itemStyle:{opacity:0.75}, data:filldots,
-      tooltip:{trigger:'item', formatter:function(p){return p.data&&p.data.tip?p.data.tip:'';}},
+      tooltip:Object.assign({trigger:'item',formatter:function(p){return p.data&&p.data.tip?p.data.tip:'';}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
     },
     {name:'cumslope', type:'line', data:[null,null,null,null,null,-0.87,-0.87,-0.87,-0.43,-0.43,-0.43,-0.677,-0.677,-0.677,-0.698,-0.698,-0.698,-0.652,-0.652,-0.652,-0.727,-0.727,-0.727,-0.559,-0.559,-0.559,-0.499,-0.499,-0.499,-0.776,-0.776,-0.776,-0.767,-0.767,-0.767,-0.691,-0.691,-0.691,-0.653,-0.653,-0.653,-0.656,-0.656,-0.656,-0.571,-0.571,-0.571,-0.591,-0.591,-0.591,-0.476,-0.476,-0.476,-0.402,-0.402,-0.402,-0.323,-0.323,-0.323,-0.381,-0.381,-0.381,-0.315,-0.315,-0.315,-0.266,-0.266,-0.266,-0.272,-0.272,-0.272,-0.249,-0.249,-0.249,-0.21,-0.21,-0.21,-0.213,-0.213,-0.213,-0.2,-0.2,-0.2,-0.187,-0.187,-0.187,-0.196,-0.196,-0.196,-0.212,-0.212,-0.212,-0.22,-0.22,-0.22,-0.223,-0.223,-0.223,-0.233,-0.233,-0.233,-0.208,-0.208,-0.208,-0.203,-0.203,-0.203,-0.19,-0.19,-0.19,-0.196,-0.196,-0.196,-0.177,-0.177,-0.177,-0.18,-0.18,-0.18,-0.188,-0.188,-0.188,-0.209,-0.209,-0.209,-0.171,-0.171,-0.171,-0.174,-0.174], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#20b2aa', width:1.5}, symbol:'none', showSymbol:false},
     {name:'QQE', type:'bar', data: vals.map((v,i)=>({value:v, itemStyle:{color:THEME.qqe3[colors[i]]}})),
