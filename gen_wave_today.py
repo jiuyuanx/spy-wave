@@ -958,6 +958,31 @@ def main():
                 cumslope_parts[_kk] = str(_cs)
     cumslope_js = "[" + ",".join(cumslope_parts) + "]"
 
+    # slope5: 最近5根(最少2根)走完9mK收盘价的线性回归斜率，ffill到3m轴
+    import numpy as _np5
+    slope5_parts = ["null"] * n3
+    # _m9closes已是[(k位置, 收盘价)]，按9m顺序
+    _s5_vals = {}  # k位置 -> slope5
+    for idx9 in range(len(_m9closes)):
+        # 取最多5根、至少2根已走完的9mK（含当前idx9）
+        _avail = _m9closes[max(0, idx9 - 4):idx9 + 1]
+        if len(_avail) >= 2:
+            _ys = _np5.array([c for _, c in _avail], dtype=float)
+            _xs = _np5.arange(len(_avail), dtype=float)
+            _xm, _ym = _xs.mean(), _ys.mean()
+            _den = ((_xs - _xm) ** 2).sum()
+            if _den > 0:
+                _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
+                _s5_vals[_m9closes[idx9][0]] = _s5
+    # ffill到3m轴
+    for idx9 in range(len(_m9closes)):
+        _k = _m9closes[idx9][0]
+        if _k in _s5_vals:
+            _kend = _m9closes[idx9 + 1][0] if idx9 + 1 < len(_m9closes) else n3
+            for _kk in range(_k, _kend):
+                slope5_parts[_kk] = str(_s5_vals[_k])
+    slope5_js = "[" + ",".join(slope5_parts) + "]"
+
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
@@ -1010,6 +1035,7 @@ ch.setOption({{
     '9mK线',
     '9m QQE',
     'cumslope',
+    {{name:'slope5', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22/></svg>'}},
   ], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1,2,3]}}],
@@ -1033,6 +1059,9 @@ ch.setOption({{
     }},
     {{name:'cumslope', type:'line', data:{cumslope_js}, xAxisIndex:0, yAxisIndex:2,
       lineStyle:{{color:'#20b2aa', width:1.5}}, symbol:'none', showSymbol:false,
+    }},
+    {{name:'slope5', type:'line', data:{slope5_js}, xAxisIndex:0, yAxisIndex:2,
+      lineStyle:{{color:'#ff9900', width:1.5}}, symbol:'none', showSymbol:false,
     }},
     {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
       itemStyle:{{opacity:0.75}}, data:filldots,
