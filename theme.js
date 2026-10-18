@@ -36,17 +36,17 @@ var THEME = {
     }
   },
 
-  // 9m QQE：蓝青/玫瑰红 + 玻璃光影 (2026-10-14)
+  // 9m QQE：天蓝/红 (2026-10-18 user's)
   qqe9: {
     barWidth: '260%',
     up: {
-      color: 'rgba(0,180,200,0.25)',
-      borderColor: 'rgba(0,180,200,1)', borderWidth: 2,
+      color: 'rgba(30,170,255,0.25)',
+      borderColor: 'rgba(30,170,255,1)', borderWidth: 2,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     },
     down: {
-      color: 'rgba(230,70,110,0.25)',
-      borderColor: 'rgba(230,70,110,1)', borderWidth: 2,
+      color: 'rgba(229,72,77,0.25)',
+      borderColor: 'rgba(229,72,77,1)', borderWidth: 2,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
   },
