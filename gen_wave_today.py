@@ -526,8 +526,8 @@ def main():
             pnl = (float(cpx) - float(opx)) if odr == "call" else (float(opx) - float(cpx))
         except (TypeError, ValueError):
             return
-        _op = round(min(0.08 + abs(pnl) * 0.45, 0.5), 3)  # 越赚/越亏越不透明
-        _col = f"rgba(26,158,84,{_op})" if pnl >= 0 else f"rgba(229,72,77,{_op})"
+        _op = round(min(0.08 + abs(pnl) * 0.84, 0.5), 3)  # 越赚/越亏越不透明
+        _col = f"rgba(0,170,0,{_op})" if pnl >= 0 else f"rgba(230,0,0,{_op})"
         s = tstrs[obi] if obi in today_set else first_t
         mark_areas.append([
             {"xAxis": s, "itemStyle": {"color": _col}},
