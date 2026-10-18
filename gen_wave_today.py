@@ -958,29 +958,22 @@ def main():
                 cumslope_parts[_kk] = str(_cs)
     cumslope_js = "[" + ",".join(cumslope_parts) + "]"
 
-    # slope5: 最近5根(最少2根)走完9mK收盘价的线性回归斜率，ffill到3m轴
+    # slope5: 最近5根(最少2根)已走完9mK收盘价的线性回归斜率，无未来函数
+    # 第g组9mK在3m bar 3g+2收盘才走完；在3m bar j处，已走完组数n_done=(j+1)//3（j>=2）
     import numpy as _np5
     slope5_parts = ["null"] * n3
-    # _m9closes已是[(k位置, 收盘价)]，按9m顺序
-    _s5_vals = {}  # k位置 -> slope5
-    for idx9 in range(len(_m9closes)):
-        # 取最多5根、至少2根已走完的9mK（含当前idx9）
-        _avail = _m9closes[max(0, idx9 - 4):idx9 + 1]
-        if len(_avail) >= 2:
-            _ys = _np5.array([c for _, c in _avail], dtype=float)
-            _xs = _np5.arange(len(_avail), dtype=float)
+    _closes9 = [c for _, c in _m9closes]  # 按9m顺序的收盘价
+    for _j in range(n3):
+        _n_done = (_j + 1) // 3 if _j >= 2 else 0
+        _win = _closes9[max(0, _n_done - 5):_n_done]
+        if len(_win) >= 2:
+            _ys = _np5.array(_win, dtype=float)
+            _xs = _np5.arange(len(_win), dtype=float)
             _xm, _ym = _xs.mean(), _ys.mean()
             _den = ((_xs - _xm) ** 2).sum()
             if _den > 0:
                 _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
-                _s5_vals[_m9closes[idx9][0]] = _s5
-    # ffill到3m轴
-    for idx9 in range(len(_m9closes)):
-        _k = _m9closes[idx9][0]
-        if _k in _s5_vals:
-            _kend = _m9closes[idx9 + 1][0] if idx9 + 1 < len(_m9closes) else n3
-            for _kk in range(_k, _kend):
-                slope5_parts[_kk] = str(_s5_vals[_k])
+                slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
 
     def js_arr(a):
