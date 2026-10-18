@@ -48,12 +48,12 @@ var THEME = {
     barWidth: '260%',
     up: {
       color: 'rgba(30,170,255,0.25)',
-      borderColor: 'rgba(30,170,255,1)', borderWidth: 2,
+      borderColor: 'rgba(30,170,255,0.7)', borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     },
     down: {
       color: 'rgba(229,72,77,0.25)',
-      borderColor: 'rgba(229,72,77,1)', borderWidth: 2,
+      borderColor: 'rgba(229,72,77,0.7)', borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
   },
