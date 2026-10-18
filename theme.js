@@ -36,6 +36,13 @@ var THEME = {
     }
   },
 
+  // 3m QQE真色 (2026-10-18 user's: 统一进theme)
+  qqe3: {
+    up:   '#2f80ed',  // 真蓝
+    down: '#e5484d',  // 真红
+    gray: '#b0b0b0'   // 灰
+  },
+
   // 9m QQE：天蓝/红 (2026-10-18 user's)
   qqe9: {
     barWidth: '260%',
