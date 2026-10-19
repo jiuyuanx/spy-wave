@@ -32,6 +32,19 @@ from signal_engine import (run_signals, detect_red_decay, detect_blue_decay,
 
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
 
+def gamma_roi(pos, open_px, close_px):
+    """Gamma公式，返回百分比。"""
+    d = close_px - open_px
+    if pos == 'call':
+        r = 9.88 * d + 0.311 * d * d
+        if d < 0:
+            r = min(r, 0.0)
+    else:
+        r = -9.88 * d + 0.311 * d * d
+        if d > 0:
+            r = min(r, 0.0)
+    return max(r, -20.0)
+
 
 def _warmup_before(day):
     """某日前 7 天的 3m warmup (回放用, 不碰生产 load_history)。"""
@@ -285,15 +298,14 @@ def main():
         raise RuntimeError("no today bars")
 
     # 真色
-    # 2026-10-18: colors用theme标记，由THEME.qqe3映射（solve once for all）
     colors = []
     for j in range(n):
         if q_up[j] and abs(hist[j]) >= SIG_MIN_LEN:
-            colors.append("up")
+            colors.append(BLUE)
         elif q_down[j] and abs(hist[j]) >= SIG_MIN_LEN:
-            colors.append("down")
+            colors.append(RED)
         else:
-            colors.append("gray")
+            colors.append(GRAY)
 
     # 翻仓bar集合 (同bar既平又开)
     by_bar = {}
@@ -482,7 +494,7 @@ def main():
             "l": round(float(sig["low"].iloc[i]), 2),
             "c": round(float(sig["close"].iloc[i]), 2),
             "qqe": round(float(hist[i]), 2) if not np.isnan(hist[i]) else None,
-            "col": "蓝" if colors[i] == "up" else ("红" if colors[i] == "down" else "灰"),
+            "col": "蓝" if colors[i] == BLUE else ("红" if colors[i] == RED else "灰"),
             "acts": acts_by_bar.get(i, []),
         }
     bar_info_js = json.dumps(bar_info, ensure_ascii=False)
@@ -527,7 +539,9 @@ def main():
             pnl = (float(cpx) - float(opx)) if odr == "call" else (float(opx) - float(cpx))
         except (TypeError, ValueError):
             return
-        _op = round(min(0.08 + abs(pnl) * 0.84, 0.5), 3)  # 越赚/越亏越不透明
+        # 2026-10-19 用户: 按期权收益率百分比算alpha，5%到顶，上限0.6
+        _pct = abs(gamma_roi(odr, opx, cpx))
+        _op = round(min(0.08 + _pct * 0.104, 0.6), 3)  # 越赚/越亏越不透明
         _col = f"rgba(0,170,0,{_op})" if pnl >= 0 else f"rgba(230,0,0,{_op})"
         s = tstrs[obi] if obi in today_set else first_t
         mark_areas.append([
@@ -594,32 +608,21 @@ def main():
             rt["ret"] = None
         sgn = 1 if rt["odr"] == "call" else -1
         _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
-        # Gamma公式 (2026-10-14 用户定死):
-        # Call ROI(%) = 9.88×ΔSPY + 0.311×ΔSPY²
-        # Put  ROI(%) = -9.88×ΔSPY + 0.311×ΔSPY²
-        # ΔSPY = 平仓价 - 开仓价(原始值); 下限-20%; 不利方向钳制≤0
-        _dspy = rt["cpx"] - rt["opx"]
-        if rt["odr"] == "call":
-            _groi = 9.88 * _dspy + 0.311 * _dspy * _dspy
-            if _dspy < 0:
-                _groi = min(_groi, 0.0)
-        else:
-            _groi = -9.88 * _dspy + 0.311 * _dspy * _dspy
-            if _dspy > 0:
-                _groi = min(_groi, 0.0)
-        _groi = max(_groi, -20.0)
         if rt["o_qty"]:
-            # 有实际成交: Gamma ROI×$100k基准按张数折算; 收益率按实际期权成本
-            rt["est_pnl"] = _groi / 100 * 100000 * (rt["o_qty"] / 55)
+            # 有实际成交: 预估=信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本
+            # delta_eff = 0.5 + 0.1*min(|SPY|,3) (2026-10-13 用户: gamma线性公式)
+            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
+            rt["est_pnl"] = _spy_pnl * _deff * rt["o_qty"] * 100
             rt["est_bt"] = False
             if rt["o_avg"]:
                 rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
             else:
                 rt["est_ret"] = None
         else:
-            # 无实际成交(回放): Gamma ROI×$100k基准
-            rt["est_pnl"] = _groi / 100 * 100000
-            rt["est_ret"] = _groi / 100  # 占总资金比 (回测口径)
+            # 无实际成交(回放): delta_eff = 0.5 + 0.1*min(|SPY|,3), 55张/$100k基准 (2026-10-13 用户)
+            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
+            rt["est_pnl"] = _spy_pnl * _deff * 55 * 100
+            rt["est_ret"] = rt["est_pnl"] / 100000  # 占总资金比 (回测口径)
             rt["est_bt"] = True
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
@@ -752,29 +755,23 @@ def main():
         if _best is not None and _best_s < 900:  # 15分钟内
             _ar["op"] = _op_name(_best.get("ors"), _best["odr"])
             _ar["odr"] = _best["odr"]
+            _ar["_opx"] = _best["opx"]
+            _ar["_cpx"] = _best["cpx"]
         else:
             _ar["op"] = f"实盘{_sym_cp.upper()}"
             _ar["odr"] = _sym_cp
-        # 2026-10-15: SPY开平价用实际成交时间最接近的1m bar收盘价(1分钟精度,不用信号价)
-        _ar["_opx"] = float(df1m.iloc[(df1m["t"] - _ar["o_t"]).abs().argsort()[:1]]["c"].iloc[0])
-        if _ar["c_t"] is not None:
-            _ar["_cpx"] = float(df1m.iloc[(df1m["t"] - _ar["c_t"]).abs().argsort()[:1]]["c"].iloc[0])
-        else:
-            _ar["_cpx"] = float(df1m["c"].iloc[-1])
-        # 预估: Gamma公式ROI×$100k基准按张数折算; 收益率按实际期权成本 (2026-10-14 用户)
-        _dspy2 = _ar["_cpx"] - _ar["_opx"]
-        if _ar["odr"] == "call":
-            _groi2 = 9.88 * _dspy2 + 0.311 * _dspy2 * _dspy2
-            if _dspy2 < 0:
-                _groi2 = min(_groi2, 0.0)
-        else:
-            _groi2 = -9.88 * _dspy2 + 0.311 * _dspy2 * _dspy2
-            if _dspy2 > 0:
-                _groi2 = min(_groi2, 0.0)
-        _groi2 = max(_groi2, -20.0)
-        # 2026-10-15 fix: 预估直接按实际成本算, 不再用$100k/55张折算(回测假设, 实盘每张成本差4-5倍)
+            # 无匹配信号: 用成交时间最接近的bar收盘价做SPY价
+            _ar["_opx"] = float(sig.iloc[(sig["t"] - _ar["o_t"]).abs().argsort()[:1]]["close"].iloc[0])
+            if _ar["c_t"] is not None:
+                _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
+            else:
+                _ar["_cpx"] = float(sig["close"].iloc[-1])
+        # 预估: 信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
+        _sgn = 1 if _ar["odr"] == "call" else -1
+        _spy_chg = _sgn * (_ar["_cpx"] - _ar["_opx"])
+        _deff2 = 0.5 + 0.1 * min(abs(_spy_chg), 3)
+        _ar["est_pnl"] = _spy_chg * _deff2 * _ar["qty"] * 100
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
-        _ar["est_pnl"] = _groi2 / 100 * _ocost
         _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
     actual_rts.sort(key=lambda x: x["o_t"])
 
@@ -801,9 +798,6 @@ def main():
                 pnl_txt += "(浮)"
             est_txt, est_ret_txt = _money(ar["est_pnl"]), _pct(ar["est_ret"])
             pc = "#1a9e54" if (ar["pnl"] or 0) >= 0 else "#e5484d"
-            # 2026-10-15: 显示实际成交时间的SPY开平价,方便手动验算gamma公式
-            spy_o_txt = f"{ar['_opx']:.2f}"
-            spy_c_txt = f"{ar['_cpx']:.2f}" if ar["closed"] else "—"
         else:
             # 回放: 信号时间+操作名+预估 (实际列空)
             o_tm = sig["t"].iloc[ar["obi"]].strftime("%H:%M")
@@ -814,26 +808,24 @@ def main():
             est_txt = "~" + _money(ar["est_pnl"])
             est_ret_txt = "~" + _pct(ar["est_ret"])
             pc = "#888888"
-            spy_o_txt = f"{ar['opx']:.2f}"
-            spy_c_txt = f"{ar['cpx']:.2f}" if ar["closed"] else "—"
         ec = "#1a9e54" if ar["est_pnl"] >= 0 else "#e5484d"
         trows.append(
             f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
-            f"<td>{oa_txt}</td><td>{spy_o_txt}</td><td>{c_tm}</td><td>{ca_txt}</td><td>{spy_c_txt}</td>"
+            f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
             f"<td style=\"color:{ec}\">{est_txt}</td>"
             f"<td style=\"color:{ec}\">{est_ret_txt}</td></tr>")
     if _is_live:
         tot_est = sum(r["est_pnl"] for r in actual_rts)
-        tot_est_txt = "~" + _money(tot_est)
+        tot_est_txt = _money(tot_est)
         _tot_real = (robust_realized + robust_unreal)
     else:
         tot_est = sum(r["est_pnl"] for r in rts)
         tot_est_txt = "~" + _money(tot_est)
         _tot_real = 0
     trows.append(
-        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
+        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
         f"</td><td>{_money(_tot_real)}</td><td></td>"
         f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
@@ -843,12 +835,12 @@ def main():
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
         "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
         "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
-        "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
+        "<th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th>"
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=Gamma公式ROI×实际期权成本;开/平SPY=实际成交时间最接近1m bar收盘价;(浮)=未实现</div>"
+        "预估=SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
@@ -939,44 +931,6 @@ def main():
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
 
-    # cumslope: (上一根走完9m收 - 当日首根9m收) / 已走完根数，无未来函数
-    # 第g组9mK在3m bar 3g+2收盘才走完；在3m bar j处，已走完组数n_done=(j+1)//3（j>=2）
-    cumslope_parts = ["null"] * n3
-    _m9closes = []  # (k位置, 收盘价)
-    for k in range(1, n3, 3):
-        g = [today_idx[k - 1], today_idx[k]]
-        if k + 1 < n3:
-            g.append(today_idx[k + 1])
-        c9 = round(float(sig["close"].iloc[g[-1]]), 2)
-        _m9closes.append((k, c9))
-    _closes9 = [c for _, c in _m9closes]  # 按9m顺序的收盘价
-    if len(_closes9) >= 2:
-        _first_c = _closes9[0]
-        for _j in range(n3):
-            _n_done = (_j + 1) // 3 if _j >= 2 else 0
-            # 已走完>=2组时：(最后一根已走完收 - 首根收) / (已走完组数-1)
-            if _n_done >= 2:
-                _cs = round((_closes9[_n_done - 1] - _first_c) / (_n_done - 1), 3)
-                cumslope_parts[_j] = str(_cs)
-    cumslope_js = "[" + ",".join(cumslope_parts) + "]"
-
-    # slope5: 最近5根(最少2根)已走完9mK收盘价的线性回归斜率，无未来函数
-    # 第g组9mK在3m bar 3g+2收盘才走完；在3m bar j处，已走完组数n_done=(j+1)//3（j>=2）
-    import numpy as _np5
-    slope5_parts = ["null"] * n3
-    for _j in range(n3):
-        _n_done = (_j + 1) // 3 if _j >= 2 else 0
-        _win = _closes9[max(0, _n_done - 5):_n_done]
-        if len(_win) >= 2:
-            _ys = _np5.array(_win, dtype=float)
-            _xs = _np5.arange(len(_win), dtype=float)
-            _xm, _ym = _xs.mean(), _ys.mean()
-            _den = ((_xs - _xm) ** 2).sum()
-            if _den > 0:
-                _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
-                slope5_parts[_j] = str(_s5)
-    slope5_js = "[" + ",".join(slope5_parts) + "]"
-
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
@@ -1028,18 +982,16 @@ ch.setOption({{
     {{name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
     '9mK线',
     '9m QQE',
-    'cumslope',
-    {{name:'slope5', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22/></svg>'}},
   ], top:30}},
   {tooltip_js}
   dataZoom:[{{type:'inside', xAxisIndex:[0,1,2,3]}}],
-  grid:[{{left:34,right:'8%',top:'12%',height:'38%'}},{{left:34,right:'8%',top:'53%',height:'42%'}}],
+  grid:[{{left:34,right:'4%',top:'12%',height:'38%'}},{{left:34,right:'4%',top:'53%',height:'42%'}}],
   axisPointer:{{link:{{xAxisIndex:'all'}}}},
   xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}},
          {{type:'category',data:times,gridIndex:1,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}},splitLine:{{show:false}}}},
          {{type:'value',gridIndex:0,min:-0.5,max:{len(times)-0.5},axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}},splitLine:{{show:false}}}}],
-  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js},axisLabel:{{fontSize:8}}}},{{type:'value',gridIndex:1,axisLabel:{{fontSize:8}}}},{{type:'value',gridIndex:0,scale:true,position:'right',offset:0,splitLine:{{show:false}},axisLabel:{{fontSize:8,color:'#20b2aa'}},name:'cumslope'}}],
+  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js},axisLabel:{{fontSize:9}}}},{{type:'value',gridIndex:1,axisLabel:{{fontSize:9}}}}],
   series:[
     {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
       itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
@@ -1051,17 +1003,11 @@ ch.setOption({{
       lineStyle:{{color:'#2b6fd6', width:1.2, opacity:0.85}}, symbol:'none', showSymbol:false,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
-    {{name:'cumslope', type:'line', data:{cumslope_js}, xAxisIndex:0, yAxisIndex:2,
-      lineStyle:{{color:'#20b2aa', width:1.5}}, symbol:'none', showSymbol:false,
-    }},
-    {{name:'slope5', type:'line', data:{slope5_js}, xAxisIndex:0, yAxisIndex:2,
-      lineStyle:{{color:'#ff9900', width:1.5}}, symbol:'none', showSymbol:false,
-    }},
     {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
       itemStyle:{{opacity:0.75}}, data:filldots,
       tooltip:{{trigger:'item', formatter:function(p){{return p.data&&p.data.tip?p.data.tip:'';}}}},
     }},
-    {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:THEME.qqe3[colors[i]]}}}})),
+    {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
       xAxisIndex:1, yAxisIndex:1,
       markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
     }},
