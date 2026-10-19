@@ -89,6 +89,17 @@ var THEME = {
     return arr;
   },
 
+  // 每单盈亏背景alpha (2026-10-19 用户): 按期权收益率百分比，50%到顶，上限0.6
+  // 用法: THEME.pnlBgColor(pct) -> 'rgba(...)'，pct为数字百分比（如9.98表示+9.98%）
+  // 改公式只改这里，所有引用此函数的页面自动生效（solve once for all）
+  pnlAlpha: function(pct) {
+    return Math.min(0.08 + Math.abs(pct) * 0.0104, 0.6);
+  },
+  pnlBgColor: function(pct) {
+    var a = this.pnlAlpha(pct).toFixed(3);
+    return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
+  },
+
   // tooltip style (2026-10-18 user's: 背景透明度统一在theme改)
   tooltip: {
     backgroundColor: 'rgba(255,255,255,0.6)',
