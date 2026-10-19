@@ -31,22 +31,29 @@ var THEME = {
     style: {
       color: 'rgba(0,170,68,0.25)', color0: 'rgba(221,34,34,0.25)',
       borderColor: 'rgba(0,170,68,1)', borderColor0: 'rgba(221,34,34,1)',
-      borderWidth: 2,
+      borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
   },
 
-  // 9m QQE：蓝青/玫瑰红 + 玻璃光影 (2026-10-14)
+  // 3m QQE真色 (2026-10-18 user's: 统一进theme)
+  qqe3: {
+    up:   '#2f80ed',  // 真蓝
+    down: '#e5484d',  // 真红
+    gray: '#b0b0b0'   // 灰
+  },
+
+  // 9m QQE：天蓝/红 (2026-10-18 user's)
   qqe9: {
     barWidth: '260%',
     up: {
-      color: 'rgba(0,180,200,0.25)',
-      borderColor: 'rgba(0,180,200,1)', borderWidth: 2,
+      color: 'rgba(30,170,255,0.25)',
+      borderColor: 'rgba(30,170,255,0.7)', borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     },
     down: {
-      color: 'rgba(230,70,110,0.25)',
-      borderColor: 'rgba(230,70,110,1)', borderWidth: 2,
+      color: 'rgba(229,72,77,0.25)',
+      borderColor: 'rgba(229,72,77,0.7)', borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
   },
@@ -82,15 +89,12 @@ var THEME = {
     return arr;
   },
 
-  // 每单盈亏背景alpha (2026-10-19 用户): 按期权收益率百分比，50%到顶，上限0.6
-  // 用法: THEME.pnlBgColor(pct) -> 'rgba(...)'，pct为正数百分比（如5.0表示5%）
-  // 改公式只改这里，所有引用此函数的页面自动生效（solve once for all）
-  pnlAlpha: function(pct) {
-    return Math.min(0.08 + Math.abs(pct) * 0.0104, 0.6);
-  },
-  pnlBgColor: function(pct) {
-    var a = this.pnlAlpha(pct).toFixed(3);
-    return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
+  // tooltip style (2026-10-18 user's: 背景透明度统一在theme改)
+  tooltip: {
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderColor: 'rgba(0,0,0,0.15)',
+    borderWidth: 1,
+    textStyle: { color: '#333', fontSize: 12 }
   },
 
   // tooltip: only open / close / QQE (no high/low)
