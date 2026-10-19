@@ -539,13 +539,11 @@ def main():
             pnl = (float(cpx) - float(opx)) if odr == "call" else (float(opx) - float(cpx))
         except (TypeError, ValueError):
             return
-        # 2026-10-19 用户: 按期权收益率百分比算alpha，5%到顶，上限0.6
-        _pct = abs(gamma_roi(odr, opx, cpx))
-        _op = round(min(0.08 + _pct * 0.104, 0.6), 3)  # 越赚/越亏越不透明
-        _col = f"rgba(0,170,0,{_op})" if pnl >= 0 else f"rgba(230,0,0,{_op})"
+        # 2026-10-19 用户: alpha公式拆到theme.js (THEME.pnlBgColor)，这里只传收益率百分比
+        _pct = round(gamma_roi(odr, opx, cpx), 2)
         s = tstrs[obi] if obi in today_set else first_t
         mark_areas.append([
-            {"xAxis": s, "itemStyle": {"color": _col}},
+            {"xAxis": s, "pnlPct": _pct},
             {"xAxis": tstrs[cbi]},
         ])
     rts = []  # round-trips: {obi,odr,opx,ors,cbi,cpx,crs,closed}
@@ -894,8 +892,8 @@ def main():
                      f"| 持仓:{pos_txt} | k3clean L25")
 
     mark_area_js = "[" + ",".join(
-        "[{xAxis:'%s',itemStyle:{color:'%s'}},{xAxis:'%s'}]" % (
-            a[0]["xAxis"], a[0]["itemStyle"]["color"], a[1]["xAxis"])
+        "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
+            a[0]["xAxis"], a[0]["pnlPct"], a[1]["xAxis"])
         for a in mark_areas) + "]"
     mark_area_opt = "{silent:true,data:" + mark_area_js + "}"
     ohlc = [[round(float(sig["open"].iloc[i]), 2), round(float(sig["close"].iloc[i]), 2),
