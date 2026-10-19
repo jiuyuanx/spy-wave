@@ -82,6 +82,17 @@ var THEME = {
     return arr;
   },
 
+  // 每单盈亏背景alpha (2026-10-19 用户): 按期权收益率百分比，50%到顶，上限0.6
+  // 用法: THEME.pnlBgColor(pct) -> 'rgba(...)'，pct为正数百分比（如5.0表示5%）
+  // 改公式只改这里，所有引用此函数的页面自动生效（solve once for all）
+  pnlAlpha: function(pct) {
+    return Math.min(0.08 + Math.abs(pct) * 0.0104, 0.6);
+  },
+  pnlBgColor: function(pct) {
+    var a = this.pnlAlpha(pct).toFixed(3);
+    return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
+  },
+
   // tooltip: only open / close / QQE (no high/low)
   tooltipFormatter: function(ps, barInfo) {
     var t = ps[0].axisValue;
