@@ -8,7 +8,7 @@ QQE/真色/衰减/翻仓need 全部按 signal_engine(k3clean L25当前基线) �
 用法: python3 gen_wave_today.py
 输出: ~/workspace/alpaca_watcher/wave-today-YYYYMMDD.html
 """
-import sys, os, json
+import sys, os, json, re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
@@ -497,12 +497,6 @@ def main():
             "col": "蓝" if colors[i] == BLUE else ("红" if colors[i] == RED else "灰"),
             "acts": acts_by_bar.get(i, []),
         }
-    bar_info_js = json.dumps(bar_info, ensure_ascii=False)
-    tooltip_js = ("tooltip:{trigger:'axis',axisPointer:{type:'cross'},"
-        "formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},")
-    click_js = ("ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){"
-        "document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});")
-
     # 当前信号持仓
     pos = None
     for (bi, ts, act, dr, px, rs) in acts_sorted:
@@ -539,13 +533,11 @@ def main():
             pnl = (float(cpx) - float(opx)) if odr == "call" else (float(opx) - float(cpx))
         except (TypeError, ValueError):
             return
-        # 2026-10-19 用户: 按期权收益率百分比算alpha，5%到顶，上限0.6
-        _pct = abs(gamma_roi(odr, opx, cpx))
-        _op = round(min(0.08 + _pct * 0.104, 0.6), 3)  # 越赚/越亏越不透明
-        _col = f"rgba(0,170,0,{_op})" if pnl >= 0 else f"rgba(230,0,0,{_op})"
+        # 2026-10-19 用户: alpha公式拆到theme.js (THEME.pnlBgColor)，这里只传收益率百分比
+        _pct = round(gamma_roi(odr, opx, cpx), 2)
         s = tstrs[obi] if obi in today_set else first_t
         mark_areas.append([
-            {"xAxis": s, "itemStyle": {"color": _col}},
+            {"xAxis": s, "pnlPct": _pct},
             {"xAxis": tstrs[cbi]},
         ])
     rts = []  # round-trips: {obi,odr,opx,ors,cbi,cpx,crs,closed}
@@ -894,8 +886,8 @@ def main():
                      f"| 持仓:{pos_txt} | k3clean L25")
 
     mark_area_js = "[" + ",".join(
-        "[{xAxis:'%s',itemStyle:{color:'%s'}},{xAxis:'%s'}]" % (
-            a[0]["xAxis"], a[0]["itemStyle"]["color"], a[1]["xAxis"])
+        "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
+            a[0]["xAxis"], a[0]["pnlPct"], a[1]["xAxis"])
         for a in mark_areas) + "]"
     mark_area_opt = "{silent:true,data:" + mark_area_js + "}"
     ohlc = [[round(float(sig["open"].iloc[i]), 2), round(float(sig["close"].iloc[i]), 2),
@@ -908,6 +900,7 @@ def main():
     n3 = len(today_idx)
     ohlc9_js_parts = ["[NaN,NaN,NaN,NaN]"] * n3
     qqe9_js_parts = ["null"] * n3
+    m9closes = []
     # 9m放在每组中间那根(k=1,4,7...)，280%宽度以该位置为中心覆盖3根
     for k in range(1, n3, 3):
         g = [today_idx[k - 1], today_idx[k]]
@@ -928,103 +921,123 @@ def main():
             else:
                 qqe9_js_parts[k] = (
                     "{value:%s,itemStyle:THEME.qqe9.down}" % hv)
+        m9closes.append(c9)
     ohlc9_js = "[" + ",".join(ohlc9_js_parts) + "]"
     qqe9_js = "[" + ",".join(qqe9_js_parts) + "]"
+
+    # cumslope（无未来函数；与backfill_strongtrend.py一致）
+    cumslope_parts = ["null"] * n3
+    if len(m9closes) >= 2:
+        _first_c = m9closes[0]
+        for _j in range(n3):
+            _n_done = (_j + 1) // 3 if _j >= 2 else 0
+            if _n_done >= 2:
+                _cs = round((m9closes[_n_done - 1] - _first_c) / (_n_done - 1), 3)
+                cumslope_parts[_j] = str(_cs)
+    cumslope_js = "[" + ",".join(cumslope_parts) + "]"
+
+    # slope5（无未来函数；与backfill_strongtrend.py一致）
+    slope5_parts = ["null"] * n3
+    for _j in range(n3):
+        _n_done = (_j + 1) // 3 if _j >= 2 else 0
+        _win = m9closes[max(0, _n_done - 5):_n_done]
+        if len(_win) >= 2:
+            _ys = np.array(_win, dtype=float)
+            _xs = np.arange(len(_win), dtype=float)
+            _xm, _ym = _xs.mean(), _ys.mean()
+            _den = ((_xs - _xm) ** 2).sum()
+            if _den > 0:
+                _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
+                slope5_parts[_j] = str(_s5)
+    slope5_js = "[" + ",".join(slope5_parts) + "]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">{rtag}
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{page_title} {day_str}</title>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-<script src="theme.js"></script>
-<style>body{{margin:0;background:#fff;font-family:sans-serif}}#c{{width:100%;height:95vh}}</style>
-</head><body>
-<div style="text-align:center;padding:6px 0 0;font-size:13px">
-<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
-<option value="">📅 选择日期…</option>
-</select> <span id="dayhint" style="color:#888"></span>
+    # 2026-10-19 根源统一: 实盘dashboard改用backfill模板2026-04-02.html, 不再内联模板
+    # (tooltip半透明/cumslope/slope5/legend等与backfill永远一致)
+    html = open('/home/hatch/workspace/wave-deploy/2026-04-02.html').read()
+    html = re.sub(r'<title>.*?</title>', f'<title>{title_txt}</title>', html, count=1)
+    html = re.sub(r"title:\{text:'.*?', left:'center'",
+                  f"title:{{text:'{title_txt}', left:'center'", html, count=1)
+    if rtag:  # 实盘自动刷新; 回放页不加
+        html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">' + rtag, 1)
 
-</div>
+    def pad130(a, fill=None):
+        return a + [fill] * (130 - len(a))
+    vals130 = pad130(vals)
+    cols130 = pad130(cols, "gray")
+    d80130 = pad130(d80)
+    fl130 = pad130(fl)
+    hb130 = pad130(hb)
 
-<script>
-fetch('archive.json').then(function(r){{return r.json();}}).then(function(d){{
-var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
-var cur=location.pathname.split('/').pop().replace('.html','');
-days.forEach(function(x){{var o=document.createElement('option');o.value=x+'.html';o.textContent=x;if(x===cur)o.selected=true;s.appendChild(o);}});
-document.getElementById('dayhint').textContent='共'+days.length+'天';
-}}).catch(function(){{}});
-</script>
-<div id="c"></div><script>
-const times = {times};
-const vals = {js_arr(vals)};
-const colors = {cols};
-const decayReal = {js_arr(d80)};
-const flipBlue = {js_arr(fl)};
-const hubuThr = {js_arr(hb)};
-const pins = {qpins};
-const line1m = {line1m};
-const spins = {spins};
-const filldots = {filldots};
-if (typeof THEME !== 'undefined') {{ THEME.applyColors(spins); THEME.applyColors(pins); }}
-const barInfo = {bar_info_js};
-var ch = echarts.init(document.getElementById('c'));
-window._waveChart = ch;
-ch.setOption({{
-  title:{{text:'{title_txt}', left:'center', textStyle:{{fontSize:14}}}},
-  legend:{{data:[
-    {{name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'}},
-    {{name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%232b6fd6%22 stroke-width=%222%22/></svg>'}},
-    {{name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'}},
-    {{name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
-    {{name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'}},
-    {{name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}},
-    '9mK线',
-    '9m QQE',
-  ], top:30}},
-  {tooltip_js}
-  dataZoom:[{{type:'inside', xAxisIndex:[0,1,2,3]}}],
-  grid:[{{left:34,right:'4%',top:'12%',height:'38%'}},{{left:34,right:'4%',top:'53%',height:'42%'}}],
-  axisPointer:{{link:{{xAxisIndex:'all'}}}},
-  xAxis:[{{type:'category',data:times,gridIndex:0,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}}}},
-         {{type:'category',data:times,gridIndex:1,axisLabel:{{rotate:45, fontSize:10}}}},
-         {{type:'category',data:times,gridIndex:1,axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}},splitLine:{{show:false}}}},
-         {{type:'value',gridIndex:0,min:-0.5,max:{len(times)-0.5},axisLabel:{{show:false}},axisTick:{{show:false}},axisLine:{{show:false}},splitLine:{{show:false}}}}],
-  yAxis:[{{type:'value',gridIndex:0,scale:true,max:{y_max_js},axisLabel:{{fontSize:9}}}},{{type:'value',gridIndex:1,axisLabel:{{fontSize:9}}}}],
-  series:[
-    {{name:'3mK线', type:'candlestick', data:{ohlc_js}, xAxisIndex:0, yAxisIndex:0,
-      itemStyle:{{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'}},
-      markArea:{mark_area_opt}}},
-    {{name:'9mK线', type:'candlestick', data:{ohlc9_js}, xAxisIndex:0, yAxisIndex:0,
-      barWidth:THEME.k9.barWidth,
-      itemStyle:THEME.k9.style}},
-    {{name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
-      lineStyle:{{color:'#2b6fd6', width:1.2, opacity:0.85}}, symbol:'none', showSymbol:false,
-      markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
-    }},
-    {{name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
-      itemStyle:{{opacity:0.75}}, data:filldots,
-      tooltip:{{trigger:'item', formatter:function(p){{return p.data&&p.data.tip?p.data.tip:'';}}}},
-    }},
-    {{name:'QQE', type:'bar', data: vals.map((v,i)=>({{value:v, itemStyle:{{color:colors[i]}}}})),
-      xAxisIndex:1, yAxisIndex:1,
-      markPoint:{{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{{color:'#fff', fontSize:THEME.markPoint.fontSize}}, itemStyle:{{opacity:THEME.markPoint.opacity}}}},
-    }},
-    {{name:'9m QQE', type:'bar', data:{qqe9_js}, xAxisIndex:2, yAxisIndex:1, barWidth:THEME.qqe9.barWidth, z:3}},
-    {{name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff9900', type:'dashed', width:3}}, symbol:'none', showSymbol:false}},
-    {{name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#ff0000', width:2}}, symbol:'none', showSymbol:false}},
-    {{name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{{color:'#a020f0', type:'dashed', width:2}}, symbol:'none', showSymbol:false}},
-    {{name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{{opacity:0}},
-      label:{{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,
-              formatter:function(p){{return p.data.lbl;}}}},
-      data:{scat_js}}},
-  ]
-}});
-{click_js}
-</script>
-{table_html}
-</body></html>"""
+    def rep_const(name, new_val):
+        nonlocal html
+        pat = r'const %s\s*=\s*.*?;\n' % re.escape(name)
+        html, nsub = re.subn(pat, f'const {name} = {new_val};\n', html, count=1, flags=re.S)
+        if nsub == 0:
+            print(f"  WARN: const {name} not found!")
+
+    rep_const('times', json.dumps(times))
+    rep_const('vals', js_arr(vals130))
+    rep_const('colors', json.dumps(cols130))
+    rep_const('decayReal', js_arr(d80130))
+    rep_const('flipBlue', js_arr(fl130))
+    rep_const('hubuThr', js_arr(hb130))
+    rep_const('pins', json.dumps(qpins, ensure_ascii=False))
+    rep_const('spins', json.dumps(spins, ensure_ascii=False))
+    rep_const('line1m', json.dumps(line1m))
+    rep_const('filldots', json.dumps(filldots, ensure_ascii=False))
+    rep_const('barInfo', json.dumps(bar_info, ensure_ascii=False))
+
+    html, n1 = re.subn(r"\{name:'3mK线', type:'candlestick', data:\[.*?\], xAxisIndex",
+                       "{name:'3mK线', type:'candlestick', data:" + ohlc_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n2 = re.subn(r"\{name:'9mK线', type:'candlestick', data:\[.*?\], xAxisIndex",
+                       "{name:'9mK线', type:'candlestick', data:" + ohlc9_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n3s = re.subn(r"\{name:'9m QQE', type:'bar', data:\[.*?\], xAxisIndex",
+                        "{name:'9m QQE', type:'bar', data:" + qqe9_js + ", xAxisIndex",
+                        html, count=1, flags=re.S)
+    html, n4 = re.subn(r"\{name:'cumslope', type:'line', data:\[.*?\], xAxisIndex",
+                       "{name:'cumslope', type:'line', data:" + cumslope_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n5 = re.subn(r"\{name:'slope5', type:'line', data:\[.*?\], xAxisIndex",
+                       "{name:'slope5', type:'line', data:" + slope5_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+
+    def _replace_balanced(html, start_pat, new_text):
+        m = re.search(start_pat, html)
+        if not m:
+            return html, 0
+        s = m.start()
+        j = html.find('{', s)
+        depth = 0
+        k = j
+        while k < len(html):
+            if html[k] == '{':
+                depth += 1
+            elif html[k] == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            k += 1
+        end = k + 1
+        return html[:j] + new_text + html[end:], 1
+
+    html, n6 = _replace_balanced(html, r"markArea:\{", mark_area_opt)
+    scat_series = ("{name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0}," +
+                   "label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1," +
+                   "formatter:function(p){return p.data.lbl;}}, data:" + scat_js + "}")
+    html, n7 = _replace_balanced(html, r"\{name:'每单盈亏'", scat_series)
+    html, n8 = re.subn(r'<div style="max-width:1150px.*?</div>\s*<script>',
+                       table_html + '\n<script>',
+                       html, count=1, flags=re.S)
+    html = re.sub(r"(yAxis:\[\{type:'value',gridIndex:0,scale:true,max:)[\d.]+",
+                  r"\g<1>" + str(y_max_js), html, count=1)
+
+    if 0 in (n1, n2, n3s, n4, n5, n6, n7, n8):
+        print(f"  WARN subs: 3mK={n1} 9mK={n2} 9mQQE={n3s} cumslope={n4} slope5={n5} markArea={n6} scat={n7} table={n8}")
     if WAVE_DATE:
         _out_name = f"{WAVE_DATE}.html"
     else:
