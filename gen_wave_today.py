@@ -604,23 +604,17 @@ def main():
         if not _qok:
             rt["pnl"] = None
             rt["ret"] = None
-        sgn = 1 if rt["odr"] == "call" else -1
-        _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
+        # 预估统一Gamma公式ROI (2026-10-20 用户: 实盘/回放都用ROI公式, 不再用delta线性模型)
+        _roi = gamma_roi(rt["odr"], rt["opx"], rt["cpx"]) / 100.0
         if rt["o_qty"]:
-            # 有实际成交: 预估=信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本
-            # delta_eff = 0.5 + 0.1*min(|SPY|,3) (2026-10-13 用户: gamma线性公式)
-            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
-            rt["est_pnl"] = _spy_pnl * _deff * rt["o_qty"] * 100
+            # 有实际成交: 预估=ROI×实际期权成本
+            rt["est_ret"] = _roi
+            rt["est_pnl"] = _roi * rt["o_avg"] * rt["o_qty"] * 100 if rt["o_avg"] else 0.0
             rt["est_bt"] = False
-            if rt["o_avg"]:
-                rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
-            else:
-                rt["est_ret"] = None
         else:
-            # 无实际成交(回放): delta_eff = 0.5 + 0.1*min(|SPY|,3), 55张/$100k基准 (2026-10-13 用户)
-            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
-            rt["est_pnl"] = _spy_pnl * _deff * 55 * 100
-            rt["est_ret"] = rt["est_pnl"] / 100000  # 占总资金比 (回测口径)
+            # 无实际成交(回放): 预估=ROI×$100k基准 (sequential口径: 全资金即成本)
+            rt["est_ret"] = _roi
+            rt["est_pnl"] = _roi * 100000
             rt["est_bt"] = True
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
@@ -774,13 +768,11 @@ def main():
             _ar["_cpx"] = _spy_at(_ar["c_t"]) or _fb_c or _last1m or float(sig["close"].iloc[-1])
         else:
             _ar["_cpx"] = _last1m or _fb_c or float(sig["close"].iloc[-1])
-        # 预估: 成交时刻SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
-        _sgn = 1 if _ar["odr"] == "call" else -1
-        _spy_chg = _sgn * (_ar["_cpx"] - _ar["_opx"])
-        _deff2 = 0.5 + 0.1 * min(abs(_spy_chg), 3)
-        _ar["est_pnl"] = _spy_chg * _deff2 * _ar["qty"] * 100
+        # 预估: Gamma公式ROI×实际期权成本, ROI按成交时刻SPY价算 (2026-10-20 用户统一口径)
+        _roi2 = gamma_roi(_ar["odr"], _ar["_opx"], _ar["_cpx"]) / 100.0
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
-        _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
+        _ar["est_ret"] = _roi2
+        _ar["est_pnl"] = _roi2 * _ocost
     actual_rts.sort(key=lambda x: x["o_t"])
 
     # ---- 下方信号单表格 ----
@@ -852,7 +844,7 @@ def main():
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=成交时刻SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
+        "预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准);开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
