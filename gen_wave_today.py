@@ -740,6 +740,13 @@ def main():
                                "qty": _tq, "o_avg": _tc / _tq if _tq else 0,
                                "c_avg": None, "pnl": _p.get("upl"),
                                "ret": _p.get("uplpc"), "closed": False})
+    def _spy_at(ts):
+        # 成交精确时刻的SPY点数: 最接近的1m bar收盘价 (2026-10-20 用户口径)
+        if ts is None or df1m is None or len(df1m) == 0:
+            return None
+        _jj = (df1m["t"] - ts).abs().argsort()[:1]
+        return float(df1m["c"].iloc[_jj].iloc[0]) if len(_jj) else None
+
     # 给每个actual_rt找最近的信号 (用于操作名, 方向必须一致)
     for _ar in actual_rts:
         _sym_cp = "call" if _ar["sym"][9:10] == "C" else "put"
@@ -754,18 +761,20 @@ def main():
         if _best is not None and _best_s < 900:  # 15分钟内
             _ar["op"] = _op_name(_best.get("ors"), _best["odr"])
             _ar["odr"] = _best["odr"]
-            _ar["_opx"] = _best["opx"]
-            _ar["_cpx"] = _best["cpx"]
         else:
             _ar["op"] = f"实盘{_sym_cp.upper()}"
             _ar["odr"] = _sym_cp
-            # 无匹配信号: 用成交时间最接近的bar收盘价做SPY价
-            _ar["_opx"] = float(sig.iloc[(sig["t"] - _ar["o_t"]).abs().argsort()[:1]]["close"].iloc[0])
-            if _ar["c_t"] is not None:
-                _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
-            else:
-                _ar["_cpx"] = float(sig["close"].iloc[-1])
-        # 预估: 信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
+        # 开/平SPY一律用成交时刻最接近的1m收盘价 (2026-10-20 用户: 有实盘不用信号价);
+        # 取不到1m价时才回退信号价/最新价
+        _fb_o = _best["opx"] if (_best is not None and _best_s < 900) else None
+        _fb_c = _best["cpx"] if (_best is not None and _best_s < 900) else None
+        _last1m = float(df1m["c"].iloc[-1]) if (df1m is not None and len(df1m)) else None
+        _ar["_opx"] = _spy_at(_ar["o_t"]) or _fb_o or _last1m or float(sig["close"].iloc[-1])
+        if _ar["c_t"] is not None:
+            _ar["_cpx"] = _spy_at(_ar["c_t"]) or _fb_c or _last1m or float(sig["close"].iloc[-1])
+        else:
+            _ar["_cpx"] = _last1m or _fb_c or float(sig["close"].iloc[-1])
+        # 预估: 成交时刻SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
         _sgn = 1 if _ar["odr"] == "call" else -1
         _spy_chg = _sgn * (_ar["_cpx"] - _ar["_opx"])
         _deff2 = 0.5 + 0.1 * min(abs(_spy_chg), 3)
@@ -792,6 +801,8 @@ def main():
             q_txt = f"{ar['qty']:.0f}"
             oa_txt = f"{ar['o_avg']:.2f}"
             ca_txt = f"{ar['c_avg']:.2f}" if ar["c_avg"] else "—"
+            so_txt = f"{ar['_opx']:.2f}" if ar.get("_opx") is not None else "—"
+            sc_txt = f"{ar['_cpx']:.2f}" if ar.get("_cpx") is not None else "—"
             pnl_txt, ret_txt = _money(ar["pnl"]), _pct(ar["ret"])
             if not ar["closed"] and ar["pnl"] is not None:
                 pnl_txt += "(浮)"
@@ -803,6 +814,8 @@ def main():
             c_tm = sig["t"].iloc[ar["cbi"]].strftime("%H:%M") if ar["closed"] else "持仓中"
             op_txt = _op_name(ar.get("ors"), ar["odr"])
             q_txt, oa_txt, ca_txt = "—", "—", "—"
+            so_txt = f"{ar['opx']:.2f}"
+            sc_txt = f"{ar['cpx']:.2f}" if ar["closed"] else "—"
             pnl_txt, ret_txt = "—", "—"
             est_txt = "~" + _money(ar["est_pnl"])
             est_ret_txt = "~" + _pct(ar["est_ret"])
@@ -810,7 +823,7 @@ def main():
         ec = "#1a9e54" if ar["est_pnl"] >= 0 else "#e5484d"
         trows.append(
             f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
-            f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
+            f"<td>{oa_txt}</td><td>{so_txt}</td><td>{c_tm}</td><td>{ca_txt}</td><td>{sc_txt}</td>"
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
             f"<td style=\"color:{ec}\">{est_txt}</td>"
@@ -824,7 +837,7 @@ def main():
         tot_est_txt = "~" + _money(tot_est)
         _tot_real = 0
     trows.append(
-        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
+        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
         f"</td><td>{_money(_tot_real)}</td><td></td>"
         f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
@@ -834,12 +847,12 @@ def main():
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
         "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
         "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
-        "<th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th>"
+        "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;(浮)=未实现</div>"
+        "预估=成交时刻SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
