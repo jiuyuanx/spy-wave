@@ -963,7 +963,11 @@ def main():
 
     # 2026-10-19 根源统一: 实盘dashboard改用backfill模板2026-04-02.html, 不再内联模板
     # (tooltip半透明/cumslope/slope5/legend等与backfill永远一致)
-    html = open('/home/hatch/workspace/wave-deploy/2026-04-02.html').read()
+    # 2026-10-20: 模板改相对脚本目录找 (仓库根目录有一份; 旧硬编码本机wave-deploy路径在Actions上不存在)
+    _tpl_cands = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '2026-04-02.html'),
+                  '/home/hatch/workspace/wave-deploy/2026-04-02.html']
+    _tpl = next((p for p in _tpl_cands if os.path.exists(p)), _tpl_cands[0])
+    html = open(_tpl).read()
     html = re.sub(r'<title>.*?</title>', f'<title>{title_txt}</title>', html, count=1)
     html = re.sub(r"title:\{text:'.*?', left:'center'",
                   f"title:{{text:'{title_txt}', left:'center'", html, count=1)
