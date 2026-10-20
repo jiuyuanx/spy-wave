@@ -27,6 +27,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: generate dashboard
+        id: gen
         run: python gen_wave_today.py
         env:
           ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
@@ -37,6 +38,7 @@ jobs:
           WAVE_DATE: ${{ inputs.wave_date }}
 
       - name: save dated copy + archive
+        if: steps.gen.outputs.skip != '1'
         run: |
           TODAY=${{ inputs.wave_date }}
           if [ -z "$TODAY" ]; then TODAY=$(TZ=America/New_York date +%F); fi
@@ -52,6 +54,7 @@ jobs:
           "
 
       - name: deploy to gh-pages
+        if: steps.gen.outputs.skip != '1'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -290,10 +290,15 @@ def main():
     dates = sig["t"].dt.date.astype(str).values
     today_idx = [i for i in range(n) if dates[i] == day_str]
     if not today_idx:
-        # 开盘5分钟内没数据是正常的，等下轮（不报错）
+        # 盘前/开盘5分钟内没数据是正常的，等下轮（不报错）；Actions 里同时写
+        # skip=1 让 workflow 跳过存档/deploy 步，避免拿旧 index 覆盖线上页
         now_et = datetime.now(ET)
-        if not WAVE_DATE and now_et.hour == 9 and now_et.minute < 35:
-            print(f"[{now_et.strftime('%H:%M:%S')}] market just opened, no bars yet, skip gracefully")
+        if not WAVE_DATE and (now_et.hour < 9 or (now_et.hour == 9 and now_et.minute < 35)):
+            print(f"[{now_et.strftime('%H:%M:%S')}] market not open yet / just opened, no bars yet, skip gracefully")
+            _gho = os.environ.get("GITHUB_OUTPUT")
+            if _gho:
+                with open(_gho, "a") as _f:
+                    _f.write("skip=1\n")
             return
         raise RuntimeError("no today bars")
 
