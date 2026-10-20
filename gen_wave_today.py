@@ -298,14 +298,15 @@ def main():
         raise RuntimeError("no today bars")
 
     # 真色
+    # 颜色输出"up"/"down"/"gray"（模板用THEME.qqe3[colors[i]]查表, 和backfill一致; 不是hex）
     colors = []
     for j in range(n):
         if q_up[j] and abs(hist[j]) >= SIG_MIN_LEN:
-            colors.append(BLUE)
+            colors.append("up")
         elif q_down[j] and abs(hist[j]) >= SIG_MIN_LEN:
-            colors.append(RED)
+            colors.append("down")
         else:
-            colors.append(GRAY)
+            colors.append("gray")
 
     # 翻仓bar集合 (同bar既平又开)
     by_bar = {}
@@ -679,11 +680,12 @@ def main():
     y_max_js = round(_base + (_max_row + 1) * _row_h + _rng * 0.05, 2)
     scat_data = []
     for k, rt in enumerate(_closed):
+        # 2026-10-19: lbl只留百分比, 不带dollar (和backfill一致; 用户规则)
         if rt["pnl"] is not None:
-            txt = f"{_money(rt['pnl'])} ({_pct(rt['ret'])})"
+            txt = f"({_pct(rt['ret'])})"
             col = "#1a9e54" if rt["pnl"] >= 0 else "#e5484d"
         else:
-            txt = f"~{_money(rt['est_pnl'])} ({_pct(rt['est_ret'])})"
+            txt = f"~({_pct(rt['est_ret'])})"
             col = "#888888"
         _yy = round(_base + _row_of[k] * _row_h, 2)
         scat_data.append(
