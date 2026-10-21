@@ -1,1 +1,1 @@
-{"day": "2026-10-21", "equity": 112882.49, "realized": 0, "unrealized": 0, "api_pos": "空仓", "orders": []}
+{"day": "2026-10-21", "equity": 108286.11, "realized": 0.0, "unrealized": -4590.0, "api_pos": "call 255张@771", "orders": [{"o_t": "09:42", "c_t": null, "dir": "call", "op": "两根长蓝跟随C", "qty": 255.0, "symbol": "SPY261026C00771000", "o_avg": 4.28, "c_avg": null, "pnl": -4590.0, "ret": -0.04206, "est_pnl": 0.0, "est_ret": 0.0}]}
