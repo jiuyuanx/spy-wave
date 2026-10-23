@@ -27,14 +27,16 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
-# 热力背景色 (昨天gen_heat_html_pierce2.py的配色)
+# 热力背景色 (昨天gen_heat_html_pierce2.py的15色)
 HEAT_COLORS = [
-    'rgba(33,150,243,0.18)', 'rgba(3,169,244,0.20)', 'rgba(255,193,7,0.25)',
-    'rgba(255,152,0,0.30)', 'rgba(245,124,0,0.35)', 'rgba(230,81,0,0.40)',
-    'rgba(191,54,12,0.45)', 'rgba(183,28,28,0.50)',
+    'rgba(120,180,220,0.12)', 'rgba(138,182,201,0.16)', 'rgba(156,185,182,0.19)',
+    'rgba(174,188,164,0.23)', 'rgba(192,190,145,0.27)', 'rgba(210,193,126,0.30)',
+    'rgba(228,196,108,0.34)', 'rgba(246,198,89,0.38)', 'rgba(255,186,74,0.41)',
+    'rgba(255,160,64,0.45)', 'rgba(255,133,53,0.49)', 'rgba(255,106,42,0.52)',
+    'rgba(255,79,31,0.56)', 'rgba(255,53,21,0.60)', 'rgba(255,26,10,0.63)',
 ]
 def heat_color(v):
-    idx = int(max(0, min(7, v / 2)))
+    idx = int(max(0, min(14, v)))
     return HEAT_COLORS[idx]
 
 from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, detect_red_decay, detect_blue_decay,
