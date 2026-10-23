@@ -29,9 +29,9 @@ WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 
 import watcher_v4 as w4
 # 热力背景色 (昨天gen_heat_html_pierce2.py的配色)
 HEAT_COLORS = [
-    'rgba(232,244,248,0.35)', 'rgba(254,249,231,0.35)', 'rgba(253,235,208,0.35)',
-    'rgba(250,215,160,0.40)', 'rgba(245,176,65,0.45)', 'rgba(230,126,34,0.50)',
-    'rgba(211,84,0,0.55)', 'rgba(192,57,43,0.60)',
+    'rgba(33,150,243,0.18)', 'rgba(3,169,244,0.20)', 'rgba(255,193,7,0.25)',
+    'rgba(255,152,0,0.30)', 'rgba(245,124,0,0.35)', 'rgba(230,81,0,0.40)',
+    'rgba(191,54,12,0.45)', 'rgba(183,28,28,0.50)',
 ]
 def heat_color(v):
     idx = int(max(0, min(7, v / 2)))
