@@ -959,7 +959,27 @@ def main():
     ohlc = [[round(float(sig["open"].iloc[i]), 2), round(float(sig["close"].iloc[i]), 2),
              round(float(sig["low"].iloc[i]), 2), round(float(sig["high"].iloc[i]), 2)]
             for i in today_idx]
-    ohlc_js = "[" + ",".join(f"[{o},{c},{l},{h}]" for o, c, l, h in ohlc) + "]"
+    # 7区内的3mK线加白边 (in_heat flag from heat_edges尾部n3条)
+    _he_inheat = []
+    for _e in heat_edges:
+        try:
+            _he_inheat.append(bool(_e[3]) if len(_e) >= 4 else False)
+        except:
+            _he_inheat.append(False)
+    if len(_he_inheat) > n3:
+        _he_inheat = _he_inheat[-n3:]
+    while len(_he_inheat) < n3:
+        _he_inheat.insert(0, False)
+    _ohlc_parts = []
+    for _idx, (o, cc, l, h) in enumerate(ohlc):
+        if _idx < len(_he_inheat) and _he_inheat[_idx]:
+            # 白边：用fallback，THEME没有就用#ffffff
+            _ohlc_parts.append(
+                '{value:[' + f"{o},{cc},{l},{h}" + '],itemStyle:{borderColor:"#ffffff",borderWidth:1}}'
+            )
+        else:
+            _ohlc_parts.append(f"[{o},{cc},{l},{h}]")
+    ohlc_js = "[" + ",".join(_ohlc_parts) + "]"
 
     # 9m 聚合 (3根3m合成1根): O=首根开, H=3根最高, L=3根最低, C=末根收, QQE=末根hist
     # 放在每组最后一根3m的位置, 其余位置null

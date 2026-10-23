@@ -20,6 +20,8 @@ var THEME = {
   },
 
   heat: {
+    barBorderColor: '#ffffff',
+    barBorderWidth: 1,
     zoneUpColor: '#ff9900',
     zoneLoColor: '#0277BD',
     zoneLineWidth: 1.5,
