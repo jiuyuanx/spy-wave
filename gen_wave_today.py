@@ -1057,27 +1057,21 @@ def main():
     heat_up_js = "[" + ",".join(_up_list) + "]"
     heat_lo_js = "[" + ",".join(_lo_list) + "]"
     print(f"[DEBUG] heat_up non-null={sum(1 for x in _up_list if x != 'null')}")
-    # 触发线: 区内15% (上缘往下15%区高, 下缘往上15%区高)
-    trig_up_parts = ["null"] * n3
-    trig_lo_parts = ["null"] * n3
-    _ltu, _ltl = None, None
-    for _j in range(n3):
+    # 触发线: 区内15% (从_up_list/_lo_list直接算)
+    _trig_up_list, _trig_lo_list = [], []
+    for _uu, _ll in zip(_up_list, _lo_list):
         try:
-            _bi = today_idx[_j]
-            _tf = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
-            _hmj = _tf[:5]
-            if _hmj and _hmj in _he_dict:
-                _u, _l = _he_dict[_hmj]
-                if _u is not None and _l is not None:
-                    _zh = float(_u) - float(_l)
-                    _ltu = float(_u) - 0.15 * _zh
-                    _ltl = float(_l) + 0.15 * _zh
-            if _ltu is not None:
-                trig_up_parts[_j] = str(round(_ltu, 2))
-                trig_lo_parts[_j] = str(round(_ltl, 2))
-        except: continue
-    trig_up_js = "[" + ",".join(trig_up_parts) + "]"
-    trig_lo_js = "[" + ",".join(trig_lo_parts) + "]"
+            if _uu != "null" and _ll != "null":
+                _zhu = float(_uu); _zhl = float(_ll)
+                _zhh = _zhu - _zhl
+                _trig_up_list.append(str(round(_zhu - 0.15*_zhh, 2)))
+                _trig_lo_list.append(str(round(_zhl + 0.15*_zhh, 2)))
+            else:
+                _trig_up_list.append("null"); _trig_lo_list.append("null")
+        except:
+            _trig_up_list.append("null"); _trig_lo_list.append("null")
+    trig_up_js = "[" + ",".join(_trig_up_list) + "]"
+    trig_lo_js = "[" + ",".join(_trig_lo_list) + "]"
     # heatmap数据: 横向色带 [时间索引, 价格, 热度值]
     # 用最终热度分布，在价格轴上画横向色带
     heatmap_data = []
