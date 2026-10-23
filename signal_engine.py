@@ -585,6 +585,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             _heat_arr = None
             _heat_prev_zi = None
             _heat_rule_last_day = _cur_day_str
+            print(f"[DEBUG] heat重置: {_cur_day_str}")
         if _heat_arr is None:
             # 固定大范围1-9999（2026-10-23 fix：bins永远对齐，不用动态算）
             _heat_plo = 1.0
