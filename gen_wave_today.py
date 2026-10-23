@@ -1016,9 +1016,8 @@ def main():
     for _he in heat_edges:
         try:
             _hm = _he[0][11:16]
-            if len(_he) >= 6 and _he[4] is not None:
-                _he_dict[_hm] = (_he[4], _he[5])
-            elif len(_he) >= 3 and _he[1] is not None:
+            # 用原始7区边缘 (solid线)，_he[1]=up, _he[2]=lo
+            if len(_he) >= 3 and _he[1] is not None:
                 _he_dict[_hm] = (_he[1], _he[2])
         except: continue
     heat_up_parts = ["null"] * n3
@@ -1181,18 +1180,6 @@ def main():
     html, n_tl = re.subn(r"\\{name:'trig_lo', type:'line', data:\\[.*?\\], xAxisIndex",
                        "{name:'trig_lo', type:'line', data:" + trig_lo_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
-    html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
-                       "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    html, n_hl = re.subn(r"\\{name:'heat_lo', type:'line', data:\\[.*?\\], xAxisIndex",
-                       "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-
-    def _replace_balanced(html, start_pat, new_text):
-        m = re.search(start_pat, html)
-        if not m:
-            return html, 0
-        s = m.start()
         j = html.find('{', s)
         depth = 0
         k = j
