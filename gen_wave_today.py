@@ -992,6 +992,27 @@ def main():
         except: continue
     heat_up_js = "[" + ",".join(heat_up_parts) + "]"
     heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
+    # 触发线: 区内15% (上缘往下15%区高, 下缘往上15%区高)
+    trig_up_parts = ["null"] * n3
+    trig_lo_parts = ["null"] * n3
+    _ltu, _ltl = None, None
+    for _j in range(n3):
+        try:
+            _bi = today_idx[_j]
+            _tf = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
+            _hmj = _tf[11:16] if len(_tf) >= 16 else ""
+            if _hmj and _hmj in _he_dict:
+                _u, _l = _he_dict[_hmj]
+                if _u is not None and _l is not None:
+                    _zh = float(_u) - float(_l)
+                    _ltu = float(_u) - 0.15 * _zh
+                    _ltl = float(_l) + 0.15 * _zh
+            if _ltu is not None:
+                trig_up_parts[_j] = str(round(_ltu, 2))
+                trig_lo_parts[_j] = str(round(_ltl, 2))
+        except: continue
+    trig_up_js = "[" + ",".join(trig_up_parts) + "]"
+    trig_lo_js = "[" + ",".join(trig_lo_parts) + "]"
     # heatmap数据: 横向色带 [时间索引, 价格, 热度值]
     # 用最终热度分布，在价格轴上画横向色带
     heatmap_data = []
@@ -1107,6 +1128,12 @@ def main():
                        html, count=1, flags=re.S)
     html, n_hm = re.subn(r"\\{name:'heat_bg', type:'heatmap', data:\\[.*?\\], xAxisIndex",
                        "{name:'heat_bg', type:'heatmap', data:" + heatmap_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_tu = re.subn(r"\\{name:'trig_up', type:'line', data:\\[.*?\\], xAxisIndex",
+                       "{name:'trig_up', type:'line', data:" + trig_up_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_tl = re.subn(r"\\{name:'trig_lo', type:'line', data:\\[.*?\\], xAxisIndex",
+                       "{name:'trig_lo', type:'line', data:" + trig_lo_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
     html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
                        "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
