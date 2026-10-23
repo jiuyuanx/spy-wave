@@ -616,8 +616,29 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 _lo -= 1
             while _hi < _heat_nz-1 and _heat_sm[_hi+1] >= _HEAT_THRESH:
                 _hi += 1
-            _orig_up = float(_heat_bins[_hi+1])
-            _orig_lo = float(_heat_bins[_lo])
+            # 插值算精确边缘 (heat=7的crossing点)
+            try:
+                # 上边缘: _hi bin内插值
+                _h_hi = float(_heat_sm[_hi])
+                _h_hi1 = float(_heat_sm[_hi+1]) if _hi+1 < _heat_nz else 0
+                _b_hi0 = float(_heat_bins[_hi]); _b_hi1 = float(_heat_bins[_hi+1])
+                if _h_hi1 < _HEAT_THRESH and _h_hi >= _HEAT_THRESH and _h_hi != _h_hi1:
+                    _frac = (_HEAT_THRESH - _h_hi1) / (_h_hi - _h_hi1)
+                    _orig_up = _b_hi0 + _frac * (_b_hi1 - _b_hi0)
+                else:
+                    _orig_up = float(_heat_bins[_hi+1])
+                # 下边缘: _lo bin内插值
+                _h_lo = float(_heat_sm[_lo])
+                _h_lo0 = float(_heat_sm[_lo-1]) if _lo > 0 else 0
+                _b_lo0 = float(_heat_bins[_lo]); _b_lo1 = float(_heat_bins[_lo+1])
+                if _h_lo0 < _HEAT_THRESH and _h_lo >= _HEAT_THRESH and _h_lo != _h_lo0:
+                    _frac = (_HEAT_THRESH - _h_lo0) / (_h_lo - _h_lo0)
+                    _orig_lo = _b_lo0 + _frac * (_b_lo1 - _b_lo0)
+                else:
+                    _orig_lo = float(_heat_bins[_lo])
+            except:
+                _orig_up = float(_heat_bins[_hi+1])
+                _orig_lo = float(_heat_bins[_lo])
         if _orig_up is None:
             for _zi in range(_heat_nz):
                 if _heat_sm[_zi] >= _HEAT_THRESH:
