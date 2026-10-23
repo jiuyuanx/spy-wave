@@ -1041,7 +1041,13 @@ def main():
     try:
         _he_nonempty = sum(1 for _e in heat_edges if len(_e) >= 3 and _e[1] is not None)
         print(f"[DEBUG] heat_edges nonempty={_he_nonempty}")
-    except: pass
+        _n3dbg = len(today_idx)
+        _tail = heat_edges[-_n3dbg:] if len(heat_edges) >= _n3dbg else heat_edges
+        _tail_nonempty = sum(1 for _e in _tail if len(_e) >= 3 and _e[1] is not None)
+        print(f"[DEBUG] tail {_n3dbg} nonempty={_tail_nonempty}")
+    except Exception as _ex:
+        print(f"[DEBUG] tail check failed: {_ex}")
+        pass
     heat_up_parts = []
     heat_lo_parts = []
     _hu, _hl = None, None
