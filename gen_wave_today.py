@@ -1037,6 +1037,11 @@ def main():
                 slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
     # heat_up/heat_lo: 按heat_edges顺序构建
+    print(f"[DEBUG] heat_edges len={len(heat_edges) if 'heat_edges' in dir() else 'N/A'}")
+    try:
+        _he_nonempty = sum(1 for _e in heat_edges if len(_e) >= 3 and _e[1] is not None)
+        print(f"[DEBUG] heat_edges nonempty={_he_nonempty}")
+    except: pass
     heat_up_parts = []
     heat_lo_parts = []
     _hu, _hl = None, None
