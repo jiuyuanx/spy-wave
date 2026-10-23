@@ -1158,6 +1158,7 @@ def main():
     html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
                        "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
+    print(f"[DEBUG] heat_up替换次数={n_hu}, 数据长度={len(heat_up_js)}")
     html, n_hl = re.subn(r"\\{name:'heat_lo', type:'line', data:\\[.*?\\], xAxisIndex",
                        "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
