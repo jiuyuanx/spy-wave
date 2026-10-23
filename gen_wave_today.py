@@ -1097,36 +1097,6 @@ def main():
                         heatmap_data.append([_ti, round(_price, 2), round(_bv, 2)])
         except: pass
     heatmap_js = "[" + ",".join([f"[{d[0]},{d[1]},{d[2]}]" for d in heatmap_data]) + "]"
-    # 热力7区上下缘线
-    _he_dict = {}
-    for _he in heat_edges:
-        try:
-            _hm = _he[0][11:16]
-            if len(_he) >= 6 and _he[4] is not None:
-                _he_dict[_hm] = (_he[4], _he[5])
-            elif len(_he) >= 3 and _he[1] is not None:
-                _he_dict[_hm] = (_he[1], _he[2])
-        except (IndexError, TypeError):
-            continue
-    heat_up_parts = ["null"] * n3
-    heat_lo_parts = ["null"] * n3
-    _lhu, _lhl = None, None
-    for _j in range(n3):
-        try:
-            _bi = today_idx[_j]
-            _tstr_full = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
-            _hmj = _tstr_full[:5]
-            if _hmj and _hmj in _he_dict:
-                _u, _l = _he_dict[_hmj]
-                if _u is not None:
-                    _lhu, _lhl = _u, _l
-            if _lhu is not None:
-                heat_up_parts[_j] = str(round(float(_lhu), 2))
-                heat_lo_parts[_j] = str(round(float(_lhl), 2))
-        except (IndexError, TypeError, ValueError):
-            continue
-    heat_up_js = "[" + ",".join(heat_up_parts) + "]"
-    heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
