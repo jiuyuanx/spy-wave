@@ -11,6 +11,20 @@ actions format: (bar_idx, time_str, action, direction, price, reason)
 """
 import pandas as pd
 import numpy as np
+
+# 热力区边缘缓存（供dashboard取用）
+_heat_edges_cache = []
+_heat_arr_cache = None
+_heat_bins_cache = None
+def get_heat_edges():
+    """返回最近一次run_signals的heat_edges: [(tstr, up, lo, in_heat, disp_up, disp_lo), ...]"""
+    return _heat_edges_cache
+def get_heat_arr():
+    """返回热力数组（1-9999范围，0.5档）"""
+    return _heat_arr_cache
+def get_heat_bins():
+    """返回热力bins"""
+    return _heat_bins_cache
 import sys
 
 sys.path.insert(0, "/home/hatch/workspace/qqe_backtest")
@@ -221,6 +235,9 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _DIV_QQE_GATE = div_qqe_gate
     _eod_1m = eod_1m_dict or {}
     # ---------- indicators ----------
+    global _heat_edges_cache, _heat_arr_cache, _heat_bins_cache
+    _heat_edges_cache = []  # 每次run_signals清空
+    # _heat_arr_cache/_heat_bins_cache在循环结束时更新（取最后一天的值）
     warm = bars_df.reset_index(drop=True).copy()
     # normalize column names: accept t/o/h/l/c or t/open/high/low/close
     _colmap = {"o": "open", "h": "high", "l": "low", "c": "close"}
@@ -508,6 +525,28 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _n_cancel = 0
     # 止损变量即时初始化 (2026-10-11 fix: 开仓当根立即用真实入场价初始化, 不再延迟到下一根bar)
 
+    # ---------- 做T热力规则初始化 (2026-10-23, pierce2宽版上线) ----------
+    import numpy as _np
+    try:
+        from scipy.ndimage import gaussian_filter1d as _gf1d
+        _heat_has_scipy = True
+    except:
+        _heat_has_scipy = False
+    _HEAT_DECAY = 0.98
+    _HEAT_W_RE = 1.6
+    _HEAT_W_DW = 0.8
+    _HEAT_BIN_W = 0.5
+    _HEAT_THRESH = 7.0
+    _HEAT_EDGE_PCT = 0.15
+    _heat_arr = None
+    _heat_bins = None
+    _heat_nz = 0
+    _heat_prev_zi = None
+    _heat_plo = None
+    _heat_phi = None
+    _heat_rule_last_day = None
+    _pos_in_heat = False  # 当前持仓是否在热力区开的
+
     # ---------- main signal loop (from backtest) ----------
     for i in range(start_idx, end_idx):
         t = warm["t"].iloc[i]
@@ -526,7 +565,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             # 2026-10-08 fix: 每天只算一次, 不能每根bar重算 (第二根bar的gap是盘中价差)
             if i == _day_start and i > 0:
                 _gap = abs(float(warm["open"].iloc[i]) - float(close[i-1]))
-                _day_ign_n = 2 if _gap > 2.0 else 1
+                _day_ign_n = 2 if _gap > 2.0 else 0
                 _day_ign_day = _day_start
             elif _day_ign_day != _day_start:
                 _day_ign_n = 1
@@ -535,6 +574,102 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
         if i - _day_start < _ign_n_wk:
             continue
         px = float(close[i])
+        # === 做T热力规则 (2026-10-23 pierce2宽版): 7区内优先做T，跳过QQE ===
+        _cur_day_str = t.strftime("%Y-%m-%d")
+        if _heat_plo is None or _cur_day_str != _heat_rule_last_day:
+            _heat_arr = None
+            _heat_prev_zi = None
+            _heat_rule_last_day = _cur_day_str
+        if _heat_arr is None:
+            # 固定大范围1-9999（2026-10-23 fix：bins永远对齐，不用动态算）
+            _heat_plo = 1.0
+            _heat_phi = 9999.0
+            _heat_bins = _np.arange(_heat_plo, _heat_phi, _HEAT_BIN_W)
+            _heat_nz = len(_heat_bins) - 1
+            _heat_arr = _np.zeros(_heat_nz)
+        _heat_arr *= _HEAT_DECAY
+        _czi = int(_np.digitize(float(close[i]), _heat_bins)) - 1
+        if 0 <= _czi < _heat_nz:
+            if _heat_prev_zi is not None and _czi != _heat_prev_zi:
+                _heat_arr[_czi] += _HEAT_W_RE
+            else:
+                _heat_arr[_czi] += _HEAT_W_DW
+        _heat_prev_zi = _czi if 0 <= _czi < _heat_nz else None
+        if _heat_has_scipy:
+            _heat_sm = _gf1d(_heat_arr, sigma=1.0, mode='constant', cval=0)
+        else:
+            _heat_sm = _heat_arr
+        _in_heat_zone = False
+        _t_sig_dir = None
+        _cpx = float(close[i])
+        _opx = float(warm["open"].iloc[i]); _hpx = float(warm["high"].iloc[i]); _lpx = float(warm["low"].iloc[i])
+        _close_zi = int(_np.digitize(_cpx, _heat_bins)) - 1
+        _orig_up, _orig_lo = None, None
+        if 0 <= _close_zi < _heat_nz and _heat_sm[_close_zi] >= _HEAT_THRESH:
+            _lo, _hi = _close_zi, _close_zi
+            while _lo > 0 and _heat_sm[_lo-1] >= _HEAT_THRESH:
+                _lo -= 1
+            while _hi < _heat_nz-1 and _heat_sm[_hi+1] >= _HEAT_THRESH:
+                _hi += 1
+            _orig_up = float(_heat_bins[_hi+1])
+            _orig_lo = float(_heat_bins[_lo])
+        if _orig_up is None:
+            for _zi in range(_heat_nz):
+                if _heat_sm[_zi] >= _HEAT_THRESH:
+                    _tlo, _thi = _zi, _zi
+                    while _tlo > 0 and _heat_sm[_tlo-1] >= _HEAT_THRESH: _tlo -= 1
+                    while _thi < _heat_nz-1 and _heat_sm[_thi+1] >= _HEAT_THRESH: _thi += 1
+                    _tu = float(_heat_bins[_thi+1]); _tl = float(_heat_bins[_tlo])
+                    _th = _tu - _tl
+                    _exp_up = _tu + 0.15 * _th; _exp_lo = _tl - 0.15 * _th
+                    if _exp_lo <= _cpx <= _exp_up:
+                        _orig_up, _orig_lo = _tu, _tl
+                        break
+        if _orig_up is not None:
+            _ztop, _zbot = _orig_up, _orig_lo
+            _zh = _ztop - _zbot
+            _exp_up = _ztop + 0.15 * _zh; _exp_lo = _zbot - 0.15 * _zh
+            if _exp_lo <= _cpx <= _exp_up:
+                _in_heat_zone = True
+            if _cpx >= _ztop - _HEAT_EDGE_PCT * _zh:
+                _t_sig_dir = "put"
+            elif _cpx <= _zbot + _HEAT_EDGE_PCT * _zh:
+                _t_sig_dir = "call"
+            _up_trigger = _ztop - _HEAT_EDGE_PCT * _zh
+            _lo_trigger = _zbot + _HEAT_EDGE_PCT * _zh
+            if _cpx < _opx and _hpx > _up_trigger and _cpx < _up_trigger:
+                _t_sig_dir = "put"
+            elif _cpx > _opx and _lpx < _lo_trigger and _cpx > _lo_trigger:
+                _t_sig_dir = "call"
+        # 记录heat_edges供dashboard用: (tstr, up, lo, in_heat, disp_up, disp_lo)
+        # 与research/gen_heat_html_pierce2.py格式一致
+        _he_tstr = t.strftime("%Y-%m-%d %H:%M")
+        _he_up = float(_orig_up) if _orig_up is not None else None
+        _he_lo = float(_orig_lo) if _orig_lo is not None else None
+        _he_disp_up = _he_disp_lo = None
+        if _he_up is not None and _he_lo is not None:
+            _he_zh = _he_up - _he_lo
+            _he_disp_up = _he_up + 0.15 * _he_zh
+            _he_disp_lo = _he_lo - 0.15 * _he_zh
+        _heat_edges_cache.append((_he_tstr, _he_up, _he_lo, _in_heat_zone, _he_disp_up, _he_disp_lo))
+        if _in_heat_zone:
+            if _t_sig_dir:
+                _tstr = t.strftime("%m-%dT%H:%M")
+                # 执行价：下一根开盘（回测口径）；实盘用当前价由watcher决定
+                _next_same_day = (i+1 < len(warm)) and (warm["t"].iloc[i+1].strftime("%m-%d") == day)
+                _px_exec = float(warm["open"].iloc[i+1]) if _next_same_day else px
+                if pos is None:
+                    actions.append((i, _tstr, "开", _t_sig_dir, _px_exec, f"做T开{_t_sig_dir}(7区)"))
+                    pos = _t_sig_dir; _pos_in_heat = True
+                    last_action_bar = i
+                elif pos != _t_sig_dir:
+                    _close_tag = "" if _pos_in_heat else "[非做T仓]"
+                    actions.append((i, _tstr, "平", pos, _px_exec, f"做T信号平{pos}{_close_tag}(7区)"))
+                    actions.append((i, _tstr, "开", _t_sig_dir, _px_exec, f"做T开{_t_sig_dir}(7区)"))
+                    pos = _t_sig_dir; _pos_in_heat = True
+                    last_action_bar = i
+            continue  # 跳过QQE逻辑
+        # === 做T热力规则结束 ===
         # 3-bar大K等反弹 (空头版, 2026-10-11): 持call+3根净跌超2.5 → 等30%反弹, 最多5根, 最高优先
         if k3_wait_target is not None:
             k3_wait_bars += 1
@@ -1365,10 +1500,12 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                         pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; wait_red = wait_blue = False; _decay_entry_hist = 0
                         last_action_bar = i
             # 重涨回补 (2026-10-02 用户优化; 2026-10-05 用户: 改成反手, 同bar开反向; 2026-10-06 用户: 2根都比翻仓bar长, 或1根长20%+; 2026-10-07 用户: 或比前一根长20%)
-            # 持put后蓝柱 / 持call后红柱: 连续2根都比翻仓bar长, 或单根长20%+, 或比前一根长20%+ -> 平 + 反手开. 对称.
-            if pos and (i - last_action_bar) >= 1 and _decay_entry_hist > 0:
+            # 蓝重涨->翻call, 红重涨->翻put. 2026-10-19 用户: 不检查持仓, 止损平仓后同bar也照常翻
+            for _tdir, _tsgn in (("call", 1), ("put", -1)):
+                if pos == _tdir or _decay_entry_hist <= 0:
+                    continue
                 _entry_hist = _decay_entry_hist
-                _tsign = 1 if pos == "put" else -1
+                _tsign = _tsgn
                 _found = False
                 _hc = hist[i]
                 if not np.isnan(_hc) and _hc * _tsign > 0 and abs(_hc) > 3:
@@ -1401,19 +1538,18 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                                 and abs(_hp) > _entry_hist and abs(_hc) > _entry_hist):
                             _found = True
                 if _found:
-                    _old_pos = pos
-                    _lbl = "蓝重涨平put" if pos == "put" else "红重涨平call"
-                    actions.append((i, tstr, "平", pos, px, _lbl))
-                    pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; wait_red = wait_blue = False; _decay_entry_hist = 0
-                    last_action_bar = i
+                    if pos:
+                        _lbl = "蓝重涨平put" if pos == "put" else "红重涨平call"
+                        actions.append((i, tstr, "平", pos, px, _lbl))
+                        pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; wait_red = wait_blue = False
                     # 2026-10-05 用户: 经典回补, 同bar反手
-                    _flip_dir = "call" if _old_pos == "put" else "put"
-                    actions.append((i, tstr, "开", _flip_dir, px, f"重涨反手开{_flip_dir}"))
-                    pos = _flip_dir; _init_stop_vars(_flip_dir, px, i)
-                    _fav_peak = abs(hist[i]); _fav_sign = 1 if _flip_dir == "call" else -1
+                    actions.append((i, tstr, "开", _tdir, px, f"重涨反手开{_tdir}"))
+                    _decay_entry_hist = 0
+                    pos = _tdir; _init_stop_vars(_tdir, px, i); last_action_bar = i
+                    _fav_peak = abs(hist[i]); _fav_sign = 1 if _tdir == "call" else -1
                     wait_red = wait_blue = False
                     # 设置同波保护 (防止刚开的被"出现"误杀)
-                    if _flip_dir == "call":
+                    if _tdir == "call":
                         _wsr = i
                         while _wsr > 0 and _ws_cont_red(_wsr-1):
                             _wsr -= 1
@@ -1688,14 +1824,117 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                     _fb = is_true_blue(i) and abs(hist[i]) >= FOLLOW_MIN_LEN and \
                           is_true_blue(i-1)
                     _growing = abs(hist[i]) > abs(hist[i-1])
+                    # 顺强趋势跟随 (2026-10-19 用户定版): 从开盘cumslope, 11:00-15:00, 红<-0.20/蓝>+0.15
+                    # 强趋势只影响开仓信号, 不碰平仓/跟踪状态
+                    _st_sig = False
+                    _cs_st = _9m_cumslope[i] if i < len(_9m_cumslope) else np.nan
+                    _st_gate_red = (hm >= "11:00" and hm < "15:00" and not np.isnan(_cs_st) and _cs_st < -0.20)
+                    if _st_gate_red:
+                        # 灰零下算真红: hist<-3即可 (真红或灰红)
+                        _st_red_i = hist[i] < -3 and hist[i] == hist[i]
+                        _st_red_prev = hist[i-1] < -3 and hist[i-1] == hist[i-1]
+                        # 放宽松版两根跟随: 两根零下, 第二根|h|>=8且递增 + 新波(前8根有正柱)
+                        _st_fr = _st_red_i and abs(hist[i]) >= FOLLOW_MIN_LEN and _st_red_prev and _growing
+                        if _st_fr:
+                            _has_pos = False
+                            for _stq in range(max(start_idx, i-9), i-1):
+                                _hq = hist[_stq]
+                                if _hq == _hq and _hq > 0:
+                                    _has_pos = True
+                                    break
+                            if not _has_pos:
+                                _st_fr = False
+                        # 新波条件①: 前根hist<0, 本根递增且|h|>=6 + 新波
+                        _st_new1 = hist[i-1] < 0 and hist[i] < 0 and abs(hist[i]) > abs(hist[i-1]) and abs(hist[i]) >= 6
+                        if _st_new1:
+                            _has_pos = False
+                            for _stq in range(max(start_idx, i-9), i-1):
+                                _hq = hist[_stq]
+                                if _hq == _hq and _hq > 0:
+                                    _has_pos = True
+                                    break
+                            if not _has_pos:
+                                _st_new1 = False
+                        # 新波条件②: 新波第一根|h|>=6 (前8根安静 |h|<=3)
+                        _st_new2 = False
+                        if hist[i] < 0 and abs(hist[i]) >= 6:
+                            _st_quiet = True
+                            for _stq in range(max(start_idx, i-8), i):
+                                _hq = hist[_stq]
+                                if not (_hq == _hq and abs(_hq) <= 3):
+                                    _st_quiet = False
+                                    break
+                            _st_new2 = _st_quiet and (i-8 >= start_idx)
+                        if _st_fr or _st_new1 or _st_new2:
+                            _st_sig = True
                     # (2026-10-06: 新信号优先于仓位，持反向仓时先平再开，与watcher.py同步)
-                    if _fr and _growing and not _bigk_skip_wk and not k3_skip:
+                    # 2026-10-18: 已持有put时不重复开仓
+                    if _st_sig and pos != "put" and not _bigk_skip_wk and not k3_skip:
+                        if pos == "call":
+                            actions.append((i, tstr, "平", "call", px, "跟随翻仓(持call遇强趋势跟随)"))
+                            pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; last_action_bar = i
+                        actions.append((i, tstr, "开", "put", px, "强趋势跟随P"))
+                        pos = "put"; _init_stop_vars("put", px, i); _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; _decay_entry_hist = 0
+                        _fav_peak = abs(hist[i]) if (not np.isnan(hist[i]) and hist[i] < 0) else 0; _fav_sign = -1 if (not np.isnan(hist[i]) and hist[i] < 0) else 0
+                        _follow_entry_bar = i; _follow_entry_hist = abs(hist[i]); _follow_do_div_wk = _follow_do_div; _follow_entry_dir_wk = pos; _follow_entry_peak_wk = _fwp; _follow_entry_spy_wk = close[i]; _follow_entry_date_wk = _day_arr[i]
+                        wait_red = wait_blue = False
+                    elif _fr and _growing and not _bigk_skip_wk and not k3_skip:
                         if pos == "call":
                             actions.append((i, tstr, "平", "call", px, "跟随翻仓(持call遇红跟随)"))
                             pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; last_action_bar = i
                         actions.append((i, tstr, "开", "put", px, "两根长红跟随"))
                         pos = "put"; _init_stop_vars("put", px, i); _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; _decay_entry_hist = 0
                         _fav_peak = abs(hist[i]) if (not np.isnan(hist[i]) and hist[i] < 0) else 0; _fav_sign = -1 if (not np.isnan(hist[i]) and hist[i] < 0) else 0
+                        _follow_entry_bar = i; _follow_entry_hist = abs(hist[i]); _follow_do_div_wk = _follow_do_div; _follow_entry_dir_wk = pos; _follow_entry_peak_wk = _fwp; _follow_entry_spy_wk = close[i]; _follow_entry_date_wk = _day_arr[i]
+                        wait_red = wait_blue = False
+                    # 顺强趋势跟随(上涨对称版, 2026-10-19 用户定版): 11:00-15:00, cumslope>+0.15, 放宽松开call
+                    _st_sig_up = False
+                    _st_gate_blue = (hm >= "11:00" and hm < "15:00" and not np.isnan(_cs_st) and _cs_st > 0.15)
+                    if _st_gate_blue:
+                        # 灰零上算真蓝: hist>3即可 (真蓝或灰蓝)
+                        _st_blue_i = hist[i] > 3 and hist[i] == hist[i]
+                        _st_blue_prev = hist[i-1] > 3 and hist[i-1] == hist[i-1]
+                        # 放宽松版两根跟随: 两根零上, 第二根|h|>=8且递增 + 新波(前8根有负柱)
+                        _st_fr_up = _st_blue_i and abs(hist[i]) >= FOLLOW_MIN_LEN and _st_blue_prev and _growing
+                        if _st_fr_up:
+                            _has_neg = False
+                            for _stq in range(max(start_idx, i-9), i-1):
+                                _hq = hist[_stq]
+                                if _hq == _hq and _hq < 0:
+                                    _has_neg = True
+                                    break
+                            if not _has_neg:
+                                _st_fr_up = False
+                        # 新波条件①: 前根hist>0, 本根递增且|h|>=6 + 新波
+                        _st_new1_up = hist[i-1] > 0 and hist[i] > 0 and abs(hist[i]) > abs(hist[i-1]) and abs(hist[i]) >= 6
+                        if _st_new1_up:
+                            _has_neg = False
+                            for _stq in range(max(start_idx, i-9), i-1):
+                                _hq = hist[_stq]
+                                if _hq == _hq and _hq < 0:
+                                    _has_neg = True
+                                    break
+                            if not _has_neg:
+                                _st_new1_up = False
+                        # 新波条件②: 新波第一根|h|>=6 (前8根安静 |h|<=3)
+                        _st_new2_up = False
+                        if hist[i] > 0 and abs(hist[i]) >= 6:
+                            _st_quiet_up = True
+                            for _stq in range(max(start_idx, i-8), i):
+                                _hq = hist[_stq]
+                                if not (_hq == _hq and abs(_hq) <= 3):
+                                    _st_quiet_up = False
+                                    break
+                            _st_new2_up = _st_quiet_up and (i-8 >= start_idx)
+                        if _st_fr_up or _st_new1_up or _st_new2_up:
+                            _st_sig_up = True
+                    if _st_sig_up and pos != "call" and not _bigk_skip_wk:
+                        if pos == "put":
+                            actions.append((i, tstr, "平", "put", px, "跟随翻仓(持put遇强趋势跟随)"))
+                            pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; last_action_bar = i
+                        actions.append((i, tstr, "开", "call", px, "强趋势跟随C"))
+                        pos = "call"; _init_stop_vars("call", px, i); _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; _decay_entry_hist = 0
+                        _fav_peak = abs(hist[i]) if (not np.isnan(hist[i]) and hist[i] > 0) else 0; _fav_sign = 1 if (not np.isnan(hist[i]) and hist[i] > 0) else 0
                         _follow_entry_bar = i; _follow_entry_hist = abs(hist[i]); _follow_do_div_wk = _follow_do_div; _follow_entry_dir_wk = pos; _follow_entry_peak_wk = _fwp; _follow_entry_spy_wk = close[i]; _follow_entry_date_wk = _day_arr[i]
                         wait_red = wait_blue = False
                     elif _fb and _growing and not _bigk_skip_wk:
@@ -1772,4 +2011,10 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                             _follow_entry_bar = i; _follow_entry_hist = abs(hist[i]); _follow_do_div_wk = _follow_do_div; _follow_entry_dir_wk = pos; _follow_entry_peak_wk = _fwp; _follow_entry_spy_wk = close[i]; _follow_entry_date_wk = _day_arr[i]
                             wait_red = wait_blue = False
 
+    # 保存heat_arr/bins供dashboard画热力背景（取循环最后的值）
+    try:
+        _heat_arr_cache = _heat_arr.copy() if _heat_arr is not None else None
+        _heat_bins_cache = _heat_bins.copy() if _heat_bins is not None else None
+    except NameError:
+        pass
     return actions

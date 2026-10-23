@@ -19,6 +19,22 @@ var THEME = {
     stoploss_put:  '#7ab27a'   // 止损P 灰绿
   },
 
+  // 热力区样式 (2026-10-23)
+  heat: {
+    zoneUpColor: '#ff9900',    // 7区上缘 橙色
+    zoneLoColor: '#0277BD',    // 7区下缘 蓝色
+    zoneLineWidth: 1.5,
+    zoneLineType: 'solid',     // 7区边缘实线
+    trigUpColor: '#FF6F00',    // 上15%触发线 橙色虚线
+    trigLoColor: '#0277BD',    // 下15%触发线 蓝色虚线
+    trigLineWidth: 1,
+    trigLineType: 'dashed',
+    barBorderColor: '#ffffff', // 7区内柱子白色边缘
+    barBorderWidth: 1,
+    signalBorderColor: '#ffffff', // 做T信号白色边缘
+    signalBorderWidth: 2
+  },
+
   markPoint: {
     symbolSize: 26,
     fontSize: 7,
