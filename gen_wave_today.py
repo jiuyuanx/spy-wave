@@ -300,9 +300,7 @@ def main():
     heat_edges = get_heat_edges()
     heat_arr = get_heat_arr()
     heat_bins = get_heat_bins()
-    # 调试：统计非空edge
-    _nonnull = sum(1 for _e in heat_edges if len(_e) >= 3 and _e[1] is not None)
-    print(f"[DEBUG] heat_edges总数={len(heat_edges)}, 非空={_nonnull}")
+
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
     dates = sig["t"].dt.date.astype(str).values
@@ -1068,7 +1066,7 @@ def main():
         try:
             _bi = today_idx[_j]
             _tf = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
-            _hmj = _tf[11:16] if len(_tf) >= 16 else ""
+            _hmj = _tf[:5]
             if _hmj and _hmj in _he_dict:
                 _u, _l = _he_dict[_hmj]
                 if _u is not None and _l is not None:
@@ -1117,7 +1115,7 @@ def main():
         try:
             _bi = today_idx[_j]
             _tstr_full = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
-            _hmj = _tstr_full[11:16] if len(_tstr_full) >= 16 else ""
+            _hmj = _tstr_full[:5]
             if _hmj and _hmj in _he_dict:
                 _u, _l = _he_dict[_hmj]
                 if _u is not None:
