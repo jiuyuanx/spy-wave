@@ -39,7 +39,7 @@ def heat_color(v):
     idx = int(max(0, min(14, v)))
     return HEAT_COLORS[idx]
 
-from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, detect_red_decay, detect_blue_decay,
+from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, get_heat_sm, detect_red_decay, detect_blue_decay,
                            SIG_MIN_LEN)
 
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
@@ -300,6 +300,7 @@ def main():
     heat_edges = get_heat_edges()
     heat_arr = get_heat_arr()
     heat_bins = get_heat_bins()
+    heat_sm = get_heat_sm()
 
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
@@ -919,17 +920,12 @@ def main():
         for a in mark_areas) + "]"
     # 热力背景markArea: 横向色带 (按昨天gen_heat_html_pierce2.py方法)
     heat_markarea = []
-    _har = get_heat_arr()
+    _har = heat_sm if heat_sm is not None else get_heat_arr()
     _hbn = get_heat_bins()
     if _har is not None and _hbn is not None:
         try:
             import numpy as _np2
             _ha2 = _np2.array(_har, dtype=float)
-            # 加gaussian blur (跟signal_engine一致，sigma=1.0)
-            try:
-                from scipy.ndimage import gaussian_filter1d as _gf
-                _ha2 = _gf(_ha2, sigma=1.0, mode='constant', cval=0)
-            except: pass
             _hb2 = _np2.array(_hbn, dtype=float)
             _valid2 = _np2.where(_ha2 > 0.5)[0]
             if len(_valid2) > 0:

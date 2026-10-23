@@ -15,6 +15,7 @@ import numpy as np
 # 热力区边缘缓存（供dashboard取用）
 _heat_edges_cache = []
 _heat_arr_cache = None
+_heat_sm_cache = None
 _heat_bins_cache = None
 def get_heat_edges():
     """返回最近一次run_signals的heat_edges: [(tstr, up, lo, in_heat, disp_up, disp_lo), ...]"""
@@ -235,8 +236,9 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _DIV_QQE_GATE = div_qqe_gate
     _eod_1m = eod_1m_dict or {}
     # ---------- indicators ----------
-    global _heat_edges_cache, _heat_arr_cache, _heat_bins_cache
+    global _heat_edges_cache, _heat_arr_cache, _heat_bins_cache, _heat_sm_cache
     _heat_edges_cache = []  # 每次run_signals清空
+    _heat_sm_cache = None
     # _heat_arr_cache/_heat_bins_cache在循环结束时更新（取最后一天的值）
     warm = bars_df.reset_index(drop=True).copy()
     # normalize column names: accept t/o/h/l/c or t/open/high/low/close
@@ -2012,9 +2014,16 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                             wait_red = wait_blue = False
 
     # 保存heat_arr/bins供dashboard画热力背景（取循环最后的值）
+    # _heat_sm_cache存blur过的final output（信号实际用的）
     try:
         _heat_arr_cache = _heat_arr.copy() if _heat_arr is not None else None
         _heat_bins_cache = _heat_bins.copy() if _heat_bins is not None else None
+        if _heat_arr is not None:
+            try:
+                from scipy.ndimage import gaussian_filter1d as _gf2
+                _heat_sm_cache = _gf2(_heat_arr, sigma=1.0, mode='constant', cval=0)
+            except:
+                _heat_sm_cache = _heat_arr.copy()
     except NameError:
         pass
     return actions
