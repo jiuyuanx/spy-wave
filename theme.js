@@ -19,6 +19,12 @@ var THEME = {
     stoploss_put:  '#7ab27a'   // 止损P 灰绿
   },
 
+  heat: {
+    zoneUpColor: '#ff9900',
+    zoneLoColor: '#0277BD',
+    zoneLineWidth: 1.5,
+    zoneLineType: 'solid',
+  },
   markPoint: {
     symbolSize: 26,
     fontSize: 7,
