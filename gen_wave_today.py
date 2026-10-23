@@ -1039,6 +1039,11 @@ def main():
     # heat_up/heat_lo: 7区上下缘线 (从heat_edges取今日部分)
     _n3h2 = len(today_idx)
     _he_tail = heat_edges[-_n3h2:] if len(heat_edges) >= _n3h2 else heat_edges
+    try:
+        for _dbg_i in range(min(3, len(_he_tail))):
+            _de = _he_tail[_dbg_i]
+            print(f"[DEBUG] tail[{_dbg_i}] tstr={_de[0]}, up={_de[1]}, lo={_de[2]}")
+    except: pass
     # forward fill: 区内bar用区边缘，区外bar延续上一个值
     _hu2, _hl2 = None, None
     _up_list, _lo_list = [], []
