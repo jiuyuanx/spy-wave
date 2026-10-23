@@ -298,7 +298,6 @@ def main():
     heat_edges = get_heat_edges()
     heat_arr = get_heat_arr()
     heat_bins = get_heat_bins()
-    heat_edges = get_heat_edges()
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
     dates = sig["t"].dt.date.astype(str).values
