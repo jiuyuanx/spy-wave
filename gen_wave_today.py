@@ -925,6 +925,11 @@ def main():
         try:
             import numpy as _np2
             _ha2 = _np2.array(_har, dtype=float)
+            # 加gaussian blur (跟signal_engine一致，sigma=1.0)
+            try:
+                from scipy.ndimage import gaussian_filter1d as _gf
+                _ha2 = _gf(_ha2, sigma=1.0, mode='constant', cval=0)
+            except: pass
             _hb2 = _np2.array(_hbn, dtype=float)
             _valid2 = _np2.where(_ha2 > 0.5)[0]
             if len(_valid2) > 0:
