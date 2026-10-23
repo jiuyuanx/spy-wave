@@ -27,7 +27,7 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
-from signal_engine import (run_signals, detect_red_decay, detect_blue_decay,
+from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, detect_red_decay, detect_blue_decay,
                            SIG_MIN_LEN)
 
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
@@ -285,20 +285,18 @@ def main():
     day_arr = sig["t"].dt.date.values
 
     actions = run_signals(sig)
+    heat_edges = get_heat_edges()
+    heat_arr = get_heat_arr()
+    heat_bins = get_heat_bins()
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
     dates = sig["t"].dt.date.astype(str).values
     today_idx = [i for i in range(n) if dates[i] == day_str]
     if not today_idx:
-        # 盘前/开盘5分钟内没数据是正常的，等下轮（不报错）；Actions 里同时写
-        # skip=1 让 workflow 跳过存档/deploy 步，避免拿旧 index 覆盖线上页
+        # 开盘5分钟内没数据是正常的，等下轮（不报错）
         now_et = datetime.now(ET)
-        if not WAVE_DATE and (now_et.hour < 9 or (now_et.hour == 9 and now_et.minute < 35)):
-            print(f"[{now_et.strftime('%H:%M:%S')}] market not open yet / just opened, no bars yet, skip gracefully")
-            _gho = os.environ.get("GITHUB_OUTPUT")
-            if _gho:
-                with open(_gho, "a") as _f:
-                    _f.write("skip=1\n")
+        if not WAVE_DATE and now_et.hour == 9 and now_et.minute < 35:
+            print(f"[{now_et.strftime('%H:%M:%S')}] market just opened, no bars yet, skip gracefully")
             return
         raise RuntimeError("no today bars")
 
@@ -604,17 +602,23 @@ def main():
         if not _qok:
             rt["pnl"] = None
             rt["ret"] = None
-        # 预估统一Gamma公式ROI (2026-10-20 用户: 实盘/回放都用ROI公式, 不再用delta线性模型)
-        _roi = gamma_roi(rt["odr"], rt["opx"], rt["cpx"]) / 100.0
+        sgn = 1 if rt["odr"] == "call" else -1
+        _spy_pnl = sgn * (rt["cpx"] - rt["opx"])
         if rt["o_qty"]:
-            # 有实际成交: 预估=ROI×实际期权成本
-            rt["est_ret"] = _roi
-            rt["est_pnl"] = _roi * rt["o_avg"] * rt["o_qty"] * 100 if rt["o_avg"] else 0.0
+            # 有实际成交: 预估=信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本
+            # delta_eff = 0.5 + 0.1*min(|SPY|,3) (2026-10-13 用户: gamma线性公式)
+            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
+            rt["est_pnl"] = _spy_pnl * _deff * rt["o_qty"] * 100
             rt["est_bt"] = False
+            if rt["o_avg"]:
+                rt["est_ret"] = rt["est_pnl"] / (rt["o_avg"] * rt["o_qty"] * 100)
+            else:
+                rt["est_ret"] = None
         else:
-            # 无实际成交(回放): 预估=ROI×$100k基准 (sequential口径: 全资金即成本)
-            rt["est_ret"] = _roi
-            rt["est_pnl"] = _roi * 100000
+            # 无实际成交(回放): delta_eff = 0.5 + 0.1*min(|SPY|,3), 55张/$100k基准 (2026-10-13 用户)
+            _deff = 0.5 + 0.1 * min(abs(_spy_pnl), 3)
+            rt["est_pnl"] = _spy_pnl * _deff * 55 * 100
+            rt["est_ret"] = rt["est_pnl"] / 100000  # 占总资金比 (回测口径)
             rt["est_bt"] = True
     realized = sum(r["pnl"] for r in rts if r["closed"] and r["pnl"] is not None)
     unreal = sum(r["pnl"] for r in rts if not r["closed"] and r["pnl"] is not None)
@@ -734,13 +738,6 @@ def main():
                                "qty": _tq, "o_avg": _tc / _tq if _tq else 0,
                                "c_avg": None, "pnl": _p.get("upl"),
                                "ret": _p.get("uplpc"), "closed": False})
-    def _spy_at(ts):
-        # 成交精确时刻的SPY点数: 最接近的1m bar收盘价 (2026-10-20 用户口径)
-        if ts is None or df1m is None or len(df1m) == 0:
-            return None
-        _jj = (df1m["t"] - ts).abs().argsort()[:1]
-        return float(df1m["c"].iloc[_jj].iloc[0]) if len(_jj) else None
-
     # 给每个actual_rt找最近的信号 (用于操作名, 方向必须一致)
     for _ar in actual_rts:
         _sym_cp = "call" if _ar["sym"][9:10] == "C" else "put"
@@ -755,24 +752,24 @@ def main():
         if _best is not None and _best_s < 900:  # 15分钟内
             _ar["op"] = _op_name(_best.get("ors"), _best["odr"])
             _ar["odr"] = _best["odr"]
+            _ar["_opx"] = _best["opx"]
+            _ar["_cpx"] = _best["cpx"]
         else:
             _ar["op"] = f"实盘{_sym_cp.upper()}"
             _ar["odr"] = _sym_cp
-        # 开/平SPY一律用成交时刻最接近的1m收盘价 (2026-10-20 用户: 有实盘不用信号价);
-        # 取不到1m价时才回退信号价/最新价
-        _fb_o = _best["opx"] if (_best is not None and _best_s < 900) else None
-        _fb_c = _best["cpx"] if (_best is not None and _best_s < 900) else None
-        _last1m = float(df1m["c"].iloc[-1]) if (df1m is not None and len(df1m)) else None
-        _ar["_opx"] = _spy_at(_ar["o_t"]) or _fb_o or _last1m or float(sig["close"].iloc[-1])
-        if _ar["c_t"] is not None:
-            _ar["_cpx"] = _spy_at(_ar["c_t"]) or _fb_c or _last1m or float(sig["close"].iloc[-1])
-        else:
-            _ar["_cpx"] = _last1m or _fb_c or float(sig["close"].iloc[-1])
-        # 预估: Gamma公式ROI×实际期权成本, ROI按成交时刻SPY价算 (2026-10-20 用户统一口径)
-        _roi2 = gamma_roi(_ar["odr"], _ar["_opx"], _ar["_cpx"]) / 100.0
+            # 无匹配信号: 用成交时间最接近的bar收盘价做SPY价
+            _ar["_opx"] = float(sig.iloc[(sig["t"] - _ar["o_t"]).abs().argsort()[:1]]["close"].iloc[0])
+            if _ar["c_t"] is not None:
+                _ar["_cpx"] = float(sig.iloc[(sig["t"] - _ar["c_t"]).abs().argsort()[:1]]["close"].iloc[0])
+            else:
+                _ar["_cpx"] = float(sig["close"].iloc[-1])
+        # 预估: 信号SPY价差×delta_eff×实际张数; 收益率按实际期权成本 (2026-10-13 用户)
+        _sgn = 1 if _ar["odr"] == "call" else -1
+        _spy_chg = _sgn * (_ar["_cpx"] - _ar["_opx"])
+        _deff2 = 0.5 + 0.1 * min(abs(_spy_chg), 3)
+        _ar["est_pnl"] = _spy_chg * _deff2 * _ar["qty"] * 100
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
-        _ar["est_ret"] = _roi2
-        _ar["est_pnl"] = _roi2 * _ocost
+        _ar["est_ret"] = _ar["est_pnl"] / _ocost if _ocost else None
     actual_rts.sort(key=lambda x: x["o_t"])
 
     # ---- 下方信号单表格 ----
@@ -793,8 +790,6 @@ def main():
             q_txt = f"{ar['qty']:.0f}"
             oa_txt = f"{ar['o_avg']:.2f}"
             ca_txt = f"{ar['c_avg']:.2f}" if ar["c_avg"] else "—"
-            so_txt = f"{ar['_opx']:.2f}" if ar.get("_opx") is not None else "—"
-            sc_txt = f"{ar['_cpx']:.2f}" if ar.get("_cpx") is not None else "—"
             pnl_txt, ret_txt = _money(ar["pnl"]), _pct(ar["ret"])
             if not ar["closed"] and ar["pnl"] is not None:
                 pnl_txt += "(浮)"
@@ -806,8 +801,6 @@ def main():
             c_tm = sig["t"].iloc[ar["cbi"]].strftime("%H:%M") if ar["closed"] else "持仓中"
             op_txt = _op_name(ar.get("ors"), ar["odr"])
             q_txt, oa_txt, ca_txt = "—", "—", "—"
-            so_txt = f"{ar['opx']:.2f}"
-            sc_txt = f"{ar['cpx']:.2f}" if ar["closed"] else "—"
             pnl_txt, ret_txt = "—", "—"
             est_txt = "~" + _money(ar["est_pnl"])
             est_ret_txt = "~" + _pct(ar["est_ret"])
@@ -815,7 +808,7 @@ def main():
         ec = "#1a9e54" if ar["est_pnl"] >= 0 else "#e5484d"
         trows.append(
             f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>{q_txt}</td>"
-            f"<td>{oa_txt}</td><td>{so_txt}</td><td>{c_tm}</td><td>{ca_txt}</td><td>{sc_txt}</td>"
+            f"<td>{oa_txt}</td><td>{c_tm}</td><td>{ca_txt}</td>"
             f"<td style=\"color:{pc};font-weight:bold\">{pnl_txt}</td>"
             f"<td style=\"color:{pc}\">{ret_txt}</td>"
             f"<td style=\"color:{ec}\">{est_txt}</td>"
@@ -829,7 +822,7 @@ def main():
         tot_est_txt = "~" + _money(tot_est)
         _tot_real = 0
     trows.append(
-        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
+        f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"7\">合计"
         f"</td><td>{_money(_tot_real)}</td><td></td>"
         f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
@@ -839,12 +832,12 @@ def main():
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
         "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
         "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
-        "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
+        "<th>开均价</th><th>平仓</th><th>平均价</th><th>实际收益</th><th>实际收益率</th>"
         "<th>预估收益</th><th>预估收益率</th></tr>"
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准);开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
+        "预估=SPY价差×(0.5+0.1×min(|SPY|,3))×实际张数,收益率按实际期权成本;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
@@ -962,17 +955,56 @@ def main():
                 _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
                 slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
+    # 热力7区上下缘线
+    _he_dict = {}
+    for _he in heat_edges:
+        _hm = _he[0][11:16]
+        if len(_he) >= 6 and _he[4] is not None:
+            _he_dict[_hm] = (_he[4], _he[5])
+        elif _he[1] is not None:
+            _he_dict[_hm] = (_he[1], _he[2])
+    heat_up_parts = ["null"] * n3
+    heat_lo_parts = ["null"] * n3
+    _lhu, _lhl = None, None
+    for _j in range(n3):
+        _bi = today_idx[_j]
+        _tstr_full = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
+        _hmj = _tstr_full[11:16] if len(_tstr_full) >= 16 else _tstr_full
+        if _hmj in _he_dict:
+            _u, _l = _he_dict[_hmj]
+            if _u is not None:
+                _lhu, _lhl = _u, _l
+        if _lhu is not None:
+            heat_up_parts[_j] = str(round(_lhu, 2))
+            heat_lo_parts[_j] = str(round(_lhl, 2))
+    heat_up_js = "[" + ",".join(heat_up_parts) + "]"
+    heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
+    # 热力背景heatmap（只取当天价格范围）
+    # 数据格式: [time_idx, price, heat_value]
+    heatmap_js = "[]"
+    if heat_arr is not None and heat_bins is not None:
+        import numpy as _np2
+        _harr = _np2.array(heat_arr, dtype=float)
+        _hbins = _np2.array(heat_bins, dtype=float)
+        _plo = float(min(float(sig["low"].iloc[i]) for i in today_idx))
+        _phi = float(max(float(sig["high"].iloc[i]) for i in today_idx))
+        _hm_pts = []
+        for _bi in range(len(_hbins) - 1):
+            _bmid = float((_hbins[_bi] + _hbins[_bi+1]) / 2)
+            if _plo - 2 <= _bmid <= _phi + 2:
+                _bv = float(_harr[_bi]) if _bi < len(_harr) else 0
+                if _bv > 0.5:
+                    # 每个价格bin，在所有时间点画背景（简化：只画中间时间点，靠visualMap扩散）
+                    # 实际heatmap需要每个x都有值，这里用时间范围中点
+                    _hm_pts.append(f"[0,{round(_bmid,2)},{round(_bv,2)}]")
+        heatmap_js = "[" + ",".join(_hm_pts) + "]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
 
     # 2026-10-19 根源统一: 实盘dashboard改用backfill模板2026-04-02.html, 不再内联模板
     # (tooltip半透明/cumslope/slope5/legend等与backfill永远一致)
-    # 2026-10-20: 模板改相对脚本目录找 (仓库根目录有一份; 旧硬编码本机wave-deploy路径在Actions上不存在)
-    _tpl_cands = [os.path.join(os.path.dirname(os.path.abspath(__file__)), '2026-04-02.html'),
-                  '/home/hatch/workspace/wave-deploy/2026-04-02.html']
-    _tpl = next((p for p in _tpl_cands if os.path.exists(p)), _tpl_cands[0])
-    html = open(_tpl).read()
+    html = open('/home/hatch/workspace/wave-deploy/2026-04-02.html').read()
     html = re.sub(r'<title>.*?</title>', f'<title>{title_txt}</title>', html, count=1)
     html = re.sub(r"title:\{text:'.*?', left:'center'",
                   f"title:{{text:'{title_txt}', left:'center'", html, count=1)
@@ -1020,6 +1052,15 @@ def main():
                        html, count=1, flags=re.S)
     html, n5 = re.subn(r"\{name:'slope5', type:'line', data:\[.*?\], xAxisIndex",
                        "{name:'slope5', type:'line', data:" + slope5_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
+                       "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_hl = re.subn(r"\\{name:'heat_lo', type:'line', data:\\[.*?\\], xAxisIndex",
+                       "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_hbg = re.subn(r"\\{name:'heat_bg', type:'heatmap', data:\\[.*?\\], xAxisIndex",
+                       "{name:'heat_bg', type:'heatmap', data:" + heatmap_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
 
     def _replace_balanced(html, start_pat, new_text):
