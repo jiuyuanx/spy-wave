@@ -1052,9 +1052,10 @@ def main():
         except:
             heat_up_parts.append("null"); heat_lo_parts.append("null")
     # 取尾部n3条 (今天的，前面是warmup)
-    if len(heat_up_parts) > n3:
-        heat_up_parts = heat_up_parts[-n3:]; heat_lo_parts = heat_lo_parts[-n3:]
-    while len(heat_up_parts) < n3:
+    _n3h = len(today_idx)
+    if len(heat_up_parts) > _n3h:
+        heat_up_parts = heat_up_parts[-_n3h:]; heat_lo_parts = heat_lo_parts[-_n3h:]
+    while len(heat_up_parts) < _n3h:
         heat_up_parts.insert(0, "null"); heat_lo_parts.insert(0, "null")
     heat_up_js = "[" + ",".join(heat_up_parts) + "]"
     heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
