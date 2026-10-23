@@ -27,6 +27,16 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
+# 热力背景色 (昨天gen_heat_html_pierce2.py的配色)
+HEAT_COLORS = [
+    'rgba(232,244,248,0.35)', 'rgba(254,249,231,0.35)', 'rgba(253,235,208,0.35)',
+    'rgba(250,215,160,0.40)', 'rgba(245,176,65,0.45)', 'rgba(230,126,34,0.50)',
+    'rgba(211,84,0,0.55)', 'rgba(192,57,43,0.60)',
+]
+def heat_color(v):
+    idx = int(max(0, min(7, v / 2)))
+    return HEAT_COLORS[idx]
+
 from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, detect_red_decay, detect_blue_decay,
                            SIG_MIN_LEN)
 
@@ -905,6 +915,42 @@ def main():
         "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
             a[0]["xAxis"], a[0]["pnlPct"], a[1]["xAxis"])
         for a in mark_areas) + "]"
+    # 热力背景markArea: 横向色带 (按昨天gen_heat_html_pierce2.py方法)
+    heat_markarea = []
+    _har = get_heat_arr()
+    _hbn = get_heat_bins()
+    if _har is not None and _hbn is not None:
+        try:
+            import numpy as _np2
+            _ha2 = _np2.array(_har, dtype=float)
+            _hb2 = _np2.array(_hbn, dtype=float)
+            _valid2 = _np2.where(_ha2 > 0.5)[0]
+            if len(_valid2) > 0:
+                _plo2 = float(_hb2[_valid2[0]])
+                _phi2 = float(_hb2[_valid2[-1]+1]) if _valid2[-1]+1 < len(_hb2) else float(_hb2[-1])
+                _pp = _plo2
+                while _pp < _phi2:
+                    _zi2 = int(_np2.digitize(_pp + 0.25, _hb2)) - 1
+                    _hv2 = float(_ha2[_zi2]) if 0 <= _zi2 < len(_ha2) else 0
+                    _hv2 = max(0, min(15, _hv2))
+                    if _hv2 > 0.5:
+                        heat_markarea.append(
+                            '[{"yAxis":' + str(round(_pp,2)) +
+                            ',"itemStyle":{"color":"' + heat_color(_hv2) + '"}},{"yAxis":' +
+                            str(round(_pp+0.5,2)) + '}]'
+                        )
+                    _pp += 0.5
+        except: pass
+    heat_markarea_js = "[" + ",".join(heat_markarea) + "]"
+    # 合并热力背景 (yAxis横向色带)
+    if 'heat_markarea_js' in dir() and heat_markarea_js != "[]":
+        # 把heat数据加到mark_area_js里
+        _ma_inner = mark_area_js[1:-1]  # 去掉[]
+        _heat_inner = heat_markarea_js[1:-1]
+        if _ma_inner:
+            mark_area_js = "[" + _ma_inner + "," + _heat_inner + "]"
+        else:
+            mark_area_js = heat_markarea_js
     mark_area_opt = "{silent:true,data:" + mark_area_js + "}"
     ohlc = [[round(float(sig["open"].iloc[i]), 2), round(float(sig["close"].iloc[i]), 2),
              round(float(sig["low"].iloc[i]), 2), round(float(sig["high"].iloc[i]), 2)]
