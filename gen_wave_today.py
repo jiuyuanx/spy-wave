@@ -27,7 +27,7 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
-from signal_engine import (run_signals, detect_red_decay, detect_blue_decay,
+from signal_engine import (run_signals, get_heat_edges, detect_red_decay, detect_blue_decay,
                            SIG_MIN_LEN)
 
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
@@ -285,6 +285,7 @@ def main():
     day_arr = sig["t"].dt.date.values
 
     actions = run_signals(sig)
+    heat_edges = get_heat_edges()
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
     dates = sig["t"].dt.date.astype(str).values
@@ -962,6 +963,36 @@ def main():
                 _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
                 slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
+    # 热力7区上下缘线
+    _he_dict = {}
+    for _he in heat_edges:
+        try:
+            _hm = _he[0][11:16]
+            if len(_he) >= 6 and _he[4] is not None:
+                _he_dict[_hm] = (_he[4], _he[5])
+            elif len(_he) >= 3 and _he[1] is not None:
+                _he_dict[_hm] = (_he[1], _he[2])
+        except (IndexError, TypeError):
+            continue
+    heat_up_parts = ["null"] * n3
+    heat_lo_parts = ["null"] * n3
+    _lhu, _lhl = None, None
+    for _j in range(n3):
+        try:
+            _bi = today_idx[_j]
+            _tstr_full = tstrs[_bi] if 0 <= _bi < len(tstrs) else ""
+            _hmj = _tstr_full[11:16] if len(_tstr_full) >= 16 else ""
+            if _hmj and _hmj in _he_dict:
+                _u, _l = _he_dict[_hmj]
+                if _u is not None:
+                    _lhu, _lhl = _u, _l
+            if _lhu is not None:
+                heat_up_parts[_j] = str(round(float(_lhu), 2))
+                heat_lo_parts[_j] = str(round(float(_lhl), 2))
+        except (IndexError, TypeError, ValueError):
+            continue
+    heat_up_js = "[" + ",".join(heat_up_parts) + "]"
+    heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
@@ -1020,6 +1051,12 @@ def main():
                        html, count=1, flags=re.S)
     html, n5 = re.subn(r"\{name:'slope5', type:'line', data:\[.*?\], xAxisIndex",
                        "{name:'slope5', type:'line', data:" + slope5_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
+                       "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_hl = re.subn(r"\\{name:'heat_lo', type:'line', data:\\[.*?\\], xAxisIndex",
+                       "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
 
     def _replace_balanced(html, start_pat, new_text):
