@@ -26,6 +26,9 @@ def get_heat_arr():
 def get_heat_bins():
     """返回热力bins"""
     return _heat_bins_cache
+def get_heat_sm():
+    """返回blur过的final heat数组（信号实际用的）"""
+    return _heat_sm_cache
 import sys
 
 sys.path.insert(0, "/home/hatch/workspace/qqe_backtest")
