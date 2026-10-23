@@ -966,9 +966,10 @@ def main():
             _he_inheat.append(bool(_e[3]) if len(_e) >= 4 else False)
         except:
             _he_inheat.append(False)
-    if len(_he_inheat) > n3:
-        _he_inheat = _he_inheat[-n3:]
-    while len(_he_inheat) < n3:
+    _n3tmp = len(today_idx)
+    if len(_he_inheat) > _n3tmp:
+        _he_inheat = _he_inheat[-_n3tmp:]
+    while len(_he_inheat) < _n3tmp:
         _he_inheat.insert(0, False)
     _ohlc_parts = []
     for _idx, (o, cc, l, h) in enumerate(ohlc):
