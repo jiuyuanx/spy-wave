@@ -1036,41 +1036,27 @@ def main():
                 _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
                 slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
-    # heat_up/heat_lo: 按heat_edges顺序构建
-    print(f"[DEBUG] heat_edges len={len(heat_edges) if 'heat_edges' in dir() else 'N/A'}")
-    try:
-        _he_nonempty = sum(1 for _e in heat_edges if len(_e) >= 3 and _e[1] is not None)
-        print(f"[DEBUG] heat_edges nonempty={_he_nonempty}")
-        _n3dbg = len(today_idx)
-        _tail = heat_edges[-_n3dbg:] if len(heat_edges) >= _n3dbg else heat_edges
-        _tail_nonempty = sum(1 for _e in _tail if len(_e) >= 3 and _e[1] is not None)
-        print(f"[DEBUG] tail {_n3dbg} nonempty={_tail_nonempty}")
-    except Exception as _ex:
-        print(f"[DEBUG] tail check failed: {_ex}")
-        pass
-    heat_up_parts = []
-    heat_lo_parts = []
-    _hu, _hl = None, None
-    for _e in heat_edges:
+    # heat_up/heat_lo: 7区上下缘线 (从heat_edges取今日部分)
+    _n3h2 = len(today_idx)
+    _he_tail = heat_edges[-_n3h2:] if len(heat_edges) >= _n3h2 else heat_edges
+    # forward fill: 区内bar用区边缘，区外bar延续上一个值
+    _hu2, _hl2 = None, None
+    _up_list, _lo_list = [], []
+    for _e in _he_tail:
         try:
             if len(_e) >= 3 and _e[1] is not None:
-                _hu = float(_e[1]); _hl = float(_e[2])
-            if _hu is not None:
-                heat_up_parts.append(str(round(_hu,2)))
-                heat_lo_parts.append(str(round(_hl,2)))
-            else:
-                heat_up_parts.append("null")
-                heat_lo_parts.append("null")
-        except:
-            heat_up_parts.append("null"); heat_lo_parts.append("null")
-    # 取尾部n3条 (今天的，前面是warmup)
-    _n3h = len(today_idx)
-    if len(heat_up_parts) > _n3h:
-        heat_up_parts = heat_up_parts[-_n3h:]; heat_lo_parts = heat_lo_parts[-_n3h:]
-    while len(heat_up_parts) < _n3h:
-        heat_up_parts.insert(0, "null"); heat_lo_parts.insert(0, "null")
-    heat_up_js = "[" + ",".join(heat_up_parts) + "]"
-    heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
+                _hu2 = round(float(_e[1]), 2); _hl2 = round(float(_e[2]), 2)
+        except: pass
+        if _hu2 is not None:
+            _up_list.append(str(_hu2)); _lo_list.append(str(_hl2))
+        else:
+            _up_list.append("null"); _lo_list.append("null")
+    # 补齐到_n3h2长度
+    while len(_up_list) < _n3h2:
+        _up_list.insert(0, "null"); _lo_list.insert(0, "null")
+    heat_up_js = "[" + ",".join(_up_list) + "]"
+    heat_lo_js = "[" + ",".join(_lo_list) + "]"
+    print(f"[DEBUG] heat_up non-null={sum(1 for x in _up_list if x != 'null')}")
     # 触发线: 区内15% (上缘往下15%区高, 下缘往上15%区高)
     trig_up_parts = ["null"] * n3
     trig_lo_parts = ["null"] * n3
