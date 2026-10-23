@@ -1030,9 +1030,11 @@ def main():
                 heat_lo_parts.append("null")
         except:
             heat_up_parts.append("null"); heat_lo_parts.append("null")
+    # 取尾部n3条 (今天的，前面是warmup)
+    if len(heat_up_parts) > n3:
+        heat_up_parts = heat_up_parts[-n3:]; heat_lo_parts = heat_lo_parts[-n3:]
     while len(heat_up_parts) < n3:
-        heat_up_parts.append("null"); heat_lo_parts.append("null")
-    heat_up_parts = heat_up_parts[:n3]; heat_lo_parts = heat_lo_parts[:n3]
+        heat_up_parts.insert(0, "null"); heat_lo_parts.insert(0, "null")
     heat_up_js = "[" + ",".join(heat_up_parts) + "]"
     heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
     # 触发线: 区内15% (上缘往下15%区高, 下缘往上15%区高)
