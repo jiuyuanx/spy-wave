@@ -27,7 +27,7 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
-from signal_engine import (run_signals, get_heat_edges, detect_red_decay, detect_blue_decay,
+from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, detect_red_decay, detect_blue_decay,
                            SIG_MIN_LEN)
 
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
@@ -286,6 +286,8 @@ def main():
 
     actions = run_signals(sig)
     heat_edges = get_heat_edges()
+    heat_arr = get_heat_arr()
+    heat_bins = get_heat_bins()
     heat_edges = get_heat_edges()
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
@@ -990,6 +992,24 @@ def main():
         except: continue
     heat_up_js = "[" + ",".join(heat_up_parts) + "]"
     heat_lo_js = "[" + ",".join(heat_lo_parts) + "]"
+    # heatmap数据: 横向色带 [时间索引, 价格, 热度值]
+    # 用最终热度分布，在价格轴上画横向色带
+    heatmap_data = []
+    if heat_arr is not None and heat_bins is not None:
+        try:
+            import numpy as _np
+            _ha = _np.array(heat_arr, dtype=float)
+            _hb = _np.array(heat_bins, dtype=float)
+            # 只取有热度的价格带
+            for _bi in range(len(_ha)):
+                _bv = float(_ha[_bi])
+                if _bv > 0.5 and _bi < len(_hb)-1:
+                    _price = float((_hb[_bi] + _hb[_bi+1]) / 2)
+                    # 横向：在所有时间点都画这个价格带的热度
+                    for _ti in range(0, n3, 5):  # 每5根取样，减少点数
+                        heatmap_data.append([_ti, round(_price, 2), round(_bv, 2)])
+        except: pass
+    heatmap_js = "[" + ",".join([f"[{d[0]},{d[1]},{d[2]}]" for d in heatmap_data]) + "]"
     # 热力7区上下缘线
     _he_dict = {}
     for _he in heat_edges:
@@ -1084,6 +1104,9 @@ def main():
                        html, count=1, flags=re.S)
     html, n_hl = re.subn(r"\\{name:'heat_lo', type:'line', data:\\[.*?\\], xAxisIndex",
                        "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
+                       html, count=1, flags=re.S)
+    html, n_hm = re.subn(r"\\{name:'heat_bg', type:'heatmap', data:\\[.*?\\], xAxisIndex",
+                       "{name:'heat_bg', type:'heatmap', data:" + heatmap_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
     html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
                        "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
