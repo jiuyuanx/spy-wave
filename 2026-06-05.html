@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["10:12",753.34],"lbl":"(+8.1%)","label":{"color":"#1a9e54"}},{"value":["10:21",754.64],"lbl":"(-1.9%)","label":{"color":"#e5484d"}},{"value":["10:33",755.93],"lbl":"(-6.3%)","label":{"color":"#e5484d"}},{"value":["12:54",753.34],"lbl":"(+44.0%)","label":{"color":"#1a9e54"}},{"value":["13:00",754.64],"lbl":"(-6.1%)","label":{"color":"#e5484d"}},{"value":["13:21",755.93],"lbl":"(-6.4%)","label":{"color":"#e5484d"}},{"value":["13:42",753.34],"lbl":"(-10.2%)","label":{"color":"#e5484d"}},{"value":["14:54",753.34],"lbl":"(+38.0%)","label":{"color":"#1a9e54"}},{"value":["15:06",754.64],"lbl":"(-19.5%)","label":{"color":"#e5484d"}},{"value":["15:12",755.93],"lbl":"(+0.0%)","label":{"color":"#1a9e54"}},{"value":["15:30",757.23],"lbl":"(-0.4%)","label":{"color":"#e5484d"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,-1.53,-1.53,-1.53,-0.96,-0.96,-0.96,-0.696,-0.696,-0.696,-0.326,-0.326,-0.326,0.072,0.072,0.072,0.111,0.111,0.111,0.092,0.092,0.092,-0.096,-0.096,-0.096,-0.014,-0.014,-0.014,-0.155,-0.155,-0.155,-0.341,-0.341,-0.341,-0.459,-0.459,-0.459,-0.506,-0.506,-0.506,-0.543,-0.543,-0.543,-0.516,-0.516,-0.516,-0.483,-0.483,-0.483,-0.478,-0.478,-0.478,-0.475,-0.475,-0.475,-0.532,-0.532,-0.532,-0.42,-0.42,-0.42,-0.55,-0.55,-0.55,-0.317,-0.317,-0.317,-0.261,-0.261,-0.261,-0.15,-0.15,-0.15,0.154,0.154,0.154,-0.024,-0.024,-0.024,0.19,0.19,0.19,0.166,0.166,0.166,0.153,0.153,0.153,-0.046,-0.046,-0.046,-0.61,-0.61,-0.61,-0.946,-0.946,-0.946,-1.127,-1.127,-1.127,-0.811,-0.811,-0.811,-0.704,-0.704,-0.704,-0.524,-0.524,-0.524,-0.673,-0.673,-0.673,-0.768,-0.768,-0.768,-0.257,-0.257,-0.257,-0.069,-0.069,-0.069,0.36,0.36,0.36,0.411,0.411], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,-1.53,-1.53,-1.53,-0.96,-0.96,-0.96,-0.696,-0.696,-0.696,-0.326,-0.326,-0.326,0.072,0.072,0.072,0.111,0.111,0.111,0.092,0.092,0.092,-0.096,-0.096,-0.096,-0.014,-0.014,-0.014,-0.155,-0.155,-0.155,-0.341,-0.341,-0.341,-0.459,-0.459,-0.459,-0.506,-0.506,-0.506,-0.543,-0.543,-0.543,-0.516,-0.516,-0.516,-0.483,-0.483,-0.483,-0.478,-0.478,-0.478,-0.475,-0.475,-0.475,-0.532,-0.532,-0.532,-0.42,-0.42,-0.42,-0.55,-0.55,-0.55,-0.317,-0.317,-0.317,-0.261,-0.261,-0.261,-0.15,-0.15,-0.15,0.154,0.154,0.154,-0.024,-0.024,-0.024,0.19,0.19,0.19,0.166,0.166,0.166,0.153,0.153,0.153,-0.046,-0.046,-0.046,-0.61,-0.61,-0.61,-0.946,-0.946,-0.946,-1.127,-1.127,-1.127,-0.811,-0.811,-0.811,-0.704,-0.704,-0.704,-0.524,-0.524,-0.524,-0.673,-0.673,-0.673,-0.768,-0.768,-0.768,-0.257,-0.257,-0.257,-0.069,-0.069,-0.069,0.36,0.36,0.36,0.411,0.411], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,28 +95,7 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// Auto-create 5 buttons on page load
-(function(){
-  if(document.getElementById('tg3mk')) return;
-  var span = document.querySelector('span[style*="margin-left:10px"]');
-  if(!span) span = document.getElementById('dayhint');
-  if(!span) return;
-  var btns = [
-    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
-    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
-    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
-    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
-    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
-  ];
-  btns.forEach(function(cfg){
-    var b = document.createElement('button');
-    b.id = cfg[0];
-    b.textContent = cfg[2];
-    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
-    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
-    span.appendChild(b);
-  });
-})();
+// (buttons removed)
 </script>
 
 </body></html>
