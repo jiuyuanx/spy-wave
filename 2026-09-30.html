@@ -99,15 +99,21 @@ function toggleSeries(name){
 </script>
 
 <script>
-// T-zone features for 2026-09-30
+// T-zone features for 2026-09-30 (fixed)
 (function(){
   var ZONE_UP = 768.0, ZONE_LO = 766.0;
   var TRIG_UP = 767.7, TRIG_LO = 766.3;
   var IN_HEAT_IDX = [32, 33, 34, 36, 37, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121];
   var tOn = true;
   var origKData = null;
+  function getChart(){
+    if(window._waveChart) return window._waveChart;
+    var dom = document.getElementById('c');
+    if(dom && typeof echarts!=='undefined' && echarts.getInstanceByDom) return echarts.getInstanceByDom(dom);
+    return null;
+  }
   function applyT(){
-    var ch = window._waveChart;
+    var ch = getChart();
     if(!ch){ setTimeout(applyT, 300); return; }
     var opt = ch.getOption();
     var kIdx = -1;
@@ -131,15 +137,15 @@ function toggleSeries(name){
     var nTimes = curOpt.xAxis[0].data.length;
     function hline(v){ var arr=[]; for(var i=0;i<nTimes;i++) arr.push(v); return arr; }
     series.push(
-      {id:'zoneUp', name:'7区上缘', type:'line', xAxisIndex:0, yAxisIndex:0, data: hline(ZONE_UP), showSymbol:false, lineStyle:{color:'#ff0000', width:2}, silent:true, z:10},
-      {id:'zoneLo', name:'7区下缘', type:'line', xAxisIndex:0, yAxisIndex:0, data: hline(ZONE_LO), showSymbol:false, lineStyle:{color:'#ff0000', width:2}, silent:true, z:10},
+      {id:'zoneUp', name:'7区上缘', type:'line', xAxisIndex:0, yAxisIndex:0, data: hline(ZONE_UP), showSymbol:false, lineStyle:{color:'#ff9900', width:1.5}, silent:true, z:10},
+      {id:'zoneLo', name:'7区下缘', type:'line', xAxisIndex:0, yAxisIndex:0, data: hline(ZONE_LO), showSymbol:false, lineStyle:{color:'#0277BD', width:1.5}, silent:true, z:10},
       {id:'trigUp', name:'15%上', type:'line', xAxisIndex:0, yAxisIndex:0, data: hline(TRIG_UP), showSymbol:false, lineStyle:{color:'#ff9800', width:1.5, type:'dashed'}, silent:true, z:10},
       {id:'trigLo', name:'15%下', type:'line', xAxisIndex:0, yAxisIndex:0, data: hline(TRIG_LO), showSymbol:false, lineStyle:{color:'#ff9800', width:1.5, type:'dashed'}, silent:true, z:10}
     );
     ch.setOption({series: series});
   }
   function removeT(){
-    var ch = window._waveChart;
+    var ch = getChart();
     if(!ch) return;
     if(origKData){
       var opt = ch.getOption();
