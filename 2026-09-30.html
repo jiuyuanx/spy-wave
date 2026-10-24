@@ -99,13 +99,11 @@ function toggleSeries(name){
 </script>
 
 <script>
-// T-zone features for 2026-09-30 (fixed)
+// T-zone features for 2026-09-30 (auto-applied)
 (function(){
   var ZONE_UP = 768.0, ZONE_LO = 766.0;
   var TRIG_UP = 767.7, TRIG_LO = 766.3;
   var IN_HEAT_IDX = [32, 33, 34, 36, 37, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 104, 105, 106, 108, 109, 110, 111, 112, 113, 114, 115, 116, 118, 119, 120, 121];
-  var tOn = true;
-  var origKData = null;
   function getChart(){
     if(window._waveChart) return window._waveChart;
     var dom = document.getElementById('c');
@@ -121,7 +119,7 @@ function toggleSeries(name){
       if(opt.series[i].type==='candlestick' && opt.series[i].name==='3mK线'){ kIdx=i; break; }
     }
     if(kIdx<0) return;
-    if(!origKData) origKData = JSON.parse(JSON.stringify(opt.series[kIdx].data));
+    var origKData = opt.series[kIdx].data;
     var nd = origKData.map(function(d, idx){
       if(IN_HEAT_IDX.indexOf(idx)>=0){
         var v = (d && d.value) ? d.value : d;
@@ -144,33 +142,14 @@ function toggleSeries(name){
     );
     ch.setOption({series: series});
   }
-  function removeT(){
-    var ch = getChart();
-    if(!ch) return;
-    if(origKData){
-      var opt = ch.getOption();
-      var kIdx = -1;
-      for(var i=0;i<opt.series.length;i++){
-        if(opt.series[i].type==='candlestick' && opt.series[i].name==='3mK线'){ kIdx=i; break; }
-      }
-      if(kIdx>=0){ var upd={series:[]}; upd.series[kIdx]={data: origKData}; ch.setOption(upd); }
-    }
-    var opt = ch.getOption();
-    var series = opt.series.filter(function(s){ return s.id!=='zoneUp' && s.id!=='zoneLo' && s.id!=='trigUp' && s.id!=='trigLo'; });
-    ch.setOption({series: series});
-  }
   function addBtn(){
     if(document.getElementById('btnToggleT')) return;
-    var b = document.createElement('button');
-    b.id = 'btnToggleT';
-    b.textContent = '做T版 ✓';
-    b.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100;font-size:14px;padding:8px 14px;border:1px solid #ff9800;background:#fff3e0;border-radius:6px;cursor:pointer;color:#e65100;font-weight:bold;';
-    b.onclick = function(){
-      tOn = !tOn;
-      if(tOn){ b.textContent='做T版 ✓'; b.style.background='#fff3e0'; applyT(); }
-      else { b.textContent='不做T版'; b.style.background='#f5f5f5'; removeT(); }
-    };
-    document.body.appendChild(b);
+    var a = document.createElement('a');
+    a.id = 'btnToggleT';
+    a.href = '2026-09-30-base.html';
+    a.textContent = '切换不做T版';
+    a.style.cssText = 'position:fixed;top:8px;right:8px;z-index:100;font-size:12px;padding:4px 8px;border:1px solid #ff9800;background:#fff3e0;border-radius:4px;cursor:pointer;color:#e65100;text-decoration:none;';
+    document.body.appendChild(a);
   }
   setTimeout(function(){ addBtn(); applyT(); }, 800);
 })();
