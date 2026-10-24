@@ -1210,7 +1210,7 @@ def main():
     if 0 in (n1, n2, n3s, n4, n5, n6, n7, n8):
         print(f"  WARN subs: 3mK={n1} 9mK={n2} 9mQQE={n3s} cumslope={n4} slope5={n5} markArea={n6} scat={n7} table={n8}")
     if WAVE_DATE:
-        _out_name = f"{WAVE_DATE}.html"
+        _out_name = WAVE_OUT_NAME_TMPL or f"{WAVE_DATE}.html"
     else:
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
