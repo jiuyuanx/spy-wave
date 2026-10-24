@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["09:51",749.23],"lbl":"(+17.9%)","label":{"color":"#1a9e54"}},{"value":["10:15",750.07],"lbl":"(+26.7%)","label":{"color":"#1a9e54"}},{"value":["11:00",749.23],"lbl":"(+3.6%)","label":{"color":"#1a9e54"}},{"value":["11:36",750.07],"lbl":"(+0.6%)","label":{"color":"#1a9e54"}},{"value":["12:42",749.23],"lbl":"(+21.0%)","label":{"color":"#1a9e54"}},{"value":["12:48",750.07],"lbl":"(-5.0%)","label":{"color":"#e5484d"}},{"value":["13:45",749.23],"lbl":"(+8.3%)","label":{"color":"#1a9e54"}},{"value":["15:39",749.23],"lbl":"(-2.3%)","label":{"color":"#e5484d"}},{"value":["15:42",750.07],"lbl":"(-7.3%)","label":{"color":"#e5484d"}},{"value":["15:57",750.91],"lbl":"(+0.9%)","label":{"color":"#1a9e54"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,-2.59,-2.59,-2.59,-1.205,-1.205,-1.205,-1.386,-1.386,-1.386,-1.553,-1.553,-1.553,-0.967,-0.967,-0.967,-0.453,-0.453,-0.453,0.35,0.35,0.35,0.905,0.905,0.905,0.674,0.674,0.674,0.352,0.352,0.352,0.066,0.066,0.066,-0.494,-0.494,-0.494,-0.451,-0.451,-0.451,-0.081,-0.081,-0.081,0.313,0.313,0.313,0.71,0.71,0.71,0.628,0.628,0.628,0.466,0.466,0.466,0.431,0.431,0.431,0.353,0.353,0.353,0.277,0.277,0.277,0.205,0.205,0.205,0.166,0.166,0.166,0.223,0.223,0.223,0.289,0.289,0.289,0.349,0.349,0.349,0.228,0.228,0.228,0.049,0.049,0.049,-0.118,-0.118,-0.118,-0.09,-0.09,-0.09,0.076,0.076,0.076,0.173,0.173,0.173,0.115,0.115,0.115,0.037,0.037,0.037,0.081,0.081,0.081,0.072,0.072,0.072,0.063,0.063,0.063,0.292,0.292,0.292,0.374,0.374,0.374,0.391,0.391,0.391,0.37,0.37,0.37,0.184,0.184], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,-2.59,-2.59,-2.59,-1.205,-1.205,-1.205,-1.386,-1.386,-1.386,-1.553,-1.553,-1.553,-0.967,-0.967,-0.967,-0.453,-0.453,-0.453,0.35,0.35,0.35,0.905,0.905,0.905,0.674,0.674,0.674,0.352,0.352,0.352,0.066,0.066,0.066,-0.494,-0.494,-0.494,-0.451,-0.451,-0.451,-0.081,-0.081,-0.081,0.313,0.313,0.313,0.71,0.71,0.71,0.628,0.628,0.628,0.466,0.466,0.466,0.431,0.431,0.431,0.353,0.353,0.353,0.277,0.277,0.277,0.205,0.205,0.205,0.166,0.166,0.166,0.223,0.223,0.223,0.289,0.289,0.289,0.349,0.349,0.349,0.228,0.228,0.228,0.049,0.049,0.049,-0.118,-0.118,-0.118,-0.09,-0.09,-0.09,0.076,0.076,0.076,0.173,0.173,0.173,0.115,0.115,0.115,0.037,0.037,0.037,0.081,0.081,0.081,0.072,0.072,0.072,0.063,0.063,0.063,0.292,0.292,0.292,0.374,0.374,0.374,0.391,0.391,0.391,0.37,0.37,0.37,0.184,0.184], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,28 +95,7 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// Auto-create 5 buttons on page load
-(function(){
-  if(document.getElementById('tg3mk')) return;
-  var span = document.querySelector('span[style*="margin-left:10px"]');
-  if(!span) span = document.getElementById('dayhint');
-  if(!span) return;
-  var btns = [
-    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
-    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
-    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
-    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
-    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
-  ];
-  btns.forEach(function(cfg){
-    var b = document.createElement('button');
-    b.id = cfg[0];
-    b.textContent = cfg[2];
-    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
-    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
-    span.appendChild(b);
-  });
-})();
+// (buttons removed)
 </script>
 
 </body></html>
