@@ -20,8 +20,6 @@ var THEME = {
   },
 
   heat: {
-    barBorderColor: '#ffffff',
-    barBorderWidth: 1,
     zoneUpColor: '#ff9900',
     zoneLoColor: '#0277BD',
     zoneLineWidth: 1.5,
@@ -135,7 +133,7 @@ var THEME = {
     }
     for (var i = 0; i < ps.length; i++) {
       if (ps[i].seriesName === 'slope5' && ps[i].value !== null && ps[i].value !== 'null') {
-        s += '<br/><span style="color:#ff9900">slope5 ' + ps[i].value + '</span>';
+        s += '<br/><span style="color:#ff69b4">slope5 ' + ps[i].value + '</span>';
         break;
       }
     }
@@ -143,3 +141,61 @@ var THEME = {
     return s;
   }
 };
+
+/* 热力15色 (2026-10-23, from gen_heat_html_pierce2.py; user-approved via heatmap_replay prototype).
+ * Solve once for all: 实盘dashboard + backfill历史页共用。
+ */
+var HEAT_COLORS = ["rgba(120,180,220,0.12)", "rgba(138,182,201,0.16)", "rgba(156,185,182,0.19)", "rgba(174,188,164,0.23)", "rgba(192,190,145,0.27)", "rgba(210,193,126,0.30)", "rgba(228,196,108,0.34)", "rgba(246,198,89,0.38)", "rgba(255,186,74,0.41)", "rgba(255,160,64,0.45)", "rgba(255,133,53,0.49)", "rgba(255,106,42,0.52)", "rgba(255,79,31,0.56)", "rgba(255,53,21,0.60)", "rgba(255,26,10,0.63)"];
+
+// v clamp 0-15 -> 15色
+function heatColor(v) {
+  var i = Math.max(0, Math.min(14, Math.floor(v)));
+  return HEAT_COLORS[i];
+}
+
+// 热度标注文字颜色: 7以上红字, 7以下黑字 (user's 2026-10-23)
+function heatLabelColor(v) {
+  return v >= 7 ? 'red' : 'black';
+}
+
+// 从快照生成markArea热力色带 (snap: [[price, heat], ...], 只含heat>0.5的bin)
+// 色带: yAxis price±0.25 (0.5 bin对齐); 右侧标注热度值, bold
+function heatBandsFor(snap) {
+  var bands = [];
+  for (var k = 0; k < snap.length; k++) {
+    var p = snap[k][0], v = snap[k][1];
+    bands.push([
+      {yAxis: Math.round((p - 0.25) * 100) / 100,
+       itemStyle: {color: heatColor(v)},
+       label: {show: true, position: 'insideRight', formatter: v.toFixed(1),
+               color: heatLabelColor(v), fontSize: 10, fontWeight: 'bold'}},
+      {yAxis: Math.round((p + 0.25) * 100) / 100}
+    ]);
+  }
+  return bands;
+}
+
+// 热力重演: 绑定dataZoom事件, 拖动时按end位置重演对应时刻的heatmap
+// ch: echarts实例; n: bar总数; snaps: 每根bar的快照[[price,heat],...];
+// pnlBands: 静态P&L色带(xAxis); seriesName: K线series名('3mK线')
+function bindHeatReplay(ch, n, snaps, pnlBands, seriesName) {
+  function updateHeat(endIdx) {
+    // snaps比n少2（前2根bar无快照），做映射
+    var si = Math.max(0, Math.min(snaps.length - 1, endIdx - 2));
+    var snap = (snaps.length > 0) ? snaps[si] : [];
+    ch.setOption({series: [{name: seriesName,
+      markArea: {silent: true, data: pnlBands.concat(heatBandsFor(snap))}}]});
+  }
+  ch.on('datazoom', function() {
+    var dzs = ch.getOption().dataZoom || [];
+    var dz = null;
+    for (var i = 0; i < dzs.length; i++) {
+      if (dzs[i].type === 'slider') { dz = dzs[i]; break; }
+    }
+    if (!dz && dzs.length) dz = dzs[0];
+    if (!dz) return;
+    var endIdx = Math.min(n - 1, Math.max(0, Math.floor(dz.end / 100 * n)));
+    updateHeat(endIdx);
+  });
+  updateHeat(n - 1);
+}
