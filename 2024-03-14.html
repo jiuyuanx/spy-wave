@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["09:45",517.28],"lbl":"(-12.5%)","label":{"color":"#e5484d"}},{"value":["09:57",517.68],"lbl":"(+18.0%)","label":{"color":"#1a9e54"}},{"value":["10:36",517.28],"lbl":"(-3.2%)","label":{"color":"#e5484d"}},{"value":["11:33",517.28],"lbl":"(-2.3%)","label":{"color":"#e5484d"}},{"value":["12:21",517.28],"lbl":"(-5.6%)","label":{"color":"#e5484d"}},{"value":["12:36",517.68],"lbl":"(-0.7%)","label":{"color":"#e5484d"}},{"value":["13:33",517.28],"lbl":"(+13.4%)","label":{"color":"#1a9e54"}},{"value":["14:18",517.28],"lbl":"(+15.1%)","label":{"color":"#1a9e54"}},{"value":["15:39",517.28],"lbl":"(+18.1%)","label":{"color":"#1a9e54"}},{"value":["15:57",517.68],"lbl":"(+12.2%)","label":{"color":"#1a9e54"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,-1.31,-1.31,-1.31,-1.27,-1.27,-1.27,-0.984,-0.984,-0.984,-0.53,-0.53,-0.53,-0.121,-0.121,-0.121,0.232,0.232,0.232,0.148,0.148,0.148,-0.089,-0.089,-0.089,-0.096,-0.096,-0.096,-0.129,-0.129,-0.129,0.017,0.017,0.017,-0.077,-0.077,-0.077,-0.097,-0.097,-0.097,-0.09,-0.09,-0.09,0.021,0.021,0.021,0.147,0.147,0.147,-0.069,-0.069,-0.069,-0.166,-0.166,-0.166,-0.084,-0.084,-0.084,0.04,0.04,0.04,0.083,0.083,0.083,-0.069,-0.069,-0.069,-0.229,-0.229,-0.229,-0.197,-0.197,-0.197,-0.139,-0.139,-0.139,-0.248,-0.248,-0.248,-0.175,-0.175,-0.175,0.0,0.0,0.0,0.283,0.283,0.283,0.483,0.483,0.483,0.374,0.374,0.374,0.222,0.222,0.222,0.012,0.012,0.012,-0.034,-0.034,-0.034,-0.129,-0.129,-0.129,-0.289,-0.289,-0.289,-0.5,-0.5,-0.5,-0.552,-0.552,-0.552,-0.4,-0.4,-0.4,-0.215,-0.215,-0.215,0.053,0.053,0.053,0.324,0.324], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,-1.31,-1.31,-1.31,-1.27,-1.27,-1.27,-0.984,-0.984,-0.984,-0.53,-0.53,-0.53,-0.121,-0.121,-0.121,0.232,0.232,0.232,0.148,0.148,0.148,-0.089,-0.089,-0.089,-0.096,-0.096,-0.096,-0.129,-0.129,-0.129,0.017,0.017,0.017,-0.077,-0.077,-0.077,-0.097,-0.097,-0.097,-0.09,-0.09,-0.09,0.021,0.021,0.021,0.147,0.147,0.147,-0.069,-0.069,-0.069,-0.166,-0.166,-0.166,-0.084,-0.084,-0.084,0.04,0.04,0.04,0.083,0.083,0.083,-0.069,-0.069,-0.069,-0.229,-0.229,-0.229,-0.197,-0.197,-0.197,-0.139,-0.139,-0.139,-0.248,-0.248,-0.248,-0.175,-0.175,-0.175,0.0,0.0,0.0,0.283,0.283,0.283,0.483,0.483,0.483,0.374,0.374,0.374,0.222,0.222,0.222,0.012,0.012,0.012,-0.034,-0.034,-0.034,-0.129,-0.129,-0.129,-0.289,-0.289,-0.289,-0.5,-0.5,-0.5,-0.552,-0.552,-0.552,-0.4,-0.4,-0.4,-0.215,-0.215,-0.215,0.053,0.053,0.053,0.324,0.324], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,19 +95,7 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// Heatmap replay button (replaces 5 series toggle buttons)
-(function(){
-  if(document.getElementById('btnHeatReplay')) return;
-  var span = document.querySelector('span[style*="margin-left:10px"]');
-  if(!span) span = document.getElementById('dayhint');
-  if(!span) return;
-  var b = document.createElement('button');
-  b.id = 'btnHeatReplay';
-  b.textContent = 'heatmap重演';
-  b.setAttribute('onclick', "(function(){var m=location.pathname.match(/(\d{4}-\d{2}-\d{2})/);var d=m?m[1]:document.title.match(/(\d{4}-\d{2}-\d{2})/)[1];window.open(d+'-replay.html','_blank');})()");
-  b.style.cssText = 'font-size:12px;padding:2px 10px;margin:0 2px;border:1px solid #ff9800;background:#fff3e0;border-radius:4px;cursor:pointer;color:#e65100;font-weight:bold';
-  span.appendChild(b);
-})();
+// (buttons removed)
 </script>
 
 </body></html>
