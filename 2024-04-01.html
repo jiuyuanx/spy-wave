@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["11:27",524.48],"lbl":"(+10.0%)","label":{"color":"#1a9e54"}},{"value":["11:36",524.74],"lbl":"(-2.9%)","label":{"color":"#e5484d"}},{"value":["12:06",524.99],"lbl":"(-0.5%)","label":{"color":"#e5484d"}},{"value":["12:54",524.48],"lbl":"(+0.6%)","label":{"color":"#1a9e54"}},{"value":["13:27",524.74],"lbl":"(+3.4%)","label":{"color":"#1a9e54"}},{"value":["13:51",524.48],"lbl":"(-1.1%)","label":{"color":"#e5484d"}},{"value":["14:45",524.48],"lbl":"(+0.1%)","label":{"color":"#1a9e54"}},{"value":["15:06",524.74],"lbl":"(-2.1%)","label":{"color":"#e5484d"}},{"value":["15:57",524.48],"lbl":"(+0.1%)","label":{"color":"#1a9e54"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,-0.04,-0.04,-0.04,0.025,0.025,0.025,-0.201,-0.201,-0.201,-0.122,-0.122,-0.122,-0.245,-0.245,-0.245,-0.298,-0.298,-0.298,-0.306,-0.306,-0.306,-0.361,-0.361,-0.361,-0.2,-0.2,-0.2,-0.151,-0.151,-0.151,-0.181,-0.181,-0.181,-0.168,-0.168,-0.168,-0.107,-0.107,-0.107,-0.037,-0.037,-0.037,-0.06,-0.06,-0.06,-0.176,-0.176,-0.176,-0.094,-0.094,-0.094,0.031,0.031,0.031,0.18,0.18,0.18,0.161,0.161,0.161,0.099,0.099,0.099,0.043,0.043,0.043,-0.034,-0.034,-0.034,-0.09,-0.09,-0.09,-0.205,-0.205,-0.205,-0.169,-0.169,-0.169,-0.083,-0.083,-0.083,0.035,0.035,0.035,0.13,0.13,0.13,0.076,0.076,0.076,0.039,0.039,0.039,0.053,0.053,0.053,0.063,0.063,0.063,0.084,0.084,0.084,0.066,0.066,0.066,-0.029,-0.029,-0.029,-0.016,-0.016,-0.016,0.005,0.005,0.005,-0.001,-0.001,-0.001,-0.016,-0.016,-0.016,-0.037,-0.037,-0.037,0.095,0.095], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,-0.04,-0.04,-0.04,0.025,0.025,0.025,-0.201,-0.201,-0.201,-0.122,-0.122,-0.122,-0.245,-0.245,-0.245,-0.298,-0.298,-0.298,-0.306,-0.306,-0.306,-0.361,-0.361,-0.361,-0.2,-0.2,-0.2,-0.151,-0.151,-0.151,-0.181,-0.181,-0.181,-0.168,-0.168,-0.168,-0.107,-0.107,-0.107,-0.037,-0.037,-0.037,-0.06,-0.06,-0.06,-0.176,-0.176,-0.176,-0.094,-0.094,-0.094,0.031,0.031,0.031,0.18,0.18,0.18,0.161,0.161,0.161,0.099,0.099,0.099,0.043,0.043,0.043,-0.034,-0.034,-0.034,-0.09,-0.09,-0.09,-0.205,-0.205,-0.205,-0.169,-0.169,-0.169,-0.083,-0.083,-0.083,0.035,0.035,0.035,0.13,0.13,0.13,0.076,0.076,0.076,0.039,0.039,0.039,0.053,0.053,0.053,0.063,0.063,0.063,0.084,0.084,0.084,0.066,0.066,0.066,-0.029,-0.029,-0.029,-0.016,-0.016,-0.016,0.005,0.005,0.005,-0.001,-0.001,-0.001,-0.016,-0.016,-0.016,-0.037,-0.037,-0.037,0.095,0.095], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,19 +95,7 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// Heatmap replay button (replaces 5 series toggle buttons)
-(function(){
-  if(document.getElementById('btnHeatReplay')) return;
-  var span = document.querySelector('span[style*="margin-left:10px"]');
-  if(!span) span = document.getElementById('dayhint');
-  if(!span) return;
-  var b = document.createElement('button');
-  b.id = 'btnHeatReplay';
-  b.textContent = 'heatmap重演';
-  b.setAttribute('onclick', "(function(){var m=location.pathname.match(/(\d{4}-\d{2}-\d{2})/);var d=m?m[1]:document.title.match(/(\d{4}-\d{2}-\d{2})/)[1];window.open(d+'-replay.html','_blank');})()");
-  b.style.cssText = 'font-size:12px;padding:2px 10px;margin:0 2px;border:1px solid #ff9800;background:#fff3e0;border-radius:4px;cursor:pointer;color:#e65100;font-weight:bold';
-  span.appendChild(b);
-})();
+// (buttons removed)
 </script>
 
 </body></html>
