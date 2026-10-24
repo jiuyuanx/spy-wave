@@ -101,48 +101,32 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// Auto-create 5 buttons on page load
+// Heatmap replay button (replaces 5 series toggle buttons)
 (function(){
-  if(document.getElementById('tg3mk')) return;
+  if(document.getElementById('btnHeatReplay')) return;
   var span = document.querySelector('span[style*="margin-left:10px"]');
   if(!span) span = document.getElementById('dayhint');
   if(!span) return;
-  var btns = [
-    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
-    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
-    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
-    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
-    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
-  ];
-  btns.forEach(function(cfg){
-    var b = document.createElement('button');
-    b.id = cfg[0];
-    b.textContent = cfg[2];
-    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
-    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
-    span.appendChild(b);
-  });
+  var b = document.createElement('button');
+  b.id = 'btnHeatReplay';
+  b.textContent = 'heatmap重演';
+  b.setAttribute('onclick', "(function(){var m=location.pathname.match(/(\\d{4}-\\d{2}-\\d{2})/);var d=m?m[1]:document.title.match(/(\\d{4}-\\d{2}-\\d{2})/)[1];window.open(d+'-replay.html','_blank');})()");
+  b.style.cssText = 'font-size:12px;padding:2px 10px;margin:0 2px;border:1px solid #ff9800;background:#fff3e0;border-radius:4px;cursor:pointer;color:#e65100;font-weight:bold';
+  span.appendChild(b);
 })();
 </script>
 
 <div style="padding:0 46px;font-size:11px;color:#666;">
 <div>热度0-15</div>
 <div style="display:flex;height:14px;border-radius:4px;overflow:hidden;margin:4px 0 2px 0;">
-<div style="flex:1;background:rgba(120,180,220,0.35);"></div>
-<div style="flex:1;background:rgba(138,182,201,0.35);"></div>
-<div style="flex:1;background:rgba(156,185,182,0.35);"></div>
-<div style="flex:1;background:rgba(174,188,164,0.35);"></div>
-<div style="flex:1;background:rgba(192,190,145,0.35);"></div>
-<div style="flex:1;background:rgba(210,193,126,0.35);"></div>
-<div style="flex:1;background:rgba(228,196,108,0.35);"></div>
-<div style="flex:1;background:rgba(246,198,89,0.40);"></div>
-<div style="flex:1;background:rgba(255,186,74,0.40);"></div>
-<div style="flex:1;background:rgba(255,160,64,0.45);"></div>
-<div style="flex:1;background:rgba(255,133,53,0.45);"></div>
-<div style="flex:1;background:rgba(255,106,42,0.50);"></div>
-<div style="flex:1;background:rgba(255,79,31,0.50);"></div>
-<div style="flex:1;background:rgba(255,53,21,0.55);"></div>
-<div style="flex:1;background:rgba(255,26,10,0.55);"></div>
+<div style="flex:1;background:#2196F3;"></div>
+<div style="flex:1;background:#03A9F4;"></div>
+<div style="flex:1;background:#FFC107;"></div>
+<div style="flex:1;background:#FF9800;"></div>
+<div style="flex:1;background:#F57C00;"></div>
+<div style="flex:1;background:#E65100;"></div>
+<div style="flex:1;background:#BF360C;"></div>
+<div style="flex:1;background:#B71C1C;"></div>
 </div><div style="display:flex;justify-content:space-between;"><span>0</span><span>15</span></div>
 </div>
 </body></html>
