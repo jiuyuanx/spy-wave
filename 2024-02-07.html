@@ -95,27 +95,18 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// Auto-create 5 buttons on page load
+// Heatmap replay button (replaces 5 series toggle buttons)
 (function(){
-  if(document.getElementById('tg3mk')) return;
+  if(document.getElementById('btnHeatReplay')) return;
   var span = document.querySelector('span[style*="margin-left:10px"]');
   if(!span) span = document.getElementById('dayhint');
   if(!span) return;
-  var btns = [
-    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
-    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
-    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
-    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
-    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
-  ];
-  btns.forEach(function(cfg){
-    var b = document.createElement('button');
-    b.id = cfg[0];
-    b.textContent = cfg[2];
-    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
-    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
-    span.appendChild(b);
-  });
+  var b = document.createElement('button');
+  b.id = 'btnHeatReplay';
+  b.textContent = 'heatmap重演';
+  b.setAttribute('onclick', "(function(){var m=location.pathname.match(/(\d{4}-\d{2}-\d{2})/);var d=m?m[1]:document.title.match(/(\d{4}-\d{2}-\d{2})/)[1];window.open(d+'-replay.html','_blank');})()");
+  b.style.cssText = 'font-size:12px;padding:2px 10px;margin:0 2px;border:1px solid #ff9800;background:#fff3e0;border-radius:4px;cursor:pointer;color:#e65100;font-weight:bold';
+  span.appendChild(b);
 })();
 </script>
 
