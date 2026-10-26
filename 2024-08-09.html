@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["09:57",534.69],"lbl":"(-3.2%)","label":{"color":"#e5484d"}},{"value":["10:18",535.13],"lbl":"(-0.5%)","label":{"color":"#e5484d"}},{"value":["10:39",535.58],"lbl":"(+2.5%)","label":{"color":"#1a9e54"}},{"value":["11:09",534.69],"lbl":"(+3.7%)","label":{"color":"#1a9e54"}},{"value":["11:39",535.13],"lbl":"(+5.7%)","label":{"color":"#1a9e54"}},{"value":["12:24",534.69],"lbl":"(-0.4%)","label":{"color":"#e5484d"}},{"value":["12:45",535.13],"lbl":"(+4.0%)","label":{"color":"#1a9e54"}},{"value":["12:48",535.58],"lbl":"(-4.9%)","label":{"color":"#e5484d"}},{"value":["13:48",534.69],"lbl":"(+19.1%)","label":{"color":"#1a9e54"}},{"value":["14:21",535.13],"lbl":"(+5.6%)","label":{"color":"#1a9e54"}},{"value":["14:33",534.69],"lbl":"(-4.8%)","label":{"color":"#e5484d"}},{"value":["14:36",535.58],"lbl":"(-5.2%)","label":{"color":"#e5484d"}},{"value":["14:51",536.03],"lbl":"(-2.5%)","label":{"color":"#e5484d"}},{"value":["15:21",534.69],"lbl":"(-4.6%)","label":{"color":"#e5484d"}},{"value":["15:36",535.13],"lbl":"(-4.6%)","label":{"color":"#e5484d"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,-1.79,-1.79,-1.79,-0.85,-0.85,-0.85,-0.117,-0.117,-0.117,0.297,0.297,0.297,0.618,0.618,0.618,0.225,0.225,0.225,-0.119,-0.119,-0.119,-0.146,-0.146,-0.146,0.263,0.263,0.263,0.635,0.635,0.635,0.465,0.465,0.465,0.242,0.242,0.242,-0.14,-0.14,-0.14,-0.346,-0.346,-0.346,-0.116,-0.116,-0.116,-0.248,-0.248,-0.248,-0.283,-0.283,-0.283,-0.327,-0.327,-0.327,-0.28,-0.28,-0.28,0.139,0.139,0.139,0.183,0.183,0.183,0.22,0.22,0.22,0.275,0.275,0.275,0.442,0.442,0.442,0.618,0.618,0.618,0.688,0.688,0.688,0.492,0.492,0.492,0.113,0.113,0.113,-0.168,-0.168,-0.168,-0.337,-0.337,-0.337,-0.367,-0.367,-0.367,-0.269,-0.269,-0.269,-0.244,-0.244,-0.244,-0.064,-0.064,-0.064,0.03,0.03,0.03,0.022,0.022,0.022,0.21,0.21,0.21,0.165,0.165,0.165,0.236,0.236,0.236,0.139,0.139,0.139,0.025,0.025,0.025,0.045,0.045], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,-1.79,-1.79,-1.79,-0.85,-0.85,-0.85,-0.117,-0.117,-0.117,0.297,0.297,0.297,0.618,0.618,0.618,0.225,0.225,0.225,-0.119,-0.119,-0.119,-0.146,-0.146,-0.146,0.263,0.263,0.263,0.635,0.635,0.635,0.465,0.465,0.465,0.242,0.242,0.242,-0.14,-0.14,-0.14,-0.346,-0.346,-0.346,-0.116,-0.116,-0.116,-0.248,-0.248,-0.248,-0.283,-0.283,-0.283,-0.327,-0.327,-0.327,-0.28,-0.28,-0.28,0.139,0.139,0.139,0.183,0.183,0.183,0.22,0.22,0.22,0.275,0.275,0.275,0.442,0.442,0.442,0.618,0.618,0.618,0.688,0.688,0.688,0.492,0.492,0.492,0.113,0.113,0.113,-0.168,-0.168,-0.168,-0.337,-0.337,-0.337,-0.367,-0.367,-0.367,-0.269,-0.269,-0.269,-0.244,-0.244,-0.244,-0.064,-0.064,-0.064,0.03,0.03,0.03,0.022,0.022,0.022,0.21,0.21,0.21,0.165,0.165,0.165,0.236,0.236,0.236,0.139,0.139,0.139,0.025,0.025,0.025,0.045,0.045], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,7 +95,28 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// (buttons removed)
+// Auto-create 5 buttons on page load
+(function(){
+  if(document.getElementById('tg3mk')) return;
+  var span = document.querySelector('span[style*="margin-left:10px"]');
+  if(!span) span = document.getElementById('dayhint');
+  if(!span) return;
+  var btns = [
+    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
+    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
+    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
+    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
+    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
+  ];
+  btns.forEach(function(cfg){
+    var b = document.createElement('button');
+    b.id = cfg[0];
+    b.textContent = cfg[2];
+    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
+    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
+    span.appendChild(b);
+  });
+})();
 </script>
 
 </body></html>

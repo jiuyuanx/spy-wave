@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["09:48",529.51],"lbl":"(-2.2%)","label":{"color":"#e5484d"}},{"value":["10:12",530.01],"lbl":"(+2.5%)","label":{"color":"#1a9e54"}},{"value":["10:30",530.52],"lbl":"(-4.4%)","label":{"color":"#e5484d"}},{"value":["10:39",529.51],"lbl":"(-4.1%)","label":{"color":"#e5484d"}},{"value":["11:18",530.01],"lbl":"(+3.2%)","label":{"color":"#1a9e54"}},{"value":["11:39",529.51],"lbl":"(-4.1%)","label":{"color":"#e5484d"}},{"value":["11:51",530.52],"lbl":"(-2.7%)","label":{"color":"#e5484d"}},{"value":["13:03",529.51],"lbl":"(+22.2%)","label":{"color":"#1a9e54"}},{"value":["13:06",530.01],"lbl":"(-2.8%)","label":{"color":"#e5484d"}},{"value":["13:18",530.52],"lbl":"(-6.3%)","label":{"color":"#e5484d"}},{"value":["13:54",529.51],"lbl":"(+2.7%)","label":{"color":"#1a9e54"}},{"value":["14:06",530.01],"lbl":"(-5.1%)","label":{"color":"#e5484d"}},{"value":["14:12",530.52],"lbl":"(-7.0%)","label":{"color":"#e5484d"}},{"value":["14:21",531.02],"lbl":"(-9.4%)","label":{"color":"#e5484d"}},{"value":["14:51",529.51],"lbl":"(-2.2%)","label":{"color":"#e5484d"}},{"value":["15:36",529.51],"lbl":"(-1.1%)","label":{"color":"#e5484d"}},{"value":["15:57",530.01],"lbl":"(-1.1%)","label":{"color":"#e5484d"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,0.09,0.09,0.09,-0.425,-0.425,-0.425,-0.361,-0.361,-0.361,-0.202,-0.202,-0.202,-0.047,-0.047,-0.047,0.042,0.042,0.042,-0.065,-0.065,-0.065,-0.436,-0.436,-0.436,-0.622,-0.622,-0.622,-0.524,-0.524,-0.524,-0.365,-0.365,-0.365,-0.017,-0.017,-0.017,0.094,0.094,0.094,0.058,0.058,0.058,0.02,0.02,0.02,-0.105,-0.105,-0.105,-0.161,-0.161,-0.161,-0.436,-0.436,-0.436,-0.613,-0.613,-0.613,-0.537,-0.537,-0.537,-0.366,-0.366,-0.366,-0.04,-0.04,-0.04,-0.045,-0.045,-0.045,-0.189,-0.189,-0.189,-0.056,-0.056,-0.056,0.244,0.244,0.244,0.481,0.481,0.481,0.506,0.506,0.506,0.23,0.23,0.23,0.077,0.077,0.077,-0.033,-0.033,-0.033,0.064,0.064,0.064,0.075,0.075,0.075,0.112,0.112,0.112,0.113,0.113,0.113,0.075,0.075,0.075,0.091,0.091,0.091,0.137,0.137,0.137,0.183,0.183,0.183,0.034,0.034,0.034,0.049,0.049,0.049,0.146,0.146], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,0.09,0.09,0.09,-0.425,-0.425,-0.425,-0.361,-0.361,-0.361,-0.202,-0.202,-0.202,-0.047,-0.047,-0.047,0.042,0.042,0.042,-0.065,-0.065,-0.065,-0.436,-0.436,-0.436,-0.622,-0.622,-0.622,-0.524,-0.524,-0.524,-0.365,-0.365,-0.365,-0.017,-0.017,-0.017,0.094,0.094,0.094,0.058,0.058,0.058,0.02,0.02,0.02,-0.105,-0.105,-0.105,-0.161,-0.161,-0.161,-0.436,-0.436,-0.436,-0.613,-0.613,-0.613,-0.537,-0.537,-0.537,-0.366,-0.366,-0.366,-0.04,-0.04,-0.04,-0.045,-0.045,-0.045,-0.189,-0.189,-0.189,-0.056,-0.056,-0.056,0.244,0.244,0.244,0.481,0.481,0.481,0.506,0.506,0.506,0.23,0.23,0.23,0.077,0.077,0.077,-0.033,-0.033,-0.033,0.064,0.064,0.064,0.075,0.075,0.075,0.112,0.112,0.112,0.113,0.113,0.113,0.075,0.075,0.075,0.091,0.091,0.091,0.137,0.137,0.137,0.183,0.183,0.183,0.034,0.034,0.034,0.049,0.049,0.049,0.146,0.146], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,7 +95,28 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// (buttons removed)
+// Auto-create 5 buttons on page load
+(function(){
+  if(document.getElementById('tg3mk')) return;
+  var span = document.querySelector('span[style*="margin-left:10px"]');
+  if(!span) span = document.getElementById('dayhint');
+  if(!span) return;
+  var btns = [
+    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
+    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
+    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
+    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
+    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
+  ];
+  btns.forEach(function(cfg){
+    var b = document.createElement('button');
+    b.id = cfg[0];
+    b.textContent = cfg[2];
+    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
+    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
+    span.appendChild(b);
+  });
+})();
 </script>
 
 </body></html>

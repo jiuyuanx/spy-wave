@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["10:18",608.52],"lbl":"(+7.4%)","label":{"color":"#1a9e54"}},{"value":["10:33",608.74],"lbl":"(+0.4%)","label":{"color":"#1a9e54"}},{"value":["10:54",608.96],"lbl":"(-1.6%)","label":{"color":"#e5484d"}},{"value":["12:15",608.52],"lbl":"(+9.2%)","label":{"color":"#1a9e54"}},{"value":["12:39",608.74],"lbl":"(-0.2%)","label":{"color":"#e5484d"}},{"value":["14:21",608.52],"lbl":"(-0.8%)","label":{"color":"#e5484d"}},{"value":["14:42",608.74],"lbl":"(+1.1%)","label":{"color":"#1a9e54"}},{"value":["14:57",608.96],"lbl":"(+0.3%)","label":{"color":"#1a9e54"}},{"value":["15:57",608.52],"lbl":"(+2.0%)","label":{"color":"#1a9e54"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,0.64,0.64,0.64,0.285,0.285,0.285,0.245,0.245,0.245,0.284,0.284,0.284,0.111,0.111,0.111,0.032,0.032,0.032,-0.028,-0.028,-0.028,-0.017,-0.017,-0.017,0.061,0.061,0.061,0.039,0.039,0.039,-0.012,-0.012,-0.012,0.088,0.088,0.088,0.229,0.229,0.229,0.274,0.274,0.274,0.174,0.174,0.174,0.082,0.082,0.082,0.11,0.11,0.11,0.079,0.079,0.079,0.04,0.04,0.04,-0.075,-0.075,-0.075,-0.043,-0.043,-0.043,0.031,0.031,0.031,0.114,0.114,0.114,0.091,0.091,0.091,0.044,0.044,0.044,0.077,0.077,0.077,0.002,0.002,0.002,-0.004,-0.004,-0.004,-0.091,-0.091,-0.091,-0.14,-0.14,-0.14,-0.088,-0.088,-0.088,-0.036,-0.036,-0.036,0.066,0.066,0.066,0.069,0.069,0.069,0.006,0.006,0.006,0.004,0.004,0.004,-0.009,-0.009,-0.009,0.009,0.009,0.009,0.038,0.038,0.038,-0.004,-0.004,-0.004,-0.038,-0.038,-0.038,-0.116,-0.116], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,0.64,0.64,0.64,0.285,0.285,0.285,0.245,0.245,0.245,0.284,0.284,0.284,0.111,0.111,0.111,0.032,0.032,0.032,-0.028,-0.028,-0.028,-0.017,-0.017,-0.017,0.061,0.061,0.061,0.039,0.039,0.039,-0.012,-0.012,-0.012,0.088,0.088,0.088,0.229,0.229,0.229,0.274,0.274,0.274,0.174,0.174,0.174,0.082,0.082,0.082,0.11,0.11,0.11,0.079,0.079,0.079,0.04,0.04,0.04,-0.075,-0.075,-0.075,-0.043,-0.043,-0.043,0.031,0.031,0.031,0.114,0.114,0.114,0.091,0.091,0.091,0.044,0.044,0.044,0.077,0.077,0.077,0.002,0.002,0.002,-0.004,-0.004,-0.004,-0.091,-0.091,-0.091,-0.14,-0.14,-0.14,-0.088,-0.088,-0.088,-0.036,-0.036,-0.036,0.066,0.066,0.066,0.069,0.069,0.069,0.006,0.006,0.006,0.004,0.004,0.004,-0.009,-0.009,-0.009,0.009,0.009,0.009,0.038,0.038,0.038,-0.004,-0.004,-0.004,-0.038,-0.038,-0.038,-0.116,-0.116], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,7 +95,28 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// (buttons removed)
+// Auto-create 5 buttons on page load
+(function(){
+  if(document.getElementById('tg3mk')) return;
+  var span = document.querySelector('span[style*="margin-left:10px"]');
+  if(!span) span = document.getElementById('dayhint');
+  if(!span) return;
+  var btns = [
+    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
+    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
+    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
+    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
+    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
+  ];
+  btns.forEach(function(cfg){
+    var b = document.createElement('button');
+    b.id = cfg[0];
+    b.textContent = cfg[2];
+    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
+    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
+    span.appendChild(b);
+  });
+})();
 </script>
 
 </body></html>

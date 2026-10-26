@@ -80,7 +80,7 @@ ch.setOption({
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
     {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[{"value":["09:45",547.60],"lbl":"(-2.9%)","label":{"color":"#e5484d"}},{"value":["10:48",547.60],"lbl":"(+16.5%)","label":{"color":"#1a9e54"}},{"value":["10:51",548.27],"lbl":"(-5.8%)","label":{"color":"#e5484d"}},{"value":["11:12",548.93],"lbl":"(+25.3%)","label":{"color":"#1a9e54"}},{"value":["11:30",549.59],"lbl":"(+0.0%)","label":{"color":"#1a9e54"}},{"value":["12:27",547.60],"lbl":"(+10.5%)","label":{"color":"#1a9e54"}},{"value":["12:33",548.27],"lbl":"(-4.0%)","label":{"color":"#e5484d"}},{"value":["12:36",548.93],"lbl":"(-4.9%)","label":{"color":"#e5484d"}},{"value":["12:48",549.59],"lbl":"(-3.3%)","label":{"color":"#e5484d"}},{"value":["13:09",550.25],"lbl":"(-2.8%)","label":{"color":"#e5484d"}},{"value":["14:27",547.60],"lbl":"(+22.9%)","label":{"color":"#1a9e54"}},{"value":["14:36",548.27],"lbl":"(-2.0%)","label":{"color":"#e5484d"}},{"value":["14:45",548.93],"lbl":"(-5.4%)","label":{"color":"#e5484d"}},{"value":["14:57",549.59],"lbl":"(-0.7%)","label":{"color":"#e5484d"}},{"value":["15:15",547.60],"lbl":"(-3.9%)","label":{"color":"#e5484d"}},{"value":["15:57",548.27],"lbl":"(-2.7%)","label":{"color":"#e5484d"}}]},
-    {name:'slope5', type:'line', data:[null,null,null,null,null,-0.27,-0.27,-0.27,-0.315,-0.315,-0.315,-0.306,-0.306,-0.306,-0.279,-0.279,-0.279,-0.283,-0.283,-0.283,-0.272,-0.272,-0.272,-0.345,-0.345,-0.345,-0.239,-0.239,-0.239,-0.284,-0.284,-0.284,-0.718,-0.718,-0.718,-0.766,-0.766,-0.766,-0.631,-0.631,-0.631,-0.277,-0.277,-0.277,-0.169,-0.169,-0.169,-0.458,-0.458,-0.458,-0.507,-0.507,-0.507,-0.267,-0.267,-0.267,-0.052,-0.052,-0.052,0.013,0.013,0.013,0.053,0.053,0.053,-0.011,-0.011,-0.011,-0.237,-0.237,-0.237,-0.473,-0.473,-0.473,-0.303,-0.303,-0.303,0.026,0.026,0.026,0.281,0.281,0.281,0.372,0.372,0.372,0.302,0.302,0.302,0.294,0.294,0.294,0.308,0.308,0.308,0.333,0.333,0.333,0.243,0.243,0.243,0.118,0.118,0.118,-0.004,-0.004,-0.004,-0.216,-0.216,-0.216,-0.22,-0.22,-0.22,-0.185,-0.185,-0.185,-0.061,-0.061,-0.061,0.136,0.136,0.136,0.146,0.146,0.146,0.273,0.273,0.273,0.371,0.371], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'slope5', type:'line', data:[null,null,null,null,null,-0.27,-0.27,-0.27,-0.315,-0.315,-0.315,-0.306,-0.306,-0.306,-0.279,-0.279,-0.279,-0.283,-0.283,-0.283,-0.272,-0.272,-0.272,-0.345,-0.345,-0.345,-0.239,-0.239,-0.239,-0.284,-0.284,-0.284,-0.718,-0.718,-0.718,-0.766,-0.766,-0.766,-0.631,-0.631,-0.631,-0.277,-0.277,-0.277,-0.169,-0.169,-0.169,-0.458,-0.458,-0.458,-0.507,-0.507,-0.507,-0.267,-0.267,-0.267,-0.052,-0.052,-0.052,0.013,0.013,0.013,0.053,0.053,0.053,-0.011,-0.011,-0.011,-0.237,-0.237,-0.237,-0.473,-0.473,-0.473,-0.303,-0.303,-0.303,0.026,0.026,0.026,0.281,0.281,0.281,0.372,0.372,0.372,0.302,0.302,0.302,0.294,0.294,0.294,0.308,0.308,0.308,0.333,0.333,0.333,0.243,0.243,0.243,0.118,0.118,0.118,-0.004,-0.004,-0.004,-0.216,-0.216,-0.216,-0.22,-0.22,-0.22,-0.185,-0.185,-0.185,-0.061,-0.061,-0.061,0.136,0.136,0.136,0.146,0.146,0.146,0.273,0.273,0.273,0.371,0.371], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false,},
   ]
 });
 ch.on('click',function(p){if(p.componentType==='markPoint'&&p.data&&p.data.rs){document.getElementById('info').innerHTML='<b>'+p.data.value+'</b>　'+p.data.rs;}});
@@ -95,7 +95,28 @@ function toggleSeries(name){
   var b = document.getElementById(id);
   if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
 }
-// (buttons removed)
+// Auto-create 5 buttons on page load
+(function(){
+  if(document.getElementById('tg3mk')) return;
+  var span = document.querySelector('span[style*="margin-left:10px"]');
+  if(!span) span = document.getElementById('dayhint');
+  if(!span) return;
+  var btns = [
+    ['tg3mk','3mK线','3mK','#c00','#ffe8e8'],
+    ['tg1m','1m曲线','1m','#4da6ff','#e8f2ff'],
+    ['tg9mk','9mK线','9mK','#00aa44','#e8f8f0'],
+    ['tg3mq','QQE','3mQ','#d00','#ffe8e8'],
+    ['tg9mq','9m QQE','9mQ','#1a5fd0','#e8efff']
+  ];
+  btns.forEach(function(cfg){
+    var b = document.createElement('button');
+    b.id = cfg[0];
+    b.textContent = cfg[2];
+    b.setAttribute('onclick', "toggleSeries('"+cfg[1]+"')");
+    b.style.cssText = 'font-size:12px;padding:2px 7px;margin:0 2px;border:1px solid '+cfg[3]+';background:'+cfg[4]+';border-radius:4px;cursor:pointer';
+    span.appendChild(b);
+  });
+})();
 </script>
 
 </body></html>
