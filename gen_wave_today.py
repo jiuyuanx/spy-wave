@@ -27,19 +27,7 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
-# 热力背景色 (昨天gen_heat_html_pierce2.py的15色)
-HEAT_COLORS = [
-    'rgba(120,180,220,0.12)', 'rgba(138,182,201,0.16)', 'rgba(156,185,182,0.19)',
-    'rgba(174,188,164,0.23)', 'rgba(192,190,145,0.27)', 'rgba(210,193,126,0.30)',
-    'rgba(228,196,108,0.34)', 'rgba(246,198,89,0.38)', 'rgba(255,186,74,0.41)',
-    'rgba(255,160,64,0.45)', 'rgba(255,133,53,0.49)', 'rgba(255,106,42,0.52)',
-    'rgba(255,79,31,0.56)', 'rgba(255,53,21,0.60)', 'rgba(255,26,10,0.63)',
-]
-def heat_color(v):
-    idx = int(max(0, min(14, v)))
-    return HEAT_COLORS[idx]
-
-from signal_engine import (run_signals, get_heat_edges, get_heat_arr, get_heat_bins, get_heat_sm, detect_red_decay, detect_blue_decay,
+from signal_engine import (run_signals, detect_red_decay, detect_blue_decay,
                            SIG_MIN_LEN)
 
 BLUE, RED, GRAY = "#2f80ed", "#e5484d", "#b0b0b0"
@@ -297,11 +285,6 @@ def main():
     day_arr = sig["t"].dt.date.values
 
     actions = run_signals(sig)
-    heat_edges = get_heat_edges()
-    heat_arr = get_heat_arr()
-    heat_bins = get_heat_bins()
-    heat_sm = get_heat_sm()
-
     # 今日的动作
     tstrs = sig["t"].dt.strftime("%H:%M").values
     dates = sig["t"].dt.date.astype(str).values
@@ -918,68 +901,11 @@ def main():
         "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
             a[0]["xAxis"], a[0]["pnlPct"], a[1]["xAxis"])
         for a in mark_areas) + "]"
-    # 热力背景markArea: 横向色带 (按昨天gen_heat_html_pierce2.py方法)
-    heat_markarea = []
-    _har = heat_sm if heat_sm is not None else get_heat_arr()
-    _hbn = get_heat_bins()
-    if _har is not None and _hbn is not None:
-        try:
-            import numpy as _np2
-            _ha2 = _np2.array(_har, dtype=float)
-            _hb2 = _np2.array(_hbn, dtype=float)
-            _valid2 = _np2.where(_ha2 > 0.5)[0]
-            if len(_valid2) > 0:
-                _plo2 = float(_hb2[_valid2[0]])
-                _phi2 = float(_hb2[_valid2[-1]+1]) if _valid2[-1]+1 < len(_hb2) else float(_hb2[-1])
-                _pp = _plo2
-                while _pp < _phi2:
-                    _zi2 = int(_np2.digitize(_pp + 0.25, _hb2)) - 1
-                    _hv2 = float(_ha2[_zi2]) if 0 <= _zi2 < len(_ha2) else 0
-                    _hv2 = max(0, min(15, _hv2))
-                    if _hv2 > 0.5:
-                        heat_markarea.append(
-                            '[{"yAxis":' + str(round(_pp,2)) +
-                            ',"itemStyle":{"color":"' + heat_color(_hv2) + '"}},{"yAxis":' +
-                            str(round(_pp+0.5,2)) + '}]'
-                        )
-                    _pp += 0.5
-        except: pass
-    heat_markarea_js = "[" + ",".join(heat_markarea) + "]"
-    # 合并热力背景 (yAxis横向色带)
-    if 'heat_markarea_js' in dir() and heat_markarea_js != "[]":
-        # 把heat数据加到mark_area_js里
-        _ma_inner = mark_area_js[1:-1]  # 去掉[]
-        _heat_inner = heat_markarea_js[1:-1]
-        if _ma_inner:
-            mark_area_js = "[" + _ma_inner + "," + _heat_inner + "]"
-        else:
-            mark_area_js = heat_markarea_js
     mark_area_opt = "{silent:true,data:" + mark_area_js + "}"
     ohlc = [[round(float(sig["open"].iloc[i]), 2), round(float(sig["close"].iloc[i]), 2),
              round(float(sig["low"].iloc[i]), 2), round(float(sig["high"].iloc[i]), 2)]
             for i in today_idx]
-    # 7区内的3mK线加白边 (in_heat flag from heat_edges尾部n3条)
-    _he_inheat = []
-    for _e in heat_edges:
-        try:
-            _he_inheat.append(bool(_e[3]) if len(_e) >= 4 else False)
-        except:
-            _he_inheat.append(False)
-    _n3tmp = len(today_idx)
-    if len(_he_inheat) > _n3tmp:
-        _he_inheat = _he_inheat[-_n3tmp:]
-    while len(_he_inheat) < _n3tmp:
-        _he_inheat.insert(0, False)
-    _ohlc_parts = []
-    for _idx, (o, cc, l, h) in enumerate(ohlc):
-        if _idx < len(_he_inheat) and _he_inheat[_idx]:
-            # 白边：用fallback，THEME没有就用#ffffff
-            _ohlc_parts.append(
-                '{value:[' + f"{o},{cc},{l},{h}" + '],itemStyle:{borderColor:"#ffffff",borderWidth:1}}'
-            )
-        else:
-            _ohlc_parts.append(f"[{o},{cc},{l},{h}]")
-    ohlc_js = "[" + ",".join(_ohlc_parts) + "]"
+    ohlc_js = "[" + ",".join(f"[{o},{c},{l},{h}]" for o, c, l, h in ohlc) + "]"
 
     # 9m 聚合 (3根3m合成1根): O=首根开, H=3根最高, L=3根最低, C=末根收, QQE=末根hist
     # 放在每组最后一根3m的位置, 其余位置null
@@ -1036,65 +962,6 @@ def main():
                 _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
                 slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
-    # heat_up/heat_lo: 7区上下缘线 (从heat_edges取今日部分)
-    _n3h2 = len(today_idx)
-    _he_tail = heat_edges[-_n3h2:] if len(heat_edges) >= _n3h2 else heat_edges
-    try:
-        for _dbg_i in range(min(3, len(_he_tail))):
-            _de = _he_tail[_dbg_i]
-            print(f"[DEBUG] tail[{_dbg_i}] tstr={_de[0]}, up={_de[1]}, lo={_de[2]}")
-    except: pass
-    # forward fill: 区内bar用区边缘，区外bar延续上一个值
-    _hu2, _hl2 = None, None
-    _up_list, _lo_list = [], []
-    for _e in _he_tail:
-        try:
-            if len(_e) >= 3 and _e[1] is not None:
-                _hu2 = round(float(_e[1]), 2); _hl2 = round(float(_e[2]), 2)
-        except: pass
-        if _hu2 is not None:
-            _up_list.append(str(_hu2)); _lo_list.append(str(_hl2))
-        else:
-            _up_list.append("null"); _lo_list.append("null")
-    # 补齐到_n3h2长度
-    while len(_up_list) < _n3h2:
-        _up_list.insert(0, "null"); _lo_list.insert(0, "null")
-    heat_up_js = "[" + ",".join(_up_list) + "]"
-    heat_lo_js = "[" + ",".join(_lo_list) + "]"
-    print(f"[DEBUG] heat_up non-null={sum(1 for x in _up_list if x != 'null')}")
-    # 触发线: 区内15% (从_up_list/_lo_list直接算)
-    _trig_up_list, _trig_lo_list = [], []
-    for _uu, _ll in zip(_up_list, _lo_list):
-        try:
-            if _uu != "null" and _ll != "null":
-                _zhu = float(_uu); _zhl = float(_ll)
-                _zhh = _zhu - _zhl
-                _trig_up_list.append(str(round(_zhu - 0.15*_zhh, 2)))
-                _trig_lo_list.append(str(round(_zhl + 0.15*_zhh, 2)))
-            else:
-                _trig_up_list.append("null"); _trig_lo_list.append("null")
-        except:
-            _trig_up_list.append("null"); _trig_lo_list.append("null")
-    trig_up_js = "[" + ",".join(_trig_up_list) + "]"
-    trig_lo_js = "[" + ",".join(_trig_lo_list) + "]"
-    # heatmap数据: 横向色带 [时间索引, 价格, 热度值]
-    # 用最终热度分布，在价格轴上画横向色带
-    heatmap_data = []
-    if heat_arr is not None and heat_bins is not None:
-        try:
-            import numpy as _np
-            _ha = _np.array(heat_arr, dtype=float)
-            _hb = _np.array(heat_bins, dtype=float)
-            # 只取有热度的价格带
-            for _bi in range(len(_ha)):
-                _bv = float(_ha[_bi])
-                if _bv > 0.5 and _bi < len(_hb)-1:
-                    _price = float((_hb[_bi] + _hb[_bi+1]) / 2)
-                    # 横向：在所有时间点都画这个价格带的热度
-                    for _ti in range(0, n3, 5):  # 每5根取样，减少点数
-                        heatmap_data.append([_ti, round(_price, 2), round(_bv, 2)])
-        except: pass
-    heatmap_js = "[" + ",".join([f"[{d[0]},{d[1]},{d[2]}]" for d in heatmap_data]) + "]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
@@ -1154,28 +1021,6 @@ def main():
     html, n5 = re.subn(r"\{name:'slope5', type:'line', data:\[.*?\], xAxisIndex",
                        "{name:'slope5', type:'line', data:" + slope5_js + ", xAxisIndex",
                        html, count=1, flags=re.S)
-    html, n_hu = re.subn(r"\{name:'heat_up', type:'line', data:\[.*?\], xAxisIndex",
-                       "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    print(f"[DEBUG] heat_up替换次数={n_hu}, 数据长度={len(heat_up_js)}")
-    html, n_hl = re.subn(r"\{name:'heat_lo', type:'line', data:\[.*?\], xAxisIndex",
-                       "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    html, n_hm = re.subn(r"\\{name:'heat_bg', type:'heatmap', data:\\[.*?\\], xAxisIndex",
-                       "{name:'heat_bg', type:'heatmap', data:" + heatmap_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    html, n_tu = re.subn(r"\\{name:'trig_up', type:'line', data:\\[.*?\\], xAxisIndex",
-                       "{name:'trig_up', type:'line', data:" + trig_up_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    html, n_tl = re.subn(r"\\{name:'trig_lo', type:'line', data:\\[.*?\\], xAxisIndex",
-                       "{name:'trig_lo', type:'line', data:" + trig_lo_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    html, n_hu = re.subn(r"\\{name:'heat_up', type:'line', data:\\[.*?\\], xAxisIndex",
-                       "{name:'heat_up', type:'line', data:" + heat_up_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
-    html, n_hl = re.subn(r"\\{name:'heat_lo', type:'line', data:\\[.*?\\], xAxisIndex",
-                       "{name:'heat_lo', type:'line', data:" + heat_lo_js + ", xAxisIndex",
-                       html, count=1, flags=re.S)
 
     def _replace_balanced(html, start_pat, new_text):
         m = re.search(start_pat, html)
@@ -1210,7 +1055,7 @@ def main():
     if 0 in (n1, n2, n3s, n4, n5, n6, n7, n8):
         print(f"  WARN subs: 3mK={n1} 9mK={n2} 9mQQE={n3s} cumslope={n4} slope5={n5} markArea={n6} scat={n7} table={n8}")
     if WAVE_DATE:
-        _out_name = WAVE_OUT_NAME_TMPL or f"{WAVE_DATE}.html"
+        _out_name = f"{WAVE_DATE}.html"
     else:
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
