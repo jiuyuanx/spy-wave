@@ -11,24 +11,6 @@ actions format: (bar_idx, time_str, action, direction, price, reason)
 """
 import pandas as pd
 import numpy as np
-
-# 热力区边缘缓存（供dashboard取用）
-_heat_edges_cache = []
-_heat_arr_cache = None
-_heat_sm_cache = None
-_heat_bins_cache = None
-def get_heat_edges():
-    """返回最近一次run_signals的heat_edges: [(tstr, up, lo, in_heat, disp_up, disp_lo), ...]"""
-    return _heat_edges_cache
-def get_heat_arr():
-    """返回热力数组（1-9999范围，0.5档）"""
-    return _heat_arr_cache
-def get_heat_bins():
-    """返回热力bins"""
-    return _heat_bins_cache
-def get_heat_sm():
-    """返回blur过的final heat数组（信号实际用的）"""
-    return _heat_sm_cache
 import sys
 
 sys.path.insert(0, "/home/hatch/workspace/qqe_backtest")
@@ -239,10 +221,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _DIV_QQE_GATE = div_qqe_gate
     _eod_1m = eod_1m_dict or {}
     # ---------- indicators ----------
-    global _heat_edges_cache, _heat_arr_cache, _heat_bins_cache, _heat_sm_cache
-    _heat_edges_cache = []  # 每次run_signals清空
-    _heat_sm_cache = None
-    # _heat_arr_cache/_heat_bins_cache在循环结束时更新（取最后一天的值）
     warm = bars_df.reset_index(drop=True).copy()
     # normalize column names: accept t/o/h/l/c or t/open/high/low/close
     _colmap = {"o": "open", "h": "high", "l": "low", "c": "close"}
@@ -530,28 +508,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _n_cancel = 0
     # 止损变量即时初始化 (2026-10-11 fix: 开仓当根立即用真实入场价初始化, 不再延迟到下一根bar)
 
-    # ---------- 做T热力规则初始化 (2026-10-23, pierce2宽版上线) ----------
-    import numpy as _np
-    try:
-        from scipy.ndimage import gaussian_filter1d as _gf1d
-        _heat_has_scipy = True
-    except:
-        _heat_has_scipy = False
-    _HEAT_DECAY = 0.98
-    _HEAT_W_RE = 1.6
-    _HEAT_W_DW = 0.8
-    _HEAT_BIN_W = 0.5
-    _HEAT_THRESH = 7.0
-    _HEAT_EDGE_PCT = 0.15
-    _heat_arr = None
-    _heat_bins = None
-    _heat_nz = 0
-    _heat_prev_zi = None
-    _heat_plo = None
-    _heat_phi = None
-    _heat_rule_last_day = None
-    _pos_in_heat = False  # 当前持仓是否在热力区开的
-
     # ---------- main signal loop (from backtest) ----------
     for i in range(start_idx, end_idx):
         t = warm["t"].iloc[i]
@@ -570,7 +526,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             # 2026-10-08 fix: 每天只算一次, 不能每根bar重算 (第二根bar的gap是盘中价差)
             if i == _day_start and i > 0:
                 _gap = abs(float(warm["open"].iloc[i]) - float(close[i-1]))
-                _day_ign_n = 2 if _gap > 2.0 else 0
+                _day_ign_n = 2 if _gap > 2.0 else 1
                 _day_ign_day = _day_start
             elif _day_ign_day != _day_start:
                 _day_ign_n = 1
@@ -579,103 +535,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
         if i - _day_start < _ign_n_wk:
             continue
         px = float(close[i])
-        # === 做T热力规则 (2026-10-23 pierce2宽版): 7区内优先做T，跳过QQE ===
-        _cur_day_str = t.strftime("%Y-%m-%d")
-        if _heat_plo is None or _cur_day_str != _heat_rule_last_day:
-            _heat_arr = None
-            _heat_prev_zi = None
-            _heat_rule_last_day = _cur_day_str
-            print(f"[DEBUG] heat重置: {_cur_day_str}")
-        if _heat_arr is None:
-            # 固定大范围1-9999（2026-10-23 fix：bins永远对齐，不用动态算）
-            _heat_plo = 1.0
-            _heat_phi = 9999.0
-            _heat_bins = _np.arange(_heat_plo, _heat_phi, _HEAT_BIN_W)
-            _heat_nz = len(_heat_bins) - 1
-            _heat_arr = _np.zeros(_heat_nz)
-        _heat_arr *= _HEAT_DECAY
-        _czi = int(_np.digitize(float(close[i]), _heat_bins)) - 1
-        if 0 <= _czi < _heat_nz:
-            if _heat_prev_zi is not None and _czi != _heat_prev_zi:
-                _heat_arr[_czi] += _HEAT_W_RE
-            else:
-                _heat_arr[_czi] += _HEAT_W_DW
-        _heat_prev_zi = _czi if 0 <= _czi < _heat_nz else None
-        if _heat_has_scipy:
-            _heat_sm = _gf1d(_heat_arr, sigma=1.0, mode='constant', cval=0)
-        else:
-            _heat_sm = _heat_arr
-        _in_heat_zone = False
-        _t_sig_dir = None
-        _cpx = float(close[i])
-        _opx = float(warm["open"].iloc[i]); _hpx = float(warm["high"].iloc[i]); _lpx = float(warm["low"].iloc[i])
-        _close_zi = int(_np.digitize(_cpx, _heat_bins)) - 1
-        _orig_up, _orig_lo = None, None
-        if 0 <= _close_zi < _heat_nz and _heat_sm[_close_zi] >= _HEAT_THRESH:
-            _lo, _hi = _close_zi, _close_zi
-            while _lo > 0 and _heat_sm[_lo-1] >= _HEAT_THRESH:
-                _lo -= 1
-            while _hi < _heat_nz-1 and _heat_sm[_hi+1] >= _HEAT_THRESH:
-                _hi += 1
-            _orig_up = float(_heat_bins[_hi+1])
-            _orig_lo = float(_heat_bins[_lo])
-        if _orig_up is None:
-            for _zi in range(_heat_nz):
-                if _heat_sm[_zi] >= _HEAT_THRESH:
-                    _tlo, _thi = _zi, _zi
-                    while _tlo > 0 and _heat_sm[_tlo-1] >= _HEAT_THRESH: _tlo -= 1
-                    while _thi < _heat_nz-1 and _heat_sm[_thi+1] >= _HEAT_THRESH: _thi += 1
-                    _tu = float(_heat_bins[_thi+1]); _tl = float(_heat_bins[_tlo])
-                    _th = _tu - _tl
-                    _exp_up = _tu + 0.15 * _th; _exp_lo = _tl - 0.15 * _th
-                    if _exp_lo <= _cpx <= _exp_up:
-                        _orig_up, _orig_lo = _tu, _tl
-                        break
-        if _orig_up is not None:
-            _ztop, _zbot = _orig_up, _orig_lo
-            _zh = _ztop - _zbot
-            _exp_up = _ztop + 0.15 * _zh; _exp_lo = _zbot - 0.15 * _zh
-            if _exp_lo <= _cpx <= _exp_up:
-                _in_heat_zone = True
-            if _cpx >= _ztop - _HEAT_EDGE_PCT * _zh:
-                _t_sig_dir = "put"
-            elif _cpx <= _zbot + _HEAT_EDGE_PCT * _zh:
-                _t_sig_dir = "call"
-            _up_trigger = _ztop - _HEAT_EDGE_PCT * _zh
-            _lo_trigger = _zbot + _HEAT_EDGE_PCT * _zh
-            if _cpx < _opx and _hpx > _up_trigger and _cpx < _up_trigger:
-                _t_sig_dir = "put"
-            elif _cpx > _opx and _lpx < _lo_trigger and _cpx > _lo_trigger:
-                _t_sig_dir = "call"
-        # 记录heat_edges供dashboard用: (tstr, up, lo, in_heat, disp_up, disp_lo)
-        # 与research/gen_heat_html_pierce2.py格式一致
-        _he_tstr = t.strftime("%Y-%m-%d %H:%M")
-        _he_up = float(_orig_up) if _orig_up is not None else None
-        _he_lo = float(_orig_lo) if _orig_lo is not None else None
-        _he_disp_up = _he_disp_lo = None
-        if _he_up is not None and _he_lo is not None:
-            _he_zh = _he_up - _he_lo
-            _he_disp_up = _he_up + 0.15 * _he_zh
-            _he_disp_lo = _he_lo - 0.15 * _he_zh
-        _heat_edges_cache.append((_he_tstr, _he_up, _he_lo, _in_heat_zone, _he_disp_up, _he_disp_lo))
-        if _in_heat_zone:
-            if _t_sig_dir:
-                _tstr = t.strftime("%m-%dT%H:%M")
-                # 执行价：下一根开盘（回测口径）；实盘用当前价由watcher决定
-                _next_same_day = (i+1 < len(warm)) and (warm["t"].iloc[i+1].strftime("%m-%d") == day)
-                _px_exec = float(warm["open"].iloc[i+1]) if _next_same_day else px
-                if pos is None:
-                    actions.append((i, _tstr, "开", _t_sig_dir, _px_exec, f"做T开{_t_sig_dir}(7区)"))
-                    pos = _t_sig_dir; _pos_in_heat = True
-                    last_action_bar = i
-                elif pos != _t_sig_dir:
-                    _close_tag = "" if _pos_in_heat else "[非做T仓]"
-                    actions.append((i, _tstr, "平", pos, _px_exec, f"做T信号平{pos}{_close_tag}(7区)"))
-                    actions.append((i, _tstr, "开", _t_sig_dir, _px_exec, f"做T开{_t_sig_dir}(7区)"))
-                    pos = _t_sig_dir; _pos_in_heat = True
-                    last_action_bar = i
-            continue  # 跳过QQE逻辑
-        # === 做T热力规则结束 ===
         # 3-bar大K等反弹 (空头版, 2026-10-11): 持call+3根净跌超2.5 → 等30%反弹, 最多5根, 最高优先
         if k3_wait_target is not None:
             k3_wait_bars += 1
@@ -2017,17 +1876,4 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                             _follow_entry_bar = i; _follow_entry_hist = abs(hist[i]); _follow_do_div_wk = _follow_do_div; _follow_entry_dir_wk = pos; _follow_entry_peak_wk = _fwp; _follow_entry_spy_wk = close[i]; _follow_entry_date_wk = _day_arr[i]
                             wait_red = wait_blue = False
 
-    # 保存heat_arr/bins供dashboard画热力背景（取循环最后的值）
-    # _heat_sm_cache存blur过的final output（信号实际用的）
-    try:
-        _heat_arr_cache = _heat_arr.copy() if _heat_arr is not None else None
-        _heat_bins_cache = _heat_bins.copy() if _heat_bins is not None else None
-        if _heat_arr is not None:
-            try:
-                from scipy.ndimage import gaussian_filter1d as _gf2
-                _heat_sm_cache = _gf2(_heat_arr, sigma=1.0, mode='constant', cval=0)
-            except:
-                _heat_sm_cache = _heat_arr.copy()
-    except NameError:
-        pass
     return actions
