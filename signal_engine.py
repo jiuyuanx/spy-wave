@@ -16,7 +16,6 @@ import sys
 sys.path.insert(0, "/home/hatch/workspace/qqe_backtest")
 sys.path.insert(0, "/home/hatch/workspace/alpaca_watcher")
 from qqe_mod import qqe_mod
-from st import supertrend
 
 SIG_MIN_LEN = 4
 _SKIP_DATES = {"2026-06-17"}  # Warsh FOMC, permanently excluded
@@ -161,46 +160,6 @@ def count_lengthening(hist, cur_idx, direction, q_up, q_down):
         j -= 1
     return count
 
-# ---------- supertrend calc (from backtest) ----------
-def _st_calc(h, l, c, period=10, mult=3):
-    # True Range
-    pc = np.roll(c, 1); pc[0] = c[0]
-    tr = np.maximum(h - l, np.maximum(np.abs(h - pc), np.abs(l - pc)))
-    # ATR (Wilder)
-    atr = np.zeros_like(c)
-    atr[period-1] = tr[:period].mean()
-    for _i in range(period, len(c)):
-        atr[_i] = (atr[_i-1] * (period-1) + tr[_i]) / period
-    hl2 = (h + l) / 2
-    bub = hl2 + mult * atr; blb = hl2 - mult * atr
-    fub = np.zeros_like(c); flb = np.zeros_like(c)
-    trend = np.ones(len(c), dtype=int)
-    stv = np.zeros_like(c)
-    for _i in range(len(c)):
-        if _i < period:
-            fub[_i] = bub[_i]; flb[_i] = blb[_i]; stv[_i] = blb[_i]
-            continue
-        # Final bands
-        if bub[_i] < fub[_i-1] or c[_i-1] > fub[_i-1]:
-            fub[_i] = bub[_i]
-        else:
-            fub[_i] = fub[_i-1]
-        if blb[_i] > flb[_i-1] or c[_i-1] < flb[_i-1]:
-            flb[_i] = blb[_i]
-        else:
-            flb[_i] = flb[_i-1]
-        # Trend
-        if trend[_i-1] == 1:
-            if c[_i] <= flb[_i]:
-                trend[_i] = -1; stv[_i] = fub[_i]
-            else:
-                trend[_i] = 1; stv[_i] = flb[_i]
-        else:
-            if c[_i] >= fub[_i]:
-                trend[_i] = 1; stv[_i] = flb[_i]
-            else:
-                trend[_i] = -1; stv[_i] = fub[_i]
-    return trend, stv
 
 
 def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_dict=None,
@@ -213,7 +172,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     Returns: [(bar_idx, time_str, action, direction, price, reason), ...]
     """
     import os as _os
-    _SCALE = 1.0
     _USE_30S_STOP = use_30s_stop
     _30S_THRESH = stop30s_y
     _M1_DICT = m1_dict or {}
@@ -242,8 +200,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     hist = np.asarray(res["hist"], dtype=float)
     q_up = np.asarray(res["up"]).astype(bool)
     q_down = np.asarray(res["down"]).astype(bool)
-    st = supertrend(high, low, close)
-    bull = np.asarray(st["bull"])
     n = len(hist)
     dates = warm["t"].dt.date.astype(str).values
     _day_arr = warm["t"].dt.date.values
@@ -345,7 +301,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _stop_entry_dir = None
     _stop_entry_px = 0
     _stop_entry_bar = -1
-    _stop_dpp = 0
     # 大K双机制 (2026-10-09 用户): 等反弹+不跟随
     _bigwait_target = None
     _bigwait_bars = 0
@@ -375,9 +330,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             print(f"1m bars loaded: {len(_M1_DICT)}", flush=True)
         except Exception as _e:
             print(f"1m load failed: {_e}", flush=True)
-    _stop_premium = 0
-    _stop_cur_val = 0
-    _stop_prev_close = 0
     _hold_watch = None  # HOLD后跟踪: {peak, need, dir, bar}, 衰减加深则翻 (2026-10-03)
     _fav_peak = 0  # 动量死亡跟踪: 同向波峰值(含灰) (2026-10-03 用户)
     _fav_sign = 0  # 1=call/-1=put
@@ -476,16 +428,10 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
 
     # ---------- stop vars ----------
     def _init_stop_vars(_pos, _entry_px, _bar_i):
-        nonlocal _stop_entry_dir, _stop_entry_px, _stop_entry_bar, _stop_premium, _stop_dpp, _stop_cur_val, _stop_prev_close
-        _is_bull_sl = bool(bull[_bar_i]) if _bar_i < len(bull) else False
-        _wt_sl = (_is_bull_sl and _pos == "call") or (not _is_bull_sl and _pos == "put")
+        nonlocal _stop_entry_dir, _stop_entry_px, _stop_entry_bar
         _stop_entry_dir = _pos
         _stop_entry_px = _entry_px
         _stop_entry_bar = _bar_i
-        _stop_premium = (22000 if _wt_sl else 11000) * _SCALE
-        _stop_dpp = (2750 if _wt_sl else 1350) * _SCALE
-        _stop_cur_val = float(_stop_premium)
-        _stop_prev_close = _entry_px
 
     # ---------- loop setup ----------
     start_idx = 0 if start_idx is None else start_idx
@@ -694,12 +640,17 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                 # 这里仅防漏网之鱼, 用当前px初始化
                 _init_stop_vars(pos, px, i)
             else:
-                # 持仓中: 更新期权价值
-                _spy_chg = px - _stop_prev_close
-                _fav_move = _spy_chg if pos == "call" else -_spy_chg
-                _stop_cur_val += _fav_move * _stop_dpp
-                _stop_prev_close = px
-                if _stop_cur_val / _stop_premium <= 0.80:
+                # 持仓中: Gamma ROI触发 (2026-10-28用户令: 线性价值模型作废, 收益率只认Gamma公式)
+                _d_spy = px - _stop_entry_px
+                if pos == "call":
+                    _g_roi = 9.88 * _d_spy + 0.311 * _d_spy * _d_spy
+                    if _d_spy < 0:
+                        _g_roi = min(_g_roi, 0)
+                else:
+                    _g_roi = -9.88 * _d_spy + 0.311 * _d_spy * _d_spy
+                    if _d_spy > 0:
+                        _g_roi = min(_g_roi, 0)
+                if _g_roi <= -20.0:
                     # 触发20%止损 (2026-10-06 用户: 止损和翻仓不冲突, 有翻仓信号则翻仓)
                     # 先检查同bar是否有翻仓信号, 有则留给信号逻辑处理 (平+开), 无则单纯止损
                     _is_morning_sl = hm < "10:00"
@@ -708,7 +659,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                     _has_flip_sig = (pos == "call" and i in _set_b_sl) or (pos == "put" and i in _set_r_sl)
                     if not _has_flip_sig:
                         _tstr_sl = f"{day}T{hm}"
-                        actions.append((i, _tstr_sl, "平", pos, px, f"止损20%(价值{_stop_cur_val:.0f}/{_stop_premium:.0f})"))
+                        actions.append((i, _tstr_sl, "平", pos, px, f"止损20%(Gamma{_g_roi:.1f}%)"))
                         pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
                         wait_red = wait_blue = False
                         _follow_entry_bar = None
@@ -753,7 +704,6 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             _quiet = i - last_action_bar
             return 1.0 if _quiet < 4 else 0.0
         cur_hist = float(hist[i])
-        st_dir = "buy" if bool(bull[i]) else "sell"
         skip_open = False  # 短峰值翻仓只平不开时, 跳过本轮开仓
         _flip_to = None  # 翻仓目标方向, 同bar直接开
         _flip_is_huibu = False  # 长波回补标记 (显示用, 与正式gen_week.py一致)

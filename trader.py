@@ -26,10 +26,7 @@ TRADE_LOG = os.path.join(WDIR, "trades.log")
 
 # 策略参数
 # 2026-10-05 用户: 动态满仓 - 顺势用100%权益, 逆势用50%
-FULL_PREMIUM = 22000    # 顺势目标权利金(已废弃, 改用动态)
-REDUCED_PREMIUM = 11000  # 逆势目标权利金(已废弃, 改用动态)
 STOP_PCT = 0.20          # 仓位止损 20%
-TAKE_PROFIT_PCT = 0.30   # 仓位止盈 30%
 EOD_FLAT_TIME = "15:55"  # 日终平仓时间
 
 

@@ -30,7 +30,7 @@ from signal_engine import run_signals
 from trader import (get_expiration, get_atm_contract, get_quote, calc_qty,
                     place_order, get_positions, get_account_equity,
                     get_options_buying_power, api, PAPER,
-                    FULL_PREMIUM, REDUCED_PREMIUM, STOP_PCT, TAKE_PROFIT_PCT,
+                    STOP_PCT,
                     EOD_FLAT_TIME, TRADING_ENABLED)
 
 ET = ZoneInfo("America/New_York")
