@@ -11,6 +11,24 @@ actions format: (bar_idx, time_str, action, direction, price, reason)
 """
 import pandas as pd
 import numpy as np
+
+# 热力区边缘缓存（供dashboard取用）
+_heat_edges_cache = []
+_heat_arr_cache = None
+_heat_sm_cache = None
+_heat_bins_cache = None
+def get_heat_edges():
+    """返回最近一次run_signals的heat_edges: [(tstr, up, lo, in_heat, disp_up, disp_lo), ...]"""
+    return _heat_edges_cache
+def get_heat_arr():
+    """返回热力数组（1-9999范围，0.5档）"""
+    return _heat_arr_cache
+def get_heat_bins():
+    """返回热力bins"""
+    return _heat_bins_cache
+def get_heat_sm():
+    """返回blur过的final heat数组（信号实际用的）"""
+    return _heat_sm_cache
 import sys
 
 sys.path.insert(0, "/home/hatch/workspace/qqe_backtest")
@@ -179,6 +197,10 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _DIV_QQE_GATE = div_qqe_gate
     _eod_1m = eod_1m_dict or {}
     # ---------- indicators ----------
+    global _heat_edges_cache, _heat_arr_cache, _heat_bins_cache, _heat_sm_cache
+    _heat_edges_cache = []  # 每次run_signals清空
+    _heat_sm_cache = None
+    # _heat_arr_cache/_heat_bins_cache在循环结束时更新（取最后一天的值）
     warm = bars_df.reset_index(drop=True).copy()
     # normalize column names: accept t/o/h/l/c or t/open/high/low/close
     _colmap = {"o": "open", "h": "high", "l": "low", "c": "close"}
@@ -301,6 +323,9 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _stop_entry_dir = None
     _stop_entry_px = 0
     _stop_entry_bar = -1
+    # 止损窗口 (s20fz新baseline 2026-10-29): 20%触发、6根窗口、等50%回弹平、窗口内冻结
+    _stop_win = None  # None=无窗口; 有窗口时为dict(dr, trig_bar, entry_px, trig_close, threshold)
+    _stop_triggered = False
     # 大K双机制 (2026-10-09 用户): 等反弹+不跟随
     _bigwait_target = None
     _bigwait_bars = 0
@@ -428,10 +453,11 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
 
     # ---------- stop vars ----------
     def _init_stop_vars(_pos, _entry_px, _bar_i):
-        nonlocal _stop_entry_dir, _stop_entry_px, _stop_entry_bar
+        nonlocal _stop_entry_dir, _stop_entry_px, _stop_entry_bar, _stop_win
         _stop_entry_dir = _pos
         _stop_entry_px = _entry_px
         _stop_entry_bar = _bar_i
+        _stop_win = None  # 新仓位一律无窗口 (s20fz: 翻仓/跟随开仓都走这里, 旧窗口绝不带到新仓位)
 
     # ---------- loop setup ----------
     start_idx = 0 if start_idx is None else start_idx
@@ -454,6 +480,28 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
     _n_cancel = 0
     # 止损变量即时初始化 (2026-10-11 fix: 开仓当根立即用真实入场价初始化, 不再延迟到下一根bar)
 
+    # ---------- 做T热力规则初始化 (2026-10-23, pierce2宽版上线) ----------
+    import numpy as _np
+    try:
+        from scipy.ndimage import gaussian_filter1d as _gf1d
+        _heat_has_scipy = True
+    except:
+        _heat_has_scipy = False
+    _HEAT_DECAY = 0.98
+    _HEAT_W_RE = 1.6
+    _HEAT_W_DW = 0.8
+    _HEAT_BIN_W = 0.5
+    _HEAT_THRESH = 7.0
+    _HEAT_EDGE_PCT = 0.15
+    _heat_arr = None
+    _heat_bins = None
+    _heat_nz = 0
+    _heat_prev_zi = None
+    _heat_plo = None
+    _heat_phi = None
+    _heat_rule_last_day = None
+    _pos_in_heat = False  # 当前持仓是否在热力区开的
+
     # ---------- main signal loop (from backtest) ----------
     for i in range(start_idx, end_idx):
         t = warm["t"].iloc[i]
@@ -464,6 +512,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
         if day != _prev_day:
             _day_start = i
             _prev_day = day
+            _stop_win = None  # 止损窗口不跨日 (s20fz)
             # 碎波暂停不跨天 (2026-10-07 fix)
             _frag_pause_until_wk = -1
             _follow_pnls_wk = []
@@ -472,7 +521,7 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             # 2026-10-08 fix: 每天只算一次, 不能每根bar重算 (第二根bar的gap是盘中价差)
             if i == _day_start and i > 0:
                 _gap = abs(float(warm["open"].iloc[i]) - float(close[i-1]))
-                _day_ign_n = 2 if _gap > 2.0 else 1
+                _day_ign_n = 2 if _gap > 2.0 else 0
                 _day_ign_day = _day_start
             elif _day_ign_day != _day_start:
                 _day_ign_n = 1
@@ -481,6 +530,187 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
         if i - _day_start < _ign_n_wk:
             continue
         px = float(close[i])
+        # EOD顶级优先 (回测同款次序: EOD在窗口之前; 热力段EOD只在7区内, 窗口期7区外会漏, 故窗口前再加一道)
+        if hm >= "15:55" and pos is not None:
+            _eod_px = _eod_1m.get(str(_day_arr[i]), px)
+            actions.append((i, f"{day}T{hm}", "平", pos, _eod_px, "日终平仓(1m15:55)"))
+            pos = None; _pos_in_heat = False
+            last_action_bar = i
+            _was_above_zero_wk = False; _was_below_zero_wk = False
+            _call_gap_wk = 0; _put_gap_wk = 0
+            was_on_top = was_on_bottom = False
+            wait_red = wait_blue = False
+            _follow_entry_bar = None
+            _hold_watch = None
+            _fav_peak = 0; _fav_sign = 0
+            _stop_win = None
+            continue
+        # 止损窗口 (s20fz新baseline 2026-10-29: 20%触发、6根窗口、等50%回弹平、窗口内冻结)
+        #   窗口内: 回弹平/到期平为唯二出口, 其余信号全跳过 (冻结, 含热力做T信号);
+        #   触发见止损检查段; 任何开仓/平仓/EOD/跨日都清窗口 (开仓清见_init_stop_vars, 跨日清见日边界)
+        if _stop_win is not None and pos is None:
+            _stop_win = None  # 安全网: 仓位已无则窗口作废
+        if _stop_win is not None and pos is not None:
+            _win_age = i - _stop_win["trig_bar"]
+            if _win_age >= 1:
+                _wdr = _stop_win["dr"]; _wth = _stop_win["threshold"]
+                if (_wdr == "call" and px >= _wth) or (_wdr == "put" and px <= _wth):
+                    actions.append((i, f"{day}T{hm}", "平", pos, px, f"止损窗口回50%平"))
+                    pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
+                    wait_red = wait_blue = False
+                    _follow_entry_bar = None
+                    _hold_watch = None
+                    _fav_peak = 0; _fav_sign = 0
+                    _stop_entry_dir = None
+                    k3_tp_bar = None; _bigtp_bar = None; _bigwait_target = None; _bigwait_bars = 0; k3_wait_target = None; k3_wait_bars = 0
+                    _stop_win = None
+                    _stop_triggered = True
+                    continue
+                if _win_age <= 6:
+                    actions.append((i, f"{day}T{hm}", "持", pos, px, "止损窗口(续)"))
+                    _stop_triggered = True
+                    if _win_age == 6:
+                        actions.append((i, f"{day}T{hm}", "平", pos, px, "止损窗口6根平"))
+                        pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
+                        wait_red = wait_blue = False
+                        _follow_entry_bar = None
+                        _hold_watch = None
+                        _fav_peak = 0; _fav_sign = 0
+                        _stop_entry_dir = None
+                        k3_tp_bar = None; _bigtp_bar = None; _bigwait_target = None; _bigwait_bars = 0; k3_wait_target = None; k3_wait_bars = 0
+                        _stop_win = None
+                        _stop_triggered = True
+                        continue
+                    continue
+                if _win_age >= 7:
+                    actions.append((i, f"{day}T{hm}", "平", pos, px, "止损窗口6根平(补)"))
+                    pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
+                    wait_red = wait_blue = False
+                    _follow_entry_bar = None
+                    _hold_watch = None
+                    _fav_peak = 0; _fav_sign = 0
+                    _stop_entry_dir = None
+                    k3_tp_bar = None; _bigtp_bar = None; _bigwait_target = None; _bigwait_bars = 0; k3_wait_target = None; k3_wait_bars = 0
+                    _stop_win = None
+                    _stop_triggered = True
+                    continue
+        # === 做T热力规则 (2026-10-23 pierce2宽版): 7区内优先做T，跳过QQE ===
+        _cur_day_str = t.strftime("%Y-%m-%d")
+        # heat只累积当天09:30之后的bar，之前的跳过（2026-10-23 fix）
+        _hm = t.strftime("%H:%M")
+        _skip_heat = _hm < "09:30"
+        if _heat_plo is None or _cur_day_str != _heat_rule_last_day:
+            _heat_arr = None
+            _heat_prev_zi = None
+            _heat_rule_last_day = _cur_day_str
+        if _heat_arr is None:
+            # 固定大范围1-9999（2026-10-23 fix：bins永远对齐，不用动态算）
+            _heat_plo = 1.0
+            _heat_phi = 9999.0
+            _heat_bins = _np.arange(_heat_plo, _heat_phi, _HEAT_BIN_W)
+            _heat_nz = len(_heat_bins) - 1
+            _heat_arr = _np.zeros(_heat_nz)
+        if not _skip_heat:
+            _heat_arr *= _HEAT_DECAY
+            _czi = int(_np.digitize(float(close[i]), _heat_bins)) - 1
+            if 0 <= _czi < _heat_nz:
+                if _heat_prev_zi is not None and _czi != _heat_prev_zi:
+                    _heat_arr[_czi] += _HEAT_W_RE
+                else:
+                    _heat_arr[_czi] += _HEAT_W_DW
+            _heat_prev_zi = _czi if 0 <= _czi < _heat_nz else None
+        if _heat_has_scipy:
+            _heat_sm = _gf1d(_heat_arr, sigma=1.0, mode='constant', cval=0)
+        else:
+            _heat_sm = _heat_arr
+        _in_heat_zone = False
+        _t_sig_dir = None
+        _cpx = float(close[i])
+        _opx = float(warm["open"].iloc[i]); _hpx = float(warm["high"].iloc[i]); _lpx = float(warm["low"].iloc[i])
+        _close_zi = int(_np.digitize(_cpx, _heat_bins)) - 1
+        _orig_up, _orig_lo = None, None
+        if 0 <= _close_zi < _heat_nz and _heat_sm[_close_zi] >= _HEAT_THRESH:
+            _lo, _hi = _close_zi, _close_zi
+            while _lo > 0 and _heat_sm[_lo-1] >= _HEAT_THRESH:
+                _lo -= 1
+            while _hi < _heat_nz-1 and _heat_sm[_hi+1] >= _HEAT_THRESH:
+                _hi += 1
+            _orig_up = float(_heat_bins[_hi+1])
+            _orig_lo = float(_heat_bins[_lo])
+        if _orig_up is None:
+            for _zi in range(_heat_nz):
+                if _heat_sm[_zi] >= _HEAT_THRESH:
+                    _tlo, _thi = _zi, _zi
+                    while _tlo > 0 and _heat_sm[_tlo-1] >= _HEAT_THRESH: _tlo -= 1
+                    while _thi < _heat_nz-1 and _heat_sm[_thi+1] >= _HEAT_THRESH: _thi += 1
+                    _tu = float(_heat_bins[_thi+1]); _tl = float(_heat_bins[_tlo])
+                    _th = _tu - _tl
+                    _exp_up = _tu + 0.15 * _th; _exp_lo = _tl - 0.15 * _th
+                    if _exp_lo <= _cpx <= _exp_up:
+                        _orig_up, _orig_lo = _tu, _tl
+                        break
+        if _orig_up is not None:
+            _ztop, _zbot = _orig_up, _orig_lo
+            _zh = _ztop - _zbot
+            _exp_up = _ztop + 0.15 * _zh; _exp_lo = _zbot - 0.15 * _zh
+            if _exp_lo <= _cpx <= _exp_up:
+                _in_heat_zone = True
+            if _cpx >= _ztop - _HEAT_EDGE_PCT * _zh:
+                _t_sig_dir = "put"
+            elif _cpx <= _zbot + _HEAT_EDGE_PCT * _zh:
+                _t_sig_dir = "call"
+            _up_trigger = _ztop - _HEAT_EDGE_PCT * _zh
+            _lo_trigger = _zbot + _HEAT_EDGE_PCT * _zh
+            if _cpx < _opx and _hpx > _up_trigger and _cpx < _up_trigger:
+                _t_sig_dir = "put"
+            elif _cpx > _opx and _lpx < _lo_trigger and _cpx > _lo_trigger:
+                _t_sig_dir = "call"
+        # 记录heat_edges供dashboard用: (tstr, up, lo, in_heat, disp_up, disp_lo)
+        # 与research/gen_heat_html_pierce2.py格式一致
+        _he_tstr = t.strftime("%Y-%m-%d %H:%M")
+        _he_up = float(_orig_up) if _orig_up is not None else None
+        _he_lo = float(_orig_lo) if _orig_lo is not None else None
+        _he_disp_up = _he_disp_lo = None
+        if _he_up is not None and _he_lo is not None:
+            _he_zh = _he_up - _he_lo
+            _he_disp_up = _he_up + 0.15 * _he_zh
+            _he_disp_lo = _he_lo - 0.15 * _he_zh
+        _heat_edges_cache.append((_he_tstr, _he_up, _he_lo, _in_heat_zone, _he_disp_up, _he_disp_lo))
+        if _in_heat_zone:
+            # 强制补丁（2026-10-24 用户）：区高 <= 0.5 跳过做T信号（区太窄不可靠）
+            _zone_h = (_he_up - _he_lo) if (_he_up is not None and _he_lo is not None) else 999
+            _skip_t = _zone_h <= 0.5
+            if _t_sig_dir and not _skip_t:
+                _tstr = t.strftime("%m-%dT%H:%M")
+                # 执行价：下一根开盘（回测口径）；实盘用当前价由watcher决定
+                _next_same_day = (i+1 < len(warm)) and (warm["t"].iloc[i+1].strftime("%m-%d") == day)
+                _px_exec = float(warm["open"].iloc[i+1]) if _next_same_day else px
+                if pos is None:
+                    actions.append((i, _tstr, "开", _t_sig_dir, _px_exec, f"做T开{_t_sig_dir}(7区)"))
+                    pos = _t_sig_dir; _pos_in_heat = True
+                    last_action_bar = i
+                elif pos != _t_sig_dir:
+                    _close_tag = "" if _pos_in_heat else "[非做T仓]"
+                    actions.append((i, _tstr, "平", pos, _px_exec, f"做T信号平{pos}{_close_tag}(7区)"))
+                    actions.append((i, _tstr, "开", _t_sig_dir, _px_exec, f"做T开{_t_sig_dir}(7区)"))
+                    pos = _t_sig_dir; _pos_in_heat = True
+                    last_action_bar = i
+            # EOD 平仓优先（2026-10-24 修复）：即使在7区，15:55 也必须平仓，顶级优先级，不隔夜
+            if hm >= "15:55" and pos is not None:
+                _eod_px = _eod_1m.get(str(_day_arr[i]), px)
+                _tstr_eod = t.strftime("%m-%dT%H:%M")
+                actions.append((i, _tstr_eod, "平", pos, _eod_px, "日终平仓(1m15:55)"))
+                pos = None; _pos_in_heat = False
+                last_action_bar = i
+                _was_above_zero_wk = False; _was_below_zero_wk = False
+                _call_gap_wk = 0; _put_gap_wk = 0
+                was_on_top = was_on_bottom = False
+                wait_red = wait_blue = False
+                _follow_entry_bar = None
+                _hold_watch = None
+                _fav_peak = 0; _fav_sign = 0
+            continue  # 跳过QQE逻辑
+        # === 做T热力规则结束 ===
         # 3-bar大K等反弹 (空头版, 2026-10-11): 持call+3根净跌超2.5 → 等30%反弹, 最多5根, 最高优先
         if k3_wait_target is not None:
             k3_wait_bars += 1
@@ -650,24 +880,15 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                     _g_roi = -9.88 * _d_spy + 0.311 * _d_spy * _d_spy
                     if _d_spy > 0:
                         _g_roi = min(_g_roi, 0)
-                if _g_roi <= -20.0:
-                    # 触发20%止损 (2026-10-06 用户: 止损和翻仓不冲突, 有翻仓信号则翻仓)
-                    # 先检查同bar是否有翻仓信号, 有则留给信号逻辑处理 (平+开), 无则单纯止损
-                    _is_morning_sl = hm < "10:00"
-                    _set_r_sl = set(peak_red_m.keys()) if _is_morning_sl else set_red
-                    _set_b_sl = set(peak_blue_m.keys()) if _is_morning_sl else set_blue
-                    _has_flip_sig = (pos == "call" and i in _set_b_sl) or (pos == "put" and i in _set_r_sl)
-                    if not _has_flip_sig:
-                        _tstr_sl = f"{day}T{hm}"
-                        actions.append((i, _tstr_sl, "平", pos, px, f"止损20%(Gamma{_g_roi:.1f}%)"))
-                        pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
-                        wait_red = wait_blue = False
-                        _follow_entry_bar = None
-                        _hold_watch = None
-                        _fav_peak = 0; _fav_sign = 0
-                        _stop_entry_dir = None
-                        _stop_triggered = True
-                    # 有翻仓信号时不单独止损, 留给后面的信号逻辑做翻仓 (平+开)
+                if _stop_win is None and _g_roi <= -20.0:
+                    # 止损窗口触发 (s20fz新baseline, nf口径): Gamma ROI跌破-20%即进窗口, 不论同bar有无翻仓信号
+                    # (触发bar的翻仓被窗口压住; 窗口内W1-W5翻仓/平仓信号全跳过, 只留回弹平/到期平)
+                    _w_thr = px + 0.50 * (_stop_entry_px - px)
+                    _stop_win = {"dr": pos, "trig_bar": i, "entry_px": _stop_entry_px, "trig_close": px, "threshold": _w_thr}
+                    _tstr_sl = f"{day}T{hm}"
+                    actions.append((i, _tstr_sl, "持", pos, px, f"止损窗口开始(Gamma{_g_roi:.1f}%,回50%价{_w_thr:.2f})"))
+                    _stop_triggered = True
+                    continue
             # 30秒提前止损 (2026-10-07): 持仓中检查当前3m对应的3根1m, 逆向波动超阈值即按1m收盘价平
             if _USE_30S_STOP and pos and not _stop_triggered:
                 _t3 = warm["t"].iloc[i]
@@ -924,7 +1145,10 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                         actions.append((i, tstr, "平", pos, px, f"跟随背离平call(入{_ec:.2f},现{_cc:.2f})"))
                         pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
                         wait_red = wait_blue = False; _div_closed = True
-                if not _div_closed and _feh > 0 and abs(hist[i]) <= _feh * 0.8:
+                # 顺强趋势跟随失败线收紧 (回测10-18/10-22定版, 引擎补同步 2026-10-29): 红gate开时60%, 否则80%
+                #   回测原样: 只查红gate (11:00-15:00且cumslope<-0.20), 蓝侧仍80%, 不自加蓝侧
+                _ff_ratio = 0.6 if (hm >= "11:00" and hm < "15:00" and i < len(_9m_cumslope) and not np.isnan(_9m_cumslope[i]) and _9m_cumslope[i] < -0.20) else 0.8
+                if not _div_closed and _feh > 0 and abs(hist[i]) <= _feh * _ff_ratio:
                     actions.append((i, tstr, "平", pos, px, f"跟随失败平{pos}"))
                     pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
                     wait_red = wait_blue = False
@@ -1826,4 +2050,17 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
                             _follow_entry_bar = i; _follow_entry_hist = abs(hist[i]); _follow_do_div_wk = _follow_do_div; _follow_entry_dir_wk = pos; _follow_entry_peak_wk = _fwp; _follow_entry_spy_wk = close[i]; _follow_entry_date_wk = _day_arr[i]
                             wait_red = wait_blue = False
 
+    # 保存heat_arr/bins供dashboard画热力背景（取循环最后的值）
+    # _heat_sm_cache存blur过的final output（信号实际用的）
+    try:
+        _heat_arr_cache = _heat_arr.copy() if _heat_arr is not None else None
+        _heat_bins_cache = _heat_bins.copy() if _heat_bins is not None else None
+        if _heat_arr is not None:
+            try:
+                from scipy.ndimage import gaussian_filter1d as _gf2
+                _heat_sm_cache = _gf2(_heat_arr, sigma=1.0, mode='constant', cval=0)
+            except:
+                _heat_sm_cache = _heat_arr.copy()
+    except NameError:
+        pass
     return actions
