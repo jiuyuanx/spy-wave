@@ -296,7 +296,8 @@ def main():
     q_down = np.asarray(res["down"]).astype(bool)
     day_arr = sig["t"].dt.date.values
 
-    actions = run_signals(sig)
+    # 展示信号=冷冻版 (2026-10-29 用户: 热力图可显示, 信号须为冷冻版, 不发做T信号; 热力计算照常, 下行get_heat_*供显示)
+    actions = run_signals(sig, heat_signals=False)
     heat_edges = get_heat_edges()
     heat_arr = get_heat_arr()
     heat_bins = get_heat_bins()

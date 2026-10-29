@@ -181,12 +181,14 @@ def count_lengthening(hist, cur_idx, direction, q_up, q_down):
 
 
 def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_dict=None,
-                div_thresh=0.2, div_qqe_gate=False, stop30s_y=0.5, eod_1m_dict=None):
+                div_thresh=0.2, div_qqe_gate=False, stop30s_y=0.5, eod_1m_dict=None,
+                heat_signals=True):
     """Run backtest signal logic on bars. Returns actions list.
 
     bars_df: DataFrame with t, open/high/low/close (or o/h/l/c)
     start_idx/end_idx: bar range to simulate (default: full)
     eod_1m_dict: {date_str: 15:55 1m close} for EOD precise flat (optional)
+    heat_signals: False=展示冷冻版: 热力区不发做T信号、不跳过QQE (热力计算照常, 供get_heat_*显示); True=默认原行为
     Returns: [(bar_idx, time_str, action, direction, price, reason), ...]
     """
     import os as _os
@@ -676,7 +678,9 @@ def run_signals(bars_df, start_idx=None, end_idx=None, use_30s_stop=False, m1_di
             _he_disp_up = _he_up + 0.15 * _he_zh
             _he_disp_lo = _he_lo - 0.15 * _he_zh
         _heat_edges_cache.append((_he_tstr, _he_up, _he_lo, _in_heat_zone, _he_disp_up, _he_disp_lo))
-        if _in_heat_zone:
+        # 展示冷冻版 (2026-10-29 用户: 热力图可显示, 信号须为冷冻版): heat_signals=False时热力区不发做T信号、
+        # 不跳过QQE (热力计算在上, 照常进缓存供显示; EOD由窗口前EOD兜底, 故整块可跳过)
+        if heat_signals and _in_heat_zone:
             # 强制补丁（2026-10-24 用户）：区高 <= 0.5 跳过做T信号（区太窄不可靠）
             _zone_h = (_he_up - _he_lo) if (_he_up is not None and _he_lo is not None) else 999
             _skip_t = _zone_h <= 0.5
