@@ -112,7 +112,7 @@ var THEME = {
 
   // ST版标签 (2026-11-01 theme令, ST专用; QQE标签/带子一律不动, 不调这里)
   segLabel: {pos: '#66bb6a', neg: '#ef5350', fontSize: 8},
-  tradeLabel: {pos: '#0d6b36', neg: '#b91c1c', fontSize: 11},
+  tradeLabel: {pos: '#1a9e54', neg: '#e5484d', fontSize: 11},
   segLabelColor: function(pct) {
     return pct >= 0 ? this.segLabel.pos : this.segLabel.neg;
   },
