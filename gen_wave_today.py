@@ -1152,6 +1152,23 @@ def main():
     qqe_title_txt = (f"{day_str} (QQE版) | {gap_txt} | 全天QQE | "
                      f"{'+' if qqe_tot >= 0 else '-'}${abs(qqe_tot):,.0f} ({qqe_tot_pct:+.1%})")
 
+    # VH/QQE版图表标题富文本版 (与backfill页同款: 版本/跳空/策略/盈亏着色)
+    if _gap_abs < 5:
+        gap_e = "不跳空"
+    elif _gap > 0:
+        gap_e = "{up|" + gap_txt + "}"
+    else:
+        gap_e = "{dn|" + gap_txt + "}"
+    def _strat_e(s):
+        return (s.replace("上午QQE", "上午{qqe|QQE}").replace("上午空仓", "上午{flat|空仓}")
+                 .replace("上午ST", "上午{st|ST}").replace("下午QQE", "下午{qqe|QQE}")
+                 .replace("下午ST", "下午{st|ST}").replace("全天QQE", "全天{qqe|QQE}")
+                 .replace("全天ST", "全天{st|ST}"))
+    vh_pnl_e = ("{pnl_pos|+" if vh_tot >= 0 else "{pnl_neg|-") + f"${abs(vh_tot):,.0f} ({vh_tot_pct:+.1%})" + "}"
+    qqe_pnl_e = ("{pnl_pos|+" if qqe_tot >= 0 else "{pnl_neg|-") + f"${abs(qqe_tot):,.0f} ({qqe_tot_pct:+.1%})" + "}"
+    vh_title_echart = day_str + " ({st|ST}版) | " + gap_e + " | " + _strat_e(st_strat) + " | " + vh_pnl_e
+    qqe_title_echart = day_str + " ({qqe|QQE}版) | " + gap_e + " | 全天{qqe|QQE} | " + qqe_pnl_e
+
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
     tj = {"day": day_str, "equity": equity,
@@ -1591,6 +1608,9 @@ def main():
     _sw.append("const TITLES3 = {live: " + json.dumps(title_txt, ensure_ascii=False)
                + ", vh: " + json.dumps(vh_title_txt, ensure_ascii=False)
                + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False) + "};")
+    _sw.append("const TITLES3E = {vh: " + json.dumps(vh_title_echart, ensure_ascii=False)
+               + ", qqe: " + json.dumps(qqe_title_echart, ensure_ascii=False) + "};")
+    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
     _sw.append("const VH_INNER = " + json.dumps(vh_inner, ensure_ascii=False) + ";")
     _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
     _sw.append("var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();")
@@ -1606,7 +1626,7 @@ def main():
     _sw.append("  var scatFS = useVH ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
     _sw.append("  ch.setOption({")
-    _sw.append("    title: {text: TITLES3[v], left: 'center', textStyle: {fontSize: 14}},")
+    _sw.append("    title: {text: isLive ? TITLES3.live : (isVH ? TITLES3E.vh : TITLES3E.qqe), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
     _sw.append("      {name: '1m曲线', markPoint: {data: spinsData}},")
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
@@ -1637,8 +1657,10 @@ def main():
     _sw.append("  });")
     _sw.append("  sel.parentNode.insertBefore(wrap, sel.nextSibling);")
     _sw.append("  window._verBtns3 = wrap.querySelectorAll('button');")
+    _sw.append("  if (!sel.querySelector('option[value=\"summary.html\"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }")
     _sw.append("})();")
     _sw.append("switchVersion3('live');")
+    _sw.append("try { var lg = ch.getOption().legend; if (lg && lg[0] && lg[0].data) { var stLegFiltered = lg[0].data.filter(function(it){ var nm = (typeof it === 'string') ? it : it.name; return nm !== 'Supertrend上涨' && nm !== 'Supertrend下跌'; }); ch.setOption({legend: {data: stLegFiltered}}); } } catch (e) {}")
     _sw.append("</script>")
     html = html.replace("</body>", "\n".join(_sw) + "</body>", 1)
 
