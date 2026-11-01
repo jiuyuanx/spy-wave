@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回测版本总览（2024–2026）</title>
+<style>
+body{margin:0;background:#fff;color:#222;font-family:sans-serif;}
+.wrap{max-width:720px;margin:0 auto;padding:12px 12px 32px;}
+h1{font-size:20px;margin:14px 0 6px;}
+h2{font-size:17px;margin:22px 0 6px;}
+p{font-size:14px;line-height:1.7;margin:6px 0;}
+.small{font-size:12px;color:#666;line-height:1.6;}
+.tag{display:inline-block;font-size:12px;font-weight:bold;color:#fff;background:#2e9e5b;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:middle;}
+.tblwrap{overflow-x:auto;margin:8px 0;}
+table{border-collapse:collapse;font-size:12px;white-space:nowrap;}
+th,td{border:1px solid #ddd;padding:5px 6px;text-align:right;}
+th{background:#f4f4f4;text-align:right;}
+th:first-child,td:first-child{text-align:left;}
+.pos{color:#1a9e54;}
+.neg{color:#e5484d;}
+.tot{font-weight:bold;}
+.dd{color:#e5484d;font-weight:bold;}
+.note{background:#fff8e6;border:1px solid #f0d9a0;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.7;margin:10px 0;}
+.warn{background:#fdf0f0;border:1px solid #f0c0c0;border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.7;margin:10px 0;}
+hr{border:none;border-top:1px solid #eee;margin:20px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div style="text-align:center;padding:6px 0 0;font-size:13px">
+<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
+<option value="summary.html" selected>📊 回测版本总览</option>
+</select> <span id="dayhint" style="color:#888"></span>
+</div>
+<script>
+fetch('archive.json').then(function(r){return r.json();}).then(function(d){
+var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
+var cur=location.pathname.split('/').pop().replace('.html','');
+days.forEach(function(x){var o=document.createElement('option');o.value=x+'.html';o.textContent=x;if(x===cur)o.selected=true;s.appendChild(o);});
+document.getElementById('dayhint').textContent='共'+days.length+'天';
+}).catch(function(){});
+</script>
+
+<h1>回测版本总览（2024–2026）</h1>
+<p>这一页汇总了6个回测版本的年度和合计数字。总额口径一句话：每周10万美元起步，周内每笔按顺序复利，跨周重置回10万美元，总额就是各周利润加起来；单笔最多亏100%。</p>
+<p>按合计从高到低：ST版V_C最高，其次是V_F，再次是QQE基线，然后是做T版、实盘版（148周数字），ST-only最低。每年金额只写美元数，不写收益率百分比。</p>
+
+<h2>1. QQE基线</h2>
+<p>只看QQE指标发信号：红柱子变长就偏空做空，蓝柱子变长就偏多做多，信号反了就直接翻仓。单笔亏20%会启动保护：先冻住6根线，期间价格弹回一半就平掉。红波和蓝波里如果整波都涨跌得很慢，翻仓的门槛会放宽一点；长波里灰色的柱子想翻仓要满足更严的长度条件。</p>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,552,917</td><td class="pos">$4,152,785</td><td class="pos">$1,755,485</td><td class="tot pos">$7,461,187</td><td>9,669</td><td>148</td><td class="dd">98.07%（2025-10-13周 → 2026-03-23周）</td></tr>
+</table></div>
+
+<h2>2. ST版 V_C <span class="tag">合计最高</span></h2>
+<p>平时和QQE基线一样用QQE信号。只有开盘跳空的日子不一样：跳空是指今天开盘价比昨天收盘价高出或低出5个点以上。跳空日上午还是用QQE信号，做到11点整强制换成Supertrend趋势的仓位（Supertrend是一条跟着价格走的趋势线，价格在线上面偏多、在线下面偏空）；上午如果是大跳空（10个点以上）就空仓等到11点。下午看今天是往上跳还是往下跳：往上跳的日子继续用QQE，往下跳的日子用Supertrend；Supertrend的单子每30分钟刷新一次，每半小时按当时的价格结算一段、再按同样方向重新进，等于把杠杆刷回原来的水平。</p>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,794,554</td><td class="pos">$4,420,826</td><td class="pos">$1,838,312</td><td class="tot pos">$8,053,692</td><td>9,593</td><td>148</td><td class="dd">97.31%（2026-01-26周 → 2026-03-23周）</td></tr>
+</table></div>
+
+<h2>3. V_F</h2>
+<p>和ST版V_C很像，区别在跳空日的下午：不管开盘往上跳还是往下跳，下午都直接用QQE信号，不换Supertrend。大跳空（10个点以上）上午同样空仓等到11点，5到8个点的小跳空全天都用QQE、不切换。等于只在上午对大跳空做了空仓处理，其他和QQE基线一样。</p>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,638,266</td><td class="pos">$4,498,326</td><td class="pos">$1,751,926</td><td class="tot pos">$7,888,517</td><td>9,952</td><td>148</td><td class="dd">98.12%（2025-10-13周 → 2026-03-23周）</td></tr>
+</table></div>
+
+<h2>4. ST-only</h2>
+<p>完全不用QQE信号，只看Supertrend这条趋势线：价格在线上面偏多做多、在线下面偏空做空，趋势线一翻转就换仓；每天开盘第一根线就按当时趋势直接进。单子每30分钟刷新一次，每半小时按当时价格结算一段再重新进，把杠杆刷回原来水平；止损保护和日终平仓还在。</p>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,345,408</td><td class="pos">$1,636,171</td><td class="pos">$2,074,389</td><td class="tot pos">$5,055,967</td><td>2,644</td><td>148</td><td class="dd">99.93%（2024-12-23周 → 2025-03-31周）</td></tr>
+</table></div>
+
+<h2>5. 做T版</h2>
+<p>在QQE基线的基础上，价格进入横盘热力区（价格在一个小区间里来回磨、QQE柱子忽长忽短）的时候改做短线来回：区里出现反转信号就反向做一单、赚一点就走，不等大趋势。热力区外还是正常QQE信号。单数比不做T多很多，但来回的单子也把不少利润磨掉了。</p>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,787,830</td><td class="pos">$3,457,689</td><td class="pos">$1,517,108</td><td class="tot pos">$6,762,628</td><td>12,727</td><td>148</td><td class="dd">99.98%（2025-06-02周 → 2026-04-13周）</td></tr>
+</table></div>
+
+<h2>6. 实盘版</h2>
+<p>这是实盘策略的回测数字，不是实盘真实成交的盈亏。和QQE基线一样用QQE信号、20%止损冻住6根线、弹回一半就平，也带灰柱过滤；区别是少了红波蓝波慢涨慢跌时放宽翻仓门槛的那条规则。</p>
+<div class="note">注意：这一版以前公布过的数字是147周（合计$6,655,533、9,914单）。上面表格是148周的数字（合计$6,622,206、9,971单），差的就是最后一周2026-10-26那周（-$33,326、57单）。按147周算的话，2026年那一栏是$1,595,547，其他年份不变。</div>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,696,717</td><td class="pos">$3,363,269</td><td class="pos">$1,562,221</td><td class="tot pos">$6,622,206</td><td>9,971</td><td>148</td><td class="dd">94.28%（2025-10-13周 → 2026-03-23周）</td></tr>
+</table></div>
+
+<hr>
+<p class="small">注1（总额口径）：每周$100k起，周内逐笔复利，跨周重置，总额=各周利润和；-100口径（单笔最多亏100%）。年度金额四舍五入到整美元，三个年度加起来可能和合计差$1，以合计为准。</p>
+<p class="small">注2（最大回撤定义，原文）：build a continuous equity curve from weekly returns — start $100k, each week's return = weekly profit / $100k, equity *= (1 + weekly return) sequentially with NO weekly reset — then max drawdown = largest peak-to-trough percentage decline of that curve over 2024-2026。中文意思：从每周利润算每周收益率（周利润除以10万美元），起点10万美元、按周顺序连乘、不重置，画一条连续权益曲线，最大回撤就是这条曲线从历史高点跌到随后低点的最大百分比跌幅。</p>
+<div class="warn">注意：最大回撤的算法和总额的算法不一样，只能用来比较几个版本谁的风险相对大，不能直接当成亏了多少钱。总额是每周重置再加总，最大回撤是连续连乘不重置；连续曲线会把每周的大赢利也连乘进去，峰值可以远高于10万美元，所以98%的回撤不等于亏掉98%的本金，只是从那个很高的峰值跌下来的幅度。</div>
+<p class="small">数字来源：research/compute_summary_versions.py（QQE基线、ST版V_C、V_F、ST-only、做T版的合计和单数与已知数字完全吻合；实盘版按上面说明多了一周）。2026-06-17那天所有版本都不算在内。</p>
+</div>
+</body>
+</html>
