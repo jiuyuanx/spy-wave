@@ -206,6 +206,7 @@ function toggleVersion() { switchVersion(curVer === 'ST' ? 'QQE' : 'ST'); }
   cs.style.marginLeft = '8px';
   cs.style.color = "#1a9e54";
   sel.parentNode.insertBefore(cs, b.nextSibling);
+  if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
 })();
 switchVersion('ST');
 </script>
