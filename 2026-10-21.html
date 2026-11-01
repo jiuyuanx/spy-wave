@@ -132,6 +132,9 @@ const LIVE_MARKAREA15 = [[{xAxis:'09:39',itemStyle:{color:THEME.pnlBgColor(-8.55
 const LIVE_TITLE15 = "实盘dashboard 2026-10-21 | 今日 +$76,235 (+67.5%) | 持仓:实盘:空仓 | k3clean L25";
 const VH_TITLE15 = "2026-10-21 (ST版) | 不跳空 | 全天ST | +$4,302 (+4.3%)";
 const QQE_TITLE15 = "2026-10-21 (QQE版) | 不跳空 | 全天QQE | +$62,113 (+62.1%)";
+const RICH15 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};
+const VH_TITLE15E = "2026-10-21 ({st|ST}版) | 不跳空 | 全天{st|ST} | {pnl_pos|+$4,302 (+4.3%)}";
+const QQE_TITLE15E = "2026-10-21 ({qqe|QQE}版) | 不跳空 | 全天{qqe|QQE} | {pnl_pos|+$62,113 (+62.1%)}";
 var LIVE_INNER15 = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();
 var LIVE_ACTS15 = {}; for (var t in barInfo) { LIVE_ACTS15[t] = barInfo[t].acts || []; }
 var curVer15 = 'live';
@@ -146,7 +149,7 @@ function switchVersion15(v){
   var scatFS = isVH ? 11 : 8;
   if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }
   ch.setOption({
-    title: {text: isLive ? LIVE_TITLE15 : (isVH ? VH_TITLE15 : QQE_TITLE15)},
+    title: {text: isLive ? LIVE_TITLE15 : (isVH ? VH_TITLE15E : QQE_TITLE15E), left: 'center', textStyle: {fontSize: 14, rich: RICH15}},
     series: [
       {name: '1m曲线', markPoint: {data: spinsData}},
       {name: 'QQE', markPoint: {data: pinsData}},
@@ -177,6 +180,8 @@ function switchVersion15(v){
   });
   sel.parentNode.insertBefore(wrap, sel.nextSibling);
   window._verBtns15 = wrap.querySelectorAll('button');
+  if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
 })();
 switchVersion15('live');
+try { var lg = ch.getOption().legend; if (lg && lg[0] && lg[0].data) { var stLegFiltered = lg[0].data.filter(function(it){ var nm = (typeof it === 'string') ? it : it.name; return nm !== 'Supertrend上涨' && nm !== 'Supertrend下跌'; }); ch.setOption({legend: {data: stLegFiltered}}); } } catch (e) {}
 </script></body></html>
