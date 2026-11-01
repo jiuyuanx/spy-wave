@@ -64,7 +64,7 @@ def _warmup_before(day):
     end = day.strftime("%Y-%m-%dT00:00:00Z")
     params = {"symbols": "SPY", "timeframe": "3Min", "limit": 1000, "feed": "iex",
               "sort": "desc", "start": start, "end": end}
-    data = w4.api("/stocks/bars", params)
+    data = w4.api("/stocks/bars", params, base=w4.DATA)
     bars = data.get("bars", {}).get("SPY", [])
     if not bars:
         raise RuntimeError(f"no warmup bars before {day}")
@@ -85,7 +85,7 @@ def _fetch_1m_day(day):
               "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "limit": 10000, "feed": "iex", "sort": "asc"}
-    data = w4.api("/stocks/bars", params)
+    data = w4.api("/stocks/bars", params, base=w4.DATA)
     bars = data.get("bars", {}).get("SPY", [])
     df = pd.DataFrame(bars)
     if df.empty:
@@ -1040,6 +1040,56 @@ def main():
                 _s5 = round(float(((_xs - _xm) * (_ys - _ym)).sum() / _den), 4)
                 slope5_parts[_j] = str(_s5)
     slope5_js = "[" + ",".join(slope5_parts) + "]"
+    # Supertrend (TradingView final-band版, 10/hl2/3, RMA ATR; 与build_supertrend_html.py一致)
+    # 对sig全部3m bar (warmup+当日) 算, 再取当日部分; ST线按趋势拆两条, 填充用custom四边形
+    _sth = sig["high"].values.astype(float); _stl = sig["low"].values.astype(float); _stc = sig["close"].values.astype(float)
+    _sthl2 = (_sth + _stl) / 2
+    _sttr = np.empty(len(sig)); _sttr[0] = _sth[0] - _stl[0]
+    for _i in range(1, len(sig)):
+        _sttr[_i] = max(_sth[_i]-_stl[_i], abs(_sth[_i]-_stc[_i-1]), abs(_stl[_i]-_stc[_i-1]))
+    _statr = np.full(len(sig), np.nan)
+    if len(sig) >= 10:
+        _statr[9] = _sttr[:10].mean()
+        for _i in range(10, len(sig)):
+            _statr[_i] = (_statr[_i-1]*9 + _sttr[_i]) / 10
+    _stbu = _sthl2 + 3*_statr; _stbl = _sthl2 - 3*_statr
+    _stfu = np.full(len(sig), np.nan); _stfl = np.full(len(sig), np.nan); _sttrd = np.zeros(len(sig), dtype=int)
+    _stfu[9]=_stbu[9]; _stfl[9]=_stbl[9]; _sttrd[9]=1
+    for _i in range(10, len(sig)):
+        if np.isnan(_statr[_i]): continue
+        _stfu[_i] = _stbu[_i] if (_stbu[_i] < _stfu[_i-1] or _stc[_i-1] > _stfu[_i-1]) else _stfu[_i-1]
+        _stfl[_i] = _stbl[_i] if (_stbl[_i] > _stfl[_i-1] or _stc[_i-1] < _stfl[_i-1]) else _stfl[_i-1]
+        if _stc[_i] > _stfu[_i-1]: _sttrd[_i]=1
+        elif _stc[_i] < _stfl[_i-1]: _sttrd[_i]=-1
+        else: _sttrd[_i]=_sttrd[_i-1]
+    _stval = np.where(_sttrd==1, _stfl, _stfu)
+    _stup_parts, _stdn_parts, _stfill_parts = [], [], []
+    for _k, _bi in enumerate(today_idx):
+        _v = round(float(_stval[_bi]), 2) if not np.isnan(_stval[_bi]) else None
+        _cc = round(float(sig["close"].iloc[_bi]), 2)
+        if _sttrd[_bi]==1:
+            _stup_parts.append(str(_v) if _v is not None else "null"); _stdn_parts.append("null")
+        else:
+            _stup_parts.append("null"); _stdn_parts.append(str(_v) if _v is not None else "null")
+        _nk = _k+1 if _k+1 < len(today_idx) else _k
+        _nbi = today_idx[_nk]
+        _nv = round(float(_stval[_nbi]), 2) if not np.isnan(_stval[_nbi]) else None
+        _ncc = round(float(sig["close"].iloc[_nbi]), 2)
+        _stfill_parts.append(f'["{times[_k]}",{_v if _v is not None else "null"},{_cc},"{times[_nk]}",{_nv if _nv is not None else "null"},{_ncc},{int(_sttrd[_bi])}]')
+    stUp_js = "[" + ",".join(_stup_parts) + "]"
+    stDn_js = "[" + ",".join(_stdn_parts) + "]"
+    stFill_js = "[" + ",".join(_stfill_parts) + "]"
+    # ST翻转标记 (仅盘中翻转; Buy绿点+下方标签, Sell红点+上方标签)
+    def _stmk(_k, _lbl):
+        _col = '#089981' if _lbl=='Buy' else '#f23645'
+        _pos = 'bottom' if _lbl=='Buy' else 'top'
+        _sv = round(float(_stval[today_idx[_k]]), 2)
+        return '{"value":["' + times[_k] + '",' + str(_sv) + '],"itemStyle":{"color":"' + _col + '"},"label":{"formatter":"' + _lbl + '","position":"' + _pos + '","backgroundColor":"' + _col + '","color":"#fff","borderRadius":4,"padding":[3,6],"fontSize":12}}'
+    _stflip_items = [_stmk(0, 'Buy' if _sttrd[today_idx[0]]==1 else 'Sell')]  # 开盘标记 (当日开盘趋势状态)
+    for _k in range(1, len(today_idx)):
+        if _sttrd[today_idx[_k]] != _sttrd[today_idx[_k-1]]:
+            _stflip_items.append(_stmk(_k, 'Buy' if _sttrd[today_idx[_k]]==1 else 'Sell'))
+    stFlips_js = "[" + ",".join(_stflip_items) + "]"
     # heat_up/heat_lo: 7区上下缘线 (从heat_edges取今日部分)
     _n3h2 = len(today_idx)
     _he_tail = heat_edges[-_n3h2:] if len(heat_edges) >= _n3h2 else heat_edges
@@ -1142,6 +1192,10 @@ def main():
     rep_const('line1m', json.dumps(line1m))
     rep_const('filldots', json.dumps(filldots, ensure_ascii=False))
     rep_const('barInfo', json.dumps(bar_info, ensure_ascii=False))
+    rep_const('stUp', stUp_js)
+    rep_const('stDn', stDn_js)
+    rep_const('stFill', stFill_js)
+    rep_const('stFlips', stFlips_js)
 
     html, n1 = re.subn(r"\{name:'3mK线', type:'candlestick', data:\[.*?\], xAxisIndex",
                        "{name:'3mK线', type:'candlestick', data:" + ohlc_js + ", xAxisIndex",
