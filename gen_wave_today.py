@@ -27,6 +27,7 @@ refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
+import vh_live as vh_live
 # 热力背景色 (昨天gen_heat_html_pierce2.py的15色)
 HEAT_COLORS = [
     'rgba(120,180,220,0.12)', 'rgba(138,182,201,0.16)', 'rgba(156,185,182,0.19)',
@@ -56,6 +57,30 @@ def gamma_roi(pos, open_px, close_px):
         if d > 0:
             r = min(r, 0.0)
     return max(r, -20.0)
+
+
+def gamma_roi_100(pos, open_px, close_px):
+    """Gamma公式, 单笔floor -100 (VH/QQE预估表用; 不要用 gamma_roi 的-20 cap)。返回 fraction。"""
+    d = close_px - open_px
+    if pos == 'call':
+        r = 9.88 * d + 0.311 * d * d
+        if d < 0:
+            r = min(r, 0.0)
+    else:
+        r = -9.88 * d + 0.311 * d * d
+        if d > 0:
+            r = min(r, 0.0)
+    return max(r, -100.0) / 100.0
+
+
+def _vh_kind(rs):
+    """按开仓原因分 ST/QQE 单 (照抄 research/settle_hybrid.classify)。"""
+    rs = rs or ""
+    if "ST反向" in rs:
+        return "inv"
+    if "ST" in rs or "11:00强制切开" in rs:
+        return "st"
+    return "qqe"
 
 
 def _warmup_before(day):
@@ -94,7 +119,7 @@ def _fetch_1m_day(day):
     return df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
 
 
-def fetch_day_fills(day_str):
+def fetch_day_fills(day_str, live=True):
     """当日 Alpaca 期权成交 + 持仓未实现 + 账户权益 (仅实盘日用, 回放跳过)。"""
     import trader as trt
     fills, poss, equity = [], {}, None
@@ -123,28 +148,29 @@ def fetch_day_fills(day_str):
                           "qty": fq, "px": float(o.get("filled_avg_price") or 0)})
     except Exception as e:
         print(f"fills fetch failed: {e}", flush=True)
-    try:
-        for p in trt.api("/v2/positions") or []:
-            poss[p["symbol"]] = {"qty": float(p["qty"]),
-                                 "avg_px": float(p.get("avg_entry_price") or 0),
-                                 "upl": float(p.get("unrealized_pl") or 0),
-                                 "uplpc": float(p.get("unrealized_plpc") or 0)}
-    except Exception as e:
-        print(f"positions fetch failed: {e}", flush=True)
-    try:
-        equity = float((trt.api("/v2/account") or {}).get("equity") or 0)
-    except Exception:
-        pass
-    # 当日开盘资金：从portfolio history拿09:30的equity (2026-10-14 用户要求直接从Alpaca拉)
     day_open_equity = None
-    try:
-        _ph = trt.api("/v2/account/portfolio/history?period=1D&timeframe=5Min") or {}
-        _eq = _ph.get("equity") or []
-        if _eq:
-            # 取第一个有效值作为开盘资金
-            day_open_equity = float(_eq[0]) if _eq[0] else None
-    except Exception:
-        pass
+    if live:
+        try:
+            for p in trt.api("/v2/positions") or []:
+                poss[p["symbol"]] = {"qty": float(p["qty"]),
+                                     "avg_px": float(p.get("avg_entry_price") or 0),
+                                     "upl": float(p.get("unrealized_pl") or 0),
+                                     "uplpc": float(p.get("unrealized_plpc") or 0)}
+        except Exception as e:
+            print(f"positions fetch failed: {e}", flush=True)
+        try:
+            equity = float((trt.api("/v2/account") or {}).get("equity") or 0)
+        except Exception:
+            pass
+        # 当日开盘资金：从portfolio history拿09:30的equity (2026-10-14 用户要求直接从Alpaca拉)
+        try:
+            _ph = trt.api("/v2/account/portfolio/history?period=1D&timeframe=5Min") or {}
+            _eq = _ph.get("equity") or []
+            if _eq:
+                # 取第一个有效值作为开盘资金
+                day_open_equity = float(_eq[0]) if _eq[0] else None
+        except Exception:
+            pass
     fills.sort(key=lambda x: x["t"])
     return fills, poss, equity, day_open_equity
 
@@ -298,6 +324,24 @@ def main():
 
     # 展示信号=冷冻版 (2026-10-29 用户: 热力图可显示, 信号须为冷冻版, 不发做T信号; 热力计算照常, 下行get_heat_*供显示)
     actions = run_signals(sig, heat_signals=False)
+    # ---- VH (ST版) 当日动作: 与 EC2 实盘同一脚本 vh_live.run_vh ----
+    # EOD价: 当日1m取15:55收盘价; 提前收盘日取当日最后一根1m收盘价;
+    # 盘中(1m未走完且未过期)不传, vh回退到3m收盘价。
+    _eod_1m = None
+    try:
+        _df1s = df1m.sort_values("t")
+        _b1555 = _df1s[_df1s["t"].dt.strftime("%H:%M") == "15:55"]
+        if len(_b1555):
+            _eod_1m = {day_str: float(_b1555["c"].iloc[-1])}
+        elif WAVE_DATE:
+            _eod_1m = {day_str: float(_df1s["c"].iloc[-1])}
+        elif len(_df1s) and (datetime.now(ET) - _df1s["t"].iloc[-1]).total_seconds() > 1800:
+            _eod_1m = {day_str: float(_df1s["c"].iloc[-1])}
+    except Exception as _e:
+        print(f"  WARN eod_1m failed: {_e}", flush=True)
+        _eod_1m = None
+    vh_actions = vh_live.run_vh(sig, eod_1m=_eod_1m)
+    vh_info = vh_live.day_info(sig)
     heat_edges = get_heat_edges()
     heat_arr = get_heat_arr()
     heat_bins = get_heat_bins()
@@ -476,6 +520,99 @@ def main():
                       "itemStyle": {"color": _dc}, "rs": frs})
         _qpins_add(b, v, _dc, frs)
 
+    # ---- VH版图钉/round-trips (与 QQE 图钉同一套标记法, 数据源换成 vh_actions) ----
+    vh_sorted = sorted(vh_actions, key=lambda a: a[0])
+    vh_by_bar = {}
+    for (bi, _ts, act, dr, px, rs) in vh_sorted:
+        vh_by_bar.setdefault(bi, []).append(act)
+    vh_repl_bars = set(bi for (bi, _ts, act, dr, px, rs) in vh_sorted
+                       if act == "开" and ("回补" in rs or "重涨" in rs))
+    vh_flip_bars = sorted(b for b, acts_ in vh_by_bar.items()
+                          if "平" in acts_ and "开" in acts_ and b not in vh_repl_bars)
+    vh_flip_set = set(vh_flip_bars)
+    vh_flip_info = {}
+    for (bi, _ts, act, dr, px, rs) in vh_sorted:
+        if bi in vh_flip_set and act == "开":
+            vh_flip_info[bi] = (dr, rs)
+    vh_qpins, vh_spins = [], []
+
+    def _vh_qpins_add(bi, value, color, rs_txt=""):
+        h = float(hist[bi])
+        yq = round(h * 1.15 + (0.5 if h > 0 else -0.5), 1) if not np.isnan(h) else 5
+        vh_qpins.append({"coord": [tstrs[bi], yq], "value": value,
+                         "itemStyle": {"color": color}, "rs": rs_txt})
+    for (bi, _ts, act, dr, px, rs) in vh_sorted:
+        if bi not in today_idx:
+            continue
+        p = today_idx.index(bi)
+        xp = round(p + 2.5 / 3, 4)
+        yp = round(float(sig["close"].iloc[bi]), 2)
+        rsc = rs.replace("'", "")
+        if bi in vh_repl_bars:
+            if act == "开":
+                v = "补" + ("C" if dr == "call" else "P")
+                _bdc = _dir_color(dr, "补")
+                vh_spins.append({"coord": [xp, yp], "value": v,
+                                 "itemStyle": {"color": _bdc}, "rs": rsc})
+                _vh_qpins_add(bi, v, _bdc, rsc)
+            continue
+        if bi in vh_flip_bars:
+            continue
+        if act == "开":
+            v = "跟" + ("C" if dr == "call" else "P")
+            _gdc = _dir_color(dr, "跟")
+            vh_spins.append({"coord": [xp, yp], "value": v,
+                             "itemStyle": {"color": _gdc}, "rs": rsc})
+            _vh_qpins_add(bi, v, _gdc, rsc)
+        elif act == "平":
+            _pc = "#b27a7a" if dr == "call" else "#7ab27a"
+            if "止损" in rs:
+                v = "止损" + ("C" if dr == "call" else "P")
+            else:
+                v = "平" + ("C" if dr == "call" else "P")
+            vh_spins.append({"coord": [xp, yp], "value": v,
+                             "itemStyle": {"color": _pc}, "rs": rsc})
+            _vh_qpins_add(bi, v, _pc, rsc)
+    for b in vh_flip_bars:
+        if b not in today_idx:
+            continue
+        p = today_idx.index(b)
+        xp = round(p + 2.5 / 3, 4)
+        yp = round(float(sig["close"].iloc[b]), 2)
+        d, frs = vh_flip_info.get(b, (None, ""))
+        frs = frs.replace("'", "")
+        v = "翻" + ("C" if d == "call" else "P")
+        _dc = _dir_color(d, "翻")
+        vh_spins.append({"coord": [xp, yp], "value": v,
+                         "itemStyle": {"color": _dc}, "rs": frs})
+        _vh_qpins_add(b, v, _dc, frs)
+    # VH tooltip acts + round-trips (与 QQE rts 同一套配对)
+    vh_acts_by_bar = {}
+    for (bi, _ts, act, dr, px, rs) in vh_sorted:
+        if bi in today_idx:
+            vh_acts_by_bar.setdefault(bi, []).append(
+                f"{act}{dr or ''}@{px} {rs}".replace("'", ""))
+    vh_rts = []
+    _vh_open = None
+    for (bi, _ts, act, dr, px, rs) in vh_sorted:
+        if act == "平" and _vh_open is not None:
+            obi, odr, opx, ors = _vh_open
+            vh_rts.append({"obi": obi, "odr": odr, "opx": opx, "ors": ors,
+                           "cbi": bi, "cpx": px, "crs": rs, "closed": True})
+            _vh_open = None
+        elif act == "开":
+            if _vh_open is not None:
+                obi, odr, opx, ors = _vh_open
+                vh_rts.append({"obi": obi, "odr": odr, "opx": opx, "ors": ors,
+                               "cbi": bi, "cpx": px, "crs": rs, "closed": True})
+            _vh_open = (bi, dr, px, rs)
+    if _vh_open is not None and today_idx:
+        obi, odr, opx, ors = _vh_open
+        vh_rts.append({"obi": obi, "odr": odr, "opx": opx, "ors": ors,
+                       "cbi": today_idx[-1],
+                       "cpx": float(sig["close"].iloc[today_idx[-1]]),
+                       "crs": None, "closed": False})
+
     # 1m曲线数据: x=分数类目坐标(分钟中点), y=1m收盘
     t0 = sig["t"].iloc[today_idx[0]]
     df1 = df1m[df1m["t"] >= t0].sort_values("t")
@@ -588,7 +725,7 @@ def main():
                     "cpx": float(sig["close"].iloc[today_idx[-1]]),
                     "crs": None, "closed": False})
     # ---- 实盘每单收益: 信号配对实际成交 ----
-    fills, poss, equity, day_open_equity = ([], {}, None, None) if WAVE_DATE else fetch_day_fills(day_str)
+    fills, poss, equity, day_open_equity = fetch_day_fills(day_str, live=not WAVE_DATE)
     for rt in rts:
         o_t = sig["t"].iloc[rt["obi"]]
         o_f = [f for f in fills if f["side"] == "buy"
@@ -709,6 +846,83 @@ def main():
             "{\"value\":[\"%s\",%.2f],\"lbl\":\"%s\",\"label\":{\"color\":\"%s\"}}" % (
                 tstrs[rt["cbi"]], _yy, txt, col))
     scat_js = "[" + ",".join(scat_data) + "]"
+
+    # ---- VH版色带/单标签/段标签 (ST单30分钟切段=每10根3m一段、段间复利;
+    # QQE单整单一段、无段标签; 色带/标签走THEME ST专用色, 照抄backfill VH版) ----
+    def _vh_trade_roi(rt):
+        """返回 (总ROI fraction, [(段ROI, 段开bar, 段平bar), ...])。"""
+        dr, bi0, bi1 = rt["odr"], rt["obi"], rt["cbi"]
+        px0, px1 = rt["opx"], rt["cpx"]
+        if _vh_kind(rt["ors"]) == "qqe":
+            _r = gamma_roi_100(dr, px0, px1)
+            return _r, [(_r, bi0, bi1)]
+        bounds = []
+        b = bi0 + 10
+        while b < bi1:
+            bounds.append(b)
+            b += 10
+        pts = [px0] + [float(sig["close"].iloc[bb]) for bb in bounds] + [px1]
+        bis = [bi0] + bounds + [bi1]
+        segs = []
+        cap = 1.0
+        for _si in range(len(pts) - 1):
+            _r = gamma_roi_100(dr, pts[_si], pts[_si + 1])
+            segs.append((_r, bis[_si], bis[_si + 1]))
+            cap *= (1.0 + _r)
+        return cap - 1.0, segs
+
+    vh_mark_bands = []  # (t0, pct, t1), ST色
+    vh_scat_raw = []    # (close_tstr, roi) 已平仓单
+    vh_seg_raw = []     # (seg_end_tstr, seg_end_bi, roi) 多段ST单的每段
+    vh_refresh = []     # 段界bar时间 (markLine竖线)
+    for rt in vh_rts:
+        _roi, _segs = _vh_trade_roi(rt)
+        rt["vh_roi"] = _roi
+        for (_r, _b0, _b1) in _segs:
+            vh_mark_bands.append((tstrs[_b0], round(_r * 100, 2), tstrs[_b1]))
+        if rt["closed"]:
+            vh_scat_raw.append((tstrs[rt["cbi"]], _roi))
+        if len(_segs) > 1:
+            for (_r, _b0, _b1) in _segs:
+                vh_seg_raw.append((tstrs[_b1], _b1, _r))
+                if _b1 != rt["cbi"]:
+                    vh_refresh.append(tstrs[_b1])
+    vh_refresh = list(dict.fromkeys(vh_refresh))
+    _vh_placed, vh_scat_data = [], []
+    _vh_max_row = _max_row
+    for rt in [r for r in vh_rts if r["closed"]]:
+        _cbi = rt["cbi"]
+        _row = 0
+        while any(abs(_cbi - _oc) < 15 and _or == _row for (_oc, _or) in _vh_placed):
+            _row += 1
+        _vh_placed.append((_cbi, _row))
+        _vh_max_row = max(_vh_max_row, _row)
+        _yy = round(_base + _row * _row_h, 2)
+        _vpct = rt["vh_roi"] * 100
+        vh_scat_data.append(
+            '{"value":["%s",%.2f],"lbl":"%s","label":{"color":THEME.tradeLabelColor(%s)}}' % (
+                tstrs[_cbi], _yy, f"{_vpct:+.1f}%", repr(float(_vpct))))
+    vh_scat_js = "[" + ",".join(vh_scat_data) + "]"
+    _seg_placed, vh_seg_data = [], []
+    for (ehm, ebi, r) in vh_seg_raw:
+        _row = 0
+        while any(abs(ebi - _ob) < 15 and _or == _row for (_ob, _or) in _seg_placed):
+            _row += 1
+        _seg_placed.append((ebi, _row))
+        _srow = _row + 1
+        _vh_max_row = max(_vh_max_row, _srow)
+        _yy = round(_base + _srow * _row_h, 2)
+        _vpct = r * 100
+        vh_seg_data.append(
+            '{"value":["%s",%.2f],"lbl":"%s","label":{"color":THEME.segLabelColor(%s)}}' % (
+                ehm, _yy, f"{_vpct:+.1f}%", repr(float(_vpct))))
+    vh_seg_js = "[" + ",".join(vh_seg_data) + "]"
+    vh_markarea_trade_js = "[" + ",".join(
+        "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColorST(%s)}},{xAxis:'%s'}]" % (
+            t0, pct, t1) for (t0, pct, t1) in vh_mark_bands) + "]"
+    vh_markline_js = json.dumps([{"xAxis": t} for t in vh_refresh], ensure_ascii=False)
+    y_max_js = round(_base + (_vh_max_row + 1) * _row_h + _rng * 0.05, 2)
+
 
     # ---- FIFO实际成交配对 (不依赖信号重算, 直接按成交算出真实round-trip) ----
     _fifo_lots = {}  # symbol -> [[qty, px, t], ...]
@@ -851,7 +1065,7 @@ def main():
         f"</td><td>{_money(_tot_real)}</td><td></td>"
         f"<td>{tot_est_txt}</td><td></td></tr>")
     table_html = (
-        "<div style=\"max-width:1150px;margin:14px auto;padding:0 8px\">"
+        "<div id=\"tblWrap\" style=\"max-width:1150px;margin:14px auto;padding:0 8px\">"
         "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
         "实盘信号单（实际成交 vs 信号预估）</div>"
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
@@ -865,6 +1079,78 @@ def main():
         "预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准);开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
+
+    # ---- 三版本: VH/QQE Gamma预估表 (-100口径, 日内$100k sequential复利) ----
+    def _est_table_inner(rows_rts, heading, footnote):
+        """返回 (inner_html, total_pnl, total_pct); inner不含外层div, 供tblWrap切换用。
+        rows_rts 每项须含 obi/odr/opx/ors/cbi/cpx/closed/est_roi; 未平仓行只算浮动预估、不推进cap。"""
+        _cap = 100000.0
+        _rows = []
+        for k, rt in enumerate(rows_rts, 1):
+            _roi = rt["est_roi"]
+            if rt["closed"]:
+                _pnl = _cap * _roi
+                _cap *= (1.0 + _roi)
+            else:
+                _pnl = _cap * _roi
+            o_tm = sig["t"].iloc[rt["obi"]].strftime("%H:%M")
+            c_tm = sig["t"].iloc[rt["cbi"]].strftime("%H:%M") if rt["closed"] else "持仓中"
+            op_txt = _op_name(rt.get("ors"), rt["odr"])
+            so_txt = f"{rt['opx']:.2f}"
+            sc_txt = f"{rt['cpx']:.2f}" if rt["closed"] else "—"
+            ec = "#1a9e54" if _pnl >= 0 else "#e5484d"
+            _rows.append(
+                f"<tr><td>{k}</td><td>{o_tm}</td><td>{op_txt}</td><td>—</td>"
+                f"<td>—</td><td>{so_txt}</td><td>{c_tm}</td><td>—</td><td>{sc_txt}</td>"
+                f"<td style=\"color:#888888;font-weight:bold\">—</td>"
+                f"<td style=\"color:#888888\">—</td>"
+                f"<td style=\"color:{ec}\">~{_money(_pnl)}</td>"
+                f"<td style=\"color:{ec}\">~{_pct(_roi)}</td></tr>")
+        _tot = _cap - 100000.0
+        _tot_pct = _cap / 100000.0 - 1.0
+        _rows.append(
+            f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
+            f"</td><td>—</td><td></td>"
+            f"<td>~{_money(_tot)}</td><td></td></tr>")
+        _inner = (
+            "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+            f"{heading}</div>"
+            "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
+            "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
+            "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
+            "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
+            "<th>预估收益</th><th>预估收益率</th></tr>"
+            + "".join(_rows) + "</table></div>"
+            f"<div style=\"font-size:11px;color:#888;margin-top:4px\">{footnote}</div>")
+        return _inner, _tot, _tot_pct
+
+    vh_inner, vh_tot, vh_tot_pct = _est_table_inner(
+        [{**rt, "est_roi": rt["vh_roi"]} for rt in vh_rts],
+        "ST VH版信号单（Gamma理论预估，-100口径）",
+        "预估=Gamma公式ROI×$100k日内sequential复利；ST单按30分钟切段理论预估（段标签为理论切段预估，非实际成交），QQE单整单一段；非实际成交")
+    qqe_inner, qqe_tot, qqe_tot_pct = _est_table_inner(
+        [{**rt, "est_roi": gamma_roi_100(rt["odr"], rt["opx"], rt["cpx"])} for rt in rts],
+        "QQE版信号单（Gamma理论预估，-100口径）",
+        "预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交")
+    if not has_live:
+        # 无真实成交时实盘版表退回QQE预估表 (旧回放行为, 口径改为-100)
+        table_html = ('<div id="tblWrap" style="max-width:1150px;margin:14px auto;padding:0 8px">'
+                      + qqe_inner + '</div>')
+    # VH/QQE版标题 (策略文案以 vh_live.day_info 为准)
+    _gap = float(vh_info.get("gap", 0.0))
+    _gap_abs = abs(_gap)
+    if _gap_abs < 5:
+        gap_txt = "不跳空"
+        st_strat = "全天ST"
+    else:
+        gap_txt = f"{'上跳' if _gap > 0 else '下跳'}{_gap_abs:.1f}点"
+        _morn_txt = {"qqe": "QQE", "skip": "空仓", "st": "ST"}.get(vh_info.get("morn"), "ST")
+        _aft_txt = "ST" if vh_info.get("aft") == "st" else ("QQE" if _gap > 0 else "ST")
+        st_strat = f"上午{_morn_txt} 下午{_aft_txt}"
+    vh_title_txt = (f"{day_str} (ST版) | {gap_txt} | {st_strat} | "
+                    f"{'+' if vh_tot >= 0 else '-'}${abs(vh_tot):,.0f} ({vh_tot_pct:+.1%})")
+    qqe_title_txt = (f"{day_str} (QQE版) | {gap_txt} | 全天QQE | "
+                     f"{'+' if qqe_tot >= 0 else '-'}${abs(qqe_tot):,.0f} ({qqe_tot_pct:+.1%})")
 
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
@@ -908,12 +1194,9 @@ def main():
         title_txt = (f"{page_title} {day_str} | 今日 {_s}${abs(robust_day):,.0f}{_pt} "
                      f"| 持仓:{_pos_show} | k3clean L25")
     else:
-        # 回放模式: 显示预估收益 (回测逻辑，2026-10-24 用户定：复利，不再简单相加)
-        _cap = 100000.0
-        for r in rts:
-            _cap *= (1 + r["est_pnl"] / 100000.0)
-        _replay_est = _cap - 100000.0
-        _replay_ret = _cap / 100000.0 - 1
+        # 回放模式: 显示预估收益 (-100口径日内复利, 与QQE版表一致)
+        _replay_est = qqe_tot
+        _replay_ret = qqe_tot_pct
         _s = "+" if _replay_est >= 0 else "-"
         title_txt = (f"{page_title} {day_str} | 预估 {_s}${abs(_replay_est):,.0f} ({_replay_ret:+.1%}) "
                      f"| 持仓:{pos_txt} | k3clean L25")
@@ -958,7 +1241,15 @@ def main():
             mark_area_js = "[" + _ma_inner + "," + _heat_inner + "]"
         else:
             mark_area_js = heat_markarea_js
-    mark_area_opt = "{silent:true,data:" + mark_area_js + "}"
+    qqe_mark_area_js = mark_area_js
+    _vh_ma = vh_markarea_trade_js
+    if heat_markarea_js != "[]":
+        _vi = _vh_ma[1:-1]
+        _hi2 = heat_markarea_js[1:-1]
+        vh_mark_area_js = "[" + (_vi + "," + _hi2 if _vi else _hi2) + "]"
+    else:
+        vh_mark_area_js = _vh_ma
+    mark_area_opt = "{silent:true,data:" + vh_mark_area_js + "}"
     ohlc = [[round(float(sig["open"].iloc[i]), 2), round(float(sig["close"].iloc[i]), 2),
              round(float(sig["low"].iloc[i]), 2), round(float(sig["high"].iloc[i]), 2)]
             for i in today_idx]
@@ -1187,8 +1478,8 @@ def main():
     rep_const('decayReal', js_arr(d80130))
     rep_const('flipBlue', js_arr(fl130))
     rep_const('hubuThr', js_arr(hb130))
-    rep_const('pins', json.dumps(qpins, ensure_ascii=False))
-    rep_const('spins', json.dumps(spins, ensure_ascii=False))
+    rep_const('pins', json.dumps(vh_qpins, ensure_ascii=False))
+    rep_const('spins', json.dumps(vh_spins, ensure_ascii=False))
     rep_const('line1m', json.dumps(line1m))
     rep_const('filldots', json.dumps(filldots, ensure_ascii=False))
     rep_const('barInfo', json.dumps(bar_info, ensure_ascii=False))
@@ -1256,8 +1547,8 @@ def main():
 
     html, n6 = _replace_balanced(html, r"markArea:\{", mark_area_opt)
     scat_series = ("{name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0}," +
-                   "label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1," +
-                   "formatter:function(p){return p.data.lbl;}}, data:" + scat_js + "}")
+                   "label:{show:true, opacity:1, fontSize:11, fontWeight:'bold', position:'top', distance:1," +
+                   "formatter:function(p){return p.data.lbl;}}, data:" + vh_scat_js + "}")
     html, n7 = _replace_balanced(html, r"\{name:'每单盈亏'", scat_series)
     html, n8 = re.subn(r'<div style="max-width:1150px.*?</div>\s*<script>',
                        table_html + '\n<script>',
@@ -1273,6 +1564,74 @@ def main():
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
+    _qqe_acts = {t: (v.get("acts") or []) for t, v in bar_info.items()}
+    _vh_acts = {tstrs[bi]: acts for bi, acts in vh_acts_by_bar.items()}
+    _sw = []
+    _sw.append("<script>")
+    _sw.append("const QQE_PINS = " + json.dumps(qpins, ensure_ascii=False) + ";")
+    _sw.append("const QQE_SPINS = " + json.dumps(spins, ensure_ascii=False) + ";")
+    _sw.append("const QQE_SCAT = " + scat_js + ";")
+    _sw.append("const QQE_MARKAREA = " + qqe_mark_area_js + ";")
+    _sw.append("const QQE_ACTS = " + json.dumps(_qqe_acts, ensure_ascii=False) + ";")
+    _sw.append("const VH_SCAT = " + vh_scat_js + ";")
+    _sw.append("const VH_SEG = " + vh_seg_js + ";")
+    _sw.append("const VH_MARKAREA = " + vh_mark_area_js + ";")
+    _sw.append("const VH_MARKLINE = " + vh_markline_js + ";")
+    _sw.append("const VH_ACTS = " + json.dumps(_vh_acts, ensure_ascii=False) + ";")
+    _sw.append("const TITLES3 = {live: " + json.dumps(title_txt, ensure_ascii=False)
+               + ", vh: " + json.dumps(vh_title_txt, ensure_ascii=False)
+               + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False) + "};")
+    _sw.append("const VH_INNER = " + json.dumps(vh_inner, ensure_ascii=False) + ";")
+    _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
+    _sw.append("var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();")
+    _sw.append("var curVer3 = 'live';")
+    _sw.append("function switchVersion3(v){")
+    _sw.append("  curVer3 = v;")
+    _sw.append("  var isLive = (v === 'live');")
+    _sw.append("  var isVH = (v === 'vh');")
+    _sw.append("  var useVH = isLive || isVH;")
+    _sw.append("  var pinsData = useVH ? pins : QQE_PINS;")
+    _sw.append("  var spinsData = useVH ? spins : QQE_SPINS;")
+    _sw.append("  var scatData = useVH ? VH_SCAT : QQE_SCAT;")
+    _sw.append("  var scatFS = useVH ? 11 : 8;")
+    _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
+    _sw.append("  ch.setOption({")
+    _sw.append("    title: {text: TITLES3[v], left: 'center', textStyle: {fontSize: 14}},")
+    _sw.append("    series: [")
+    _sw.append("      {name: '1m曲线', markPoint: {data: spinsData}},")
+    _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
+    _sw.append("      {name: '每单盈亏', data: scatData, label: {show: true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}},")
+    _sw.append("      {name: '3mK线', markArea: {silent: true, data: useVH ? VH_MARKAREA : QQE_MARKAREA}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
+    _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []}")
+    _sw.append("    ]")
+    _sw.append("  });")
+    _sw.append("  var tw = document.getElementById('tblWrap');")
+    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isVH ? VH_INNER : QQE_INNER); }")
+    _sw.append("  var actsData = useVH ? VH_ACTS : QQE_ACTS;")
+    _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
+    _sw.append("  document.title = TITLES3[v];")
+    _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
+    _sw.append("}")
+    _sw.append("(function(){")
+    _sw.append("  var sel = document.getElementById('daypick');")
+    _sw.append("  if (!sel) return;")
+    _sw.append("  var wrap = document.createElement('span');")
+    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版']].forEach(function(it){")
+    _sw.append("    var b = document.createElement('button');")
+    _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];")
+    _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
+    _sw.append("    b.style.borderRadius = '10px'; b.style.border = '1px solid #ccc'; b.style.background = '#fff';")
+    _sw.append("    b.style.color = '#333'; b.style.cursor = 'pointer';")
+    _sw.append("    b.onclick = function(){ switchVersion3(it[0]); };")
+    _sw.append("    wrap.appendChild(b);")
+    _sw.append("  });")
+    _sw.append("  sel.parentNode.insertBefore(wrap, sel.nextSibling);")
+    _sw.append("  window._verBtns3 = wrap.querySelectorAll('button');")
+    _sw.append("})();")
+    _sw.append("switchVersion3('live');")
+    _sw.append("</script>")
+    html = html.replace("</body>", "\n".join(_sw) + "</body>", 1)
+
     open(out, "w").write(html)
     print(f"wrote {out} ({len(times)} bars, {len(qpins)+len(spins)} pins, pos={pos_txt})")
     # 今日动作摘要
