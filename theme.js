@@ -110,6 +110,29 @@ var THEME = {
     return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
   },
 
+  // ST版标签 (2026-11-01 theme令, ST专用; QQE标签/带子一律不动, 不调这里)
+  segLabel: {pos: '#66bb6a', neg: '#ef5350', fontSize: 8},
+  tradeLabel: {pos: '#0d6b36', neg: '#b91c1c', fontSize: 11},
+  segLabelColor: function(pct) {
+    return pct >= 0 ? this.segLabel.pos : this.segLabel.neg;
+  },
+  tradeLabelColor: function(pct) {
+    return pct >= 0 ? this.tradeLabel.pos : this.tradeLabel.neg;
+  },
+
+  // ST版带子alpha (2026-11-01 theme令): |pct|<=10时 alpha=|pct|*0.024
+  // (0%->0.000, 1%->0.024, 5%->0.120, 10%->0.240与原公式在10%处衔接);
+  // 10%以上与原pnlAlpha一字不差 (20%->0.40, 35%->0.50, 50%->0.60, 65%+封顶0.70)
+  pnlAlphaST: function(pct) {
+    var a = Math.abs(pct);
+    if (a <= 10) return a * 0.024;
+    return this.pnlAlpha(pct);
+  },
+  pnlBgColorST: function(pct) {
+    var a = this.pnlAlphaST(pct).toFixed(3);
+    return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
+  },
+
   // tooltip style (2026-10-18 user's: 背景透明度统一在theme改)
   tooltip: {
     backgroundColor: 'rgba(255,255,255,0.6)',

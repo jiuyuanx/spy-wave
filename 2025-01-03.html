@@ -95,7 +95,7 @@ ch.setOption({
     {name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff9900', type:'dashed', width:3}, symbol:'none', showSymbol:false},
     {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
     {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
-    {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[]},
+    {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:11, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[]},
     {name:'slope5', type:'line', data:[null,null,null,null,null,-0.55,-0.55,-0.55,-0.24,-0.24,-0.24,0.205,0.205,0.205,0.051,0.051,0.051,-0.109,-0.109,-0.109,-0.166,-0.166,-0.166,-0.065,-0.065,-0.065,0.278,0.278,0.278,0.428,0.428,0.428,0.102,0.102,0.102,-0.099,-0.099,-0.099,0.05,0.05,0.05,0.277,0.277,0.277,0.595,0.595,0.595,0.582,0.582,0.582,0.31,0.31,0.31,0.127,0.127,0.127,-0.083,-0.083,-0.083,-0.159,-0.159,-0.159,-0.127,-0.127,-0.127,-0.104,-0.104,-0.104,0.077,0.077,0.077,0.126,0.126,0.126,0.122,0.122,0.122,0.128,0.128,0.128,0.212,0.212,0.212,0.314,0.314,0.314,0.248,0.248,0.248,0.084,0.084,0.084,0.006,0.006,0.006,0.099,0.099,0.099,0.168,0.168,0.168,0.218,0.218,0.218,0.141,0.141,0.141,0.03,0.03,0.03,-0.07,-0.07,-0.07,-0.184,-0.184,-0.184,-0.144,-0.144,-0.144,-0.008,-0.008,-0.008,0.031,0.031,0.031,-0.078,-0.078,-0.078,-0.072,-0.072], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
     {name:'heat_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff9900', width:1.5, type:'solid'}, symbol:'none', showSymbol:false,z:10},
     {name:'heat_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1.5, type:'solid'}, symbol:'none', showSymbol:false,z:10},
@@ -165,9 +165,9 @@ function switchVersion(v) {
     series: [
       {name: '1m曲线', markPoint: {data: spinsData}},
       {name: 'QQE', markPoint: {data: pinsData}},
-      {name: '每单盈亏', data: scatData},
+      {name: '每单盈亏', data: scatData, label: {show: true, opacity: 1, fontSize: isST ? THEME.tradeLabel.fontSize : 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}},
       {name: '3mK线', markArea: {silent: true, data: isST ? VG_MARKAREA : QQE_MARKAREA}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: isST ? VG_MARKLINE : []}},
-      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: isST ? VG_SEG_SCAT : []}
+      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: THEME.segLabel.fontSize, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: isST ? VG_SEG_SCAT : []}
     ]
   });
   var tbl = document.querySelector('table');
