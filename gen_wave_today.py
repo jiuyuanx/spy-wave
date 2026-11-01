@@ -1232,6 +1232,8 @@ def main():
                     _pp += 0.5
         except: pass
     heat_markarea_js = "[" + ",".join(heat_markarea) + "]"
+    # 2026-11-01 user's: 实盘日页隐藏热力区 (过去式) — 色带不再并入任何markArea
+    heat_markarea_js = "[]"
     # 合并热力背景 (yAxis横向色带)
     if 'heat_markarea_js' in dir() and heat_markarea_js != "[]":
         # 把heat数据加到mark_area_js里
@@ -1406,6 +1408,9 @@ def main():
         _up_list.insert(0, "null"); _lo_list.insert(0, "null")
     heat_up_js = "[" + ",".join(_up_list) + "]"
     heat_lo_js = "[" + ",".join(_lo_list) + "]"
+    # 2026-11-01 user's: 实盘日页隐藏7区上下缘线 (过去式) — 边缘线数据置空
+    heat_up_js = "[]"
+    heat_lo_js = "[]"
     print(f"[DEBUG] heat_up non-null={sum(1 for x in _up_list if x != 'null')}")
     # 触发线: 区内15% (从_up_list/_lo_list直接算)
     _trig_up_list, _trig_lo_list = [], []
@@ -1422,6 +1427,9 @@ def main():
             _trig_up_list.append("null"); _trig_lo_list.append("null")
     trig_up_js = "[" + ",".join(_trig_up_list) + "]"
     trig_lo_js = "[" + ",".join(_trig_lo_list) + "]"
+    # 2026-11-01 user's: 触发线由7区边缘算出, 与边缘线同属过去式, 一并隐藏
+    trig_up_js = "[]"
+    trig_lo_js = "[]"
     # heatmap数据: 横向色带 [时间索引, 价格, 热度值]
     # 用最终热度分布，在价格轴上画横向色带
     heatmap_data = []
@@ -1440,6 +1448,8 @@ def main():
                         heatmap_data.append([_ti, round(_price, 2), round(_bv, 2)])
         except: pass
     heatmap_js = "[" + ",".join([f"[{d[0]},{d[1]},{d[2]}]" for d in heatmap_data]) + "]"
+    # 2026-11-01 user's: heat_bg热力格子与热力区同属过去式, 一并隐藏
+    heatmap_js = "[]"
 
     def js_arr(a):
         return "[" + ",".join("null" if v is None else str(v) for v in a) + "]"
