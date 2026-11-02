@@ -1400,6 +1400,27 @@ def main():
         if _sttrd[today_idx[_k]] != _sttrd[today_idx[_k-1]]:
             _stflip_items.append(_stmk(_k, 'Buy' if _sttrd[today_idx[_k]]==1 else 'Sell'))
     stFlips_js = "[" + ",".join(_stflip_items) + "]"
+    # 快版ST (与慢版同一ATR序列, 仅乘数2 vs 3; 与双确认回测快版一致)
+    _stbu_f = _sthl2 + 2*_statr; _stbl_f = _sthl2 - 2*_statr
+    _stfu_f = np.full(len(sig), np.nan); _stfl_f = np.full(len(sig), np.nan); _sttrd_f = np.zeros(len(sig), dtype=int)
+    _stfu_f[9]=_stbu_f[9]; _stfl_f[9]=_stbl_f[9]; _sttrd_f[9]=1
+    for _i in range(10, len(sig)):
+        if np.isnan(_statr[_i]): continue
+        _stfu_f[_i] = _stbu_f[_i] if (_stbu_f[_i] < _stfu_f[_i-1] or _stc[_i-1] > _stfu_f[_i-1]) else _stfu_f[_i-1]
+        _stfl_f[_i] = _stbl_f[_i] if (_stbl_f[_i] > _stfl_f[_i-1] or _stc[_i-1] < _stfl_f[_i-1]) else _stfl_f[_i-1]
+        if _stc[_i] > _stfu_f[_i-1]: _sttrd_f[_i]=1
+        elif _stc[_i] < _stfl_f[_i-1]: _sttrd_f[_i]=-1
+        else: _sttrd_f[_i]=_sttrd_f[_i-1]
+    _stval_f = np.where(_sttrd_f==1, _stfl_f, _stfu_f)
+    _stfup_parts, _stfdn_parts = [], []
+    for _k, _bi in enumerate(today_idx):
+        _vf = round(float(_stval_f[_bi]), 2) if not np.isnan(_stval_f[_bi]) else None
+        if _sttrd_f[_bi]==1:
+            _stfup_parts.append(str(_vf) if _vf is not None else "null"); _stfdn_parts.append("null")
+        else:
+            _stfup_parts.append("null"); _stfdn_parts.append(str(_vf) if _vf is not None else "null")
+    stFastUp_js = "[" + ",".join(_stfup_parts) + "]"
+    stFastDn_js = "[" + ",".join(_stfdn_parts) + "]"
     # heat_up/heat_lo: 7区上下缘线 (从heat_edges取今日部分)
     _n3h2 = len(today_idx)
     _he_tail = heat_edges[-_n3h2:] if len(heat_edges) >= _n3h2 else heat_edges
@@ -1514,6 +1535,8 @@ def main():
     rep_const('stDn', stDn_js)
     rep_const('stFill', stFill_js)
     rep_const('stFlips', stFlips_js)
+    rep_const('stFastUp', stFastUp_js)
+    rep_const('stFastDn', stFastDn_js)
 
     html, n1 = re.subn(r"\{name:'3mK线', type:'candlestick', data:\[.*?\], xAxisIndex",
                        "{name:'3mK线', type:'candlestick', data:" + ohlc_js + ", xAxisIndex",
