@@ -406,6 +406,26 @@ def day_info(bars):
     return {"gap": float(gap), "gap_band": band, "morn": morn, "aft": aft}
 
 
+def _is_early_close_day(ts):
+    """NYSE 13:00 提前收盘日判定 (ts 为 ET 时间戳, 取其 ET 日历日)。
+    规则 (NYSE 官方日历, 已验 2024-2029 + 缓存 71 根早收日):
+      感恩节次日 (11 月第 4 个周四 +1 天, 恒为周五): 恒早收;
+      12/24: 仅当 12/25 落在周二至周五 (12/25 落周一/六/日则取消, 如 2027/2028);
+      7/3: 仅当 7/3 本身是工作日且 7/4 落在周二至周五 (如 2026/2027 取消)。
+    夏令时无关: 比较的是 ET 日历日与周几, 不涉及时区偏移。
+    """
+    y, m, d = ts.year, ts.month, ts.day
+    if m == 11:
+        nov1_wd = pd.Timestamp(y, 11, 1).weekday()  # Mon=0
+        first_thu = 1 + ((3 - nov1_wd) % 7)
+        return d == first_thu + 21 + 1  # 第 4 个周四 +1 天
+    if m == 12 and d == 24:
+        return pd.Timestamp(y, 12, 25).weekday() in (1, 2, 3, 4)
+    if m == 7 and d == 3:
+        return ts.weekday() < 5 and pd.Timestamp(y, 7, 4).weekday() in (1, 2, 3, 4)
+    return False
+
+
 def _run_all(warm, eod_1m):
     _eod_1m = dict(eod_1m) if eod_1m else {}
     close = warm["close"].values
@@ -1084,7 +1104,12 @@ def _run_all(warm, eod_1m):
             k3_tp_bar = None; _bigtp_bar = None; _bigwait_target = None; _bigwait_bars = 0; k3_wait_target = None; k3_wait_bars = 0; _stop_win = None
             continue
         # 当日最后一根bar强制平 (2026-10-27 用户令): 提前收盘日没有15:55, 靠最后一根兜底, 不隔夜; 执行价=本根收盘(跨天规则)
-        if pos and not _next_same_day:
+        # 2026-11-02 根因修: 原 `not _next_same_day` 在实盘前缀输入下每轮误触发 (当前 bar 恒无下根);
+        #   改为交易日历判定: 仅提前收盘日 (NYSE 13:00 收盘, _is_early_close_day) 才走最后一根块,
+        #   且只在 12:57/13:00 两根收盘 bar 中的最后一根触发 (回测 cache 含 13:00 bar、实盘 to_3m
+        #   末根 12:57, not _next_same_day 用于二选一, 不再单独决定日终)。
+        #   平时 (含前缀) 永不触发, 15:57 由 15:55 块覆盖。hm 与日期皆 ET 墙钟, 夏令时无关。
+        if pos and _is_early_close_day(warm["t"].iloc[i]) and hm in ("12:57", "13:00") and not _next_same_day:
             actions.append((i, f"{day}T{hm}", "平", pos, px_exec, "日终平仓(最后一根)"))
             pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
             wait_red = wait_blue = False
