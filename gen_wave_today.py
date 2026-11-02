@@ -974,10 +974,11 @@ def main():
         return float(df1m["c"].iloc[_jj].iloc[0]) if len(_jj) else None
 
     # 给每个actual_rt找最近的信号 (用于操作名, 方向必须一致)
+    # 2026-11-02: 实盘跑VH信号, 贴名须用VH信号表vh_rts (原用QQE rts会把ST单标成QQE名)
     for _ar in actual_rts:
         _sym_cp = "call" if _ar["sym"][9:10] == "C" else "put"
         _best, _best_s = None, 1e9
-        for _rt in rts:
+        for _rt in vh_rts:
             if _rt["odr"] != _sym_cp:
                 continue
             _st = sig["t"].iloc[_rt["obi"]]
