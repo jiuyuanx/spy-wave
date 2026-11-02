@@ -93,8 +93,9 @@ window.addEventListener('resize', function(){charts.forEach(function(c){c.resize
 <p>注意：把全期拆成跳空日和非跳空日两部分看时，拆出来的美元会受周内资金路径影响（同一周里先赚的钱会垫高后面单子的本金），所以拆分数字不能单独当成某条腿的利润；标题数字是全期，年度和月度柱子是每周重置再加总的，可以直接加。</p>
 <div class="tblwrap"><table>
 <tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
-<tr><td class="pos">$1,766,432</td><td class="pos">$9,381,753</td><td class="pos">$4,889,037</td><td class="tot pos">$16,037,223</td><td>3,322</td><td>148</td><td class="dd">99.96%（2024-12-23周 → 2025-03-31周）</td></tr>
+<tr><td class="pos">$1,612,161</td><td class="pos">$13,544,969</td><td class="pos">$5,185,701</td><td class="tot pos">$20,342,831</td><td>3,299</td><td>148</td><td class="dd">99.96%（2024-12-23周 → 2025-03-31周）</td></tr>
 </table></div>
+<p class="small">含组合桶规则（桶 0→1、桶 1→2），实盘 50%（另一半为 QQE 0.9 基线）。</p>
 
 <h2 style="color:#2ca58d">2. ST版 V_G <span class="tag" style="background:#888">上一版ST版</span></h2>
 <p>这是上一版日页ST版，现行日页ST版已换成V_H（见上），这里保留作对照。跳空日和V_C一模一样：跳空是指今天开盘价比昨天收盘价高出或低出5个点以上。跳空日上午还是用QQE信号，做到11点整强制换成Supertrend趋势的仓位（Supertrend是一条跟着价格走的趋势线，价格在线上面偏多、在线下面偏空）；上午如果是大跳空（10个点以上）就空仓等到11点。下午看今天是往上跳还是往下跳：往上跳的日子继续用QQE，往下跳的日子用Supertrend；Supertrend的单子每30分钟刷新一次，每半小时按当时的价格结算一段、再按同样方向重新进，等于把杠杆刷回原来的水平。区别在不跳空的日子：V_C不跳空全天用QQE，V_G不跳空全天用Supertrend（和ST-only一样的逻辑：趋势线翻转就换仓、开盘第一根线就按趋势进、大K过滤关掉、止损保护和日终平仓还在）。所以V_G的单数少很多（3,222单对V_C的9,593单），单子更大、拿得更久；全期比V_C多$4,065,629。</p>
@@ -124,6 +125,7 @@ window.addEventListener('resize', function(){charts.forEach(function(c){c.resize
 <tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
 <tr><td class="pos">$1,552,917</td><td class="pos">$4,152,785</td><td class="pos">$1,755,485</td><td class="tot pos">$7,461,187</td><td>9,669</td><td>148</td><td class="dd">98.07%（2025-10-13周 → 2026-03-23周）</td></tr>
 </table></div>
+<p class="small">实盘 50%（另一半为 VH）。</p>
 
 <h2 style="color:#9a7b00">6. 做T版</h2>
 <p>在QQE基线的基础上，价格进入横盘热力区（价格在一个小区间里来回磨、QQE柱子忽长忽短）的时候改做短线来回：区里出现反转信号就反向做一单、赚一点就走，不等大趋势。热力区外还是正常QQE信号。单数比不做T多很多，但来回的单子也把不少利润磨掉了。</p>
@@ -151,7 +153,7 @@ window.addEventListener('resize', function(){charts.forEach(function(c){c.resize
 <p class="small">注1（总额口径）：每周$100k起，周内逐笔复利，跨周重置，总额=各周利润和；-100口径（单笔最多亏100%）。年度金额四舍五入到整美元，三个年度加起来可能和合计差$1，以合计为准（V_G年度和为$12,119,322，比合计$12,119,321多$1；V_H年度和为$16,037,222，比合计$16,037,223少$1，均系四舍五入所致）。</p>
 <p class="small">注2（最大回撤定义，原文）：build a continuous equity curve from weekly returns — start $100k, each week's return = weekly profit / $100k, equity *= (1 + weekly return) sequentially with NO weekly reset — then max drawdown = largest peak-to-trough percentage decline of that curve over 2024-2026。中文意思：从每周利润算每周收益率（周利润除以10万美元），起点10万美元、按周顺序连乘、不重置，画一条连续权益曲线，最大回撤就是这条曲线从历史高点跌到随后低点的最大百分比跌幅。</p>
 <div class="warn">注意：最大回撤的算法和总额的算法不一样，只能用来比较几个版本谁的风险相对大，不能直接当成亏了多少钱。总额是每周重置再加总，最大回撤是连续连乘不重置；连续曲线会把每周的大赢利也连乘进去，峰值可以远高于10万美元，所以98%的回撤不等于亏掉98%的本金，只是从那个很高的峰值跌下来的幅度。上面曲线图用的是标准口径（每周重置、累计求和），不是这条连续曲线，两者不要混。</div>
-<p class="small">注意：ST腿（V_G/V_C/V_F下午ST、ST-only全天）是30分钟理论口径（每段都按10%杠杆、无价差），实盘按扫单实际杠杆再扣价差。V_H仅为dashboard版本（日页ST版），不是实盘；实盘仍为冷冻基线s20fz+wingray15+热力仅显示。数字来源：V_H行按同一方法由V_H pickle算出（research/compute_VH_entry.py），其余行与原summary一致（research/compute_summary_VG.py）；实盘版按上面说明多了一周。2026-06-17那天所有版本都不算在内。</p>
+<p class="small">注意：ST腿（V_G/V_C/V_F下午ST、ST-only全天）是30分钟理论口径（每段都按10%杠杆、无价差），实盘按扫单实际杠杆再扣价差。实盘为 VH + QQE 各一半（VH 跑组合桶规则，QQE 跑 0.9 冷冻基线）。数字来源：V_H行按同一方法由组合版pickle算出，其余行与原summary一致（research/compute_summary_VG.py）；实盘版按上面说明多了一周。2026-06-17那天所有版本都不算在内。</p>
 </div>
 </body>
 </html>
