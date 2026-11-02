@@ -53,6 +53,14 @@ jobs:
           json.dump({'days': s}, open(p, 'w'))
           "
 
+      - name: guard publish dir
+        if: steps.gen.outputs.skip != '1'
+        run: |
+          n=$(find public -type f | wc -l)
+          echo "public files: $n"
+          ls public
+          if [ "$n" -gt 10 ]; then echo "REFUSE: public/ has $n files, expected only today files (index/TODAY/trades/archive). Day pages must never be deployed from main."; exit 1; fi
+
       - name: deploy to gh-pages
         if: steps.gen.outputs.skip != '1'
         uses: peaceiris/actions-gh-pages@v4
