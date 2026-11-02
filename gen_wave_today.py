@@ -1421,6 +1421,17 @@ def main():
             _stfup_parts.append("null"); _stfdn_parts.append(str(_vf) if _vf is not None else "null")
     stFastUp_js = "[" + ",".join(_stfup_parts) + "]"
     stFastDn_js = "[" + ",".join(_stfdn_parts) + "]"
+    # 快版ST翻转标记 (与慢版同款；快Buy深蓝+下方标签，快Sell橘红+上方标签)
+    def _stmk_f(_k, _lbl):
+        _col = '#1e40af' if _lbl=='快Buy' else '#ff4500'
+        _pos = 'bottom' if _lbl=='快Buy' else 'top'
+        _sv = round(float(_stval_f[today_idx[_k]]), 2)
+        return '{"value":["' + times[_k] + '",' + str(_sv) + '],"itemStyle":{"color":"' + _col + '"},"label":{"formatter":"' + _lbl + '","position":"' + _pos + '","backgroundColor":"' + _col + '","color":"#fff","borderRadius":4,"padding":[3,6],"fontSize":12}}'
+    _stflip_fast_items = [_stmk_f(0, '快Buy' if _sttrd_f[today_idx[0]]==1 else '快Sell')]  # 开盘标记 (当日快版开盘趋势状态)
+    for _k in range(1, len(today_idx)):
+        if _sttrd_f[today_idx[_k]] != _sttrd_f[today_idx[_k-1]]:
+            _stflip_fast_items.append(_stmk_f(_k, '快Buy' if _sttrd_f[today_idx[_k]]==1 else '快Sell'))
+    stFastFlips_js = "[" + ",".join(_stflip_fast_items) + "]"
     # heat_up/heat_lo: 7区上下缘线 (从heat_edges取今日部分)
     _n3h2 = len(today_idx)
     _he_tail = heat_edges[-_n3h2:] if len(heat_edges) >= _n3h2 else heat_edges
@@ -1537,6 +1548,7 @@ def main():
     rep_const('stFlips', stFlips_js)
     rep_const('stFastUp', stFastUp_js)
     rep_const('stFastDn', stFastDn_js)
+    rep_const('stFastFlips', stFastFlips_js)
 
     html, n1 = re.subn(r"\{name:'3mK线', type:'candlestick', data:\[.*?\], xAxisIndex",
                        "{name:'3mK线', type:'candlestick', data:" + ohlc_js + ", xAxisIndex",
