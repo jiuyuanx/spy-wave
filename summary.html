@@ -53,6 +53,15 @@ document.getElementById('dayhint').textContent='共'+days.length+'天';
 <p class="small">每周$100k起、周内复利、跨周重置，累计周收益求和，与总额口径一致，不是全复利。横轴是周一，纵轴是累计利润（线性美元轴）；悬浮显示该周累计值和本周利润。曲线终点就是上面表格的合计（V_H $20,342,831、V_G $12,119,321、V_C $8,053,692、V_F $7,888,517、QQE $7,461,187、做T $6,762,628、实盘 $13,902,009（合成50/50，见脚注）、ST-only $5,055,967）。</p>
 <div id="chartLine" class="chart"></div>
 
+<h2>分年曲线（每年从 $100k 起算）</h2>
+<p class="small">每年从 $100k 起算，只含本年周盈亏（周内复利、跨周不复利，与标准口径一致）；悬浮显示本年累计值和本周利润。</p>
+<h3 style="font-size:15px;margin:14px 0 2px">2024年</h3>
+<div id="chartY2024" class="chart"></div>
+<h3 style="font-size:15px;margin:14px 0 2px">2025年</h3>
+<div id="chartY2025" class="chart"></div>
+<h3 style="font-size:15px;margin:14px 0 2px">2026年</h3>
+<div id="chartY2026" class="chart"></div>
+
 <h2>分年盈利（clustered柱状图）</h2>
 <p class="small">每周$100k起、周内复利、跨周重置，周收益求和；每年3根柱子一组（8个版本并排，不堆叠），可以直接加总到合计。</p>
 <div id="chartYear" class="chart-sm"></div>
@@ -155,5 +164,30 @@ window.addEventListener('resize', function(){charts.forEach(function(c){c.resize
 <div class="warn">注意：最大回撤的算法和总额的算法不一样，只能用来比较几个版本谁的风险相对大，不能直接当成亏了多少钱。总额是每周重置再加总，最大回撤是连续连乘不重置；连续曲线会把每周的大赢利也连乘进去，峰值可以远高于10万美元，所以98%的回撤不等于亏掉98%的本金，只是从那个很高的峰值跌下来的幅度。上面曲线图用的是标准口径（每周重置、累计求和），不是这条连续曲线，两者不要混。</div>
 <p class="small">注意：ST腿（V_G/V_C/V_F下午ST、ST-only全天）是30分钟理论口径（每段都按10%杠杆、无价差），实盘按扫单实际杠杆再扣价差。实盘为 VH + QQE 各一半（VH 跑组合桶规则，QQE 跑 0.9 冷冻基线）。实盘曲线为假设资金对半的合成曲线（0.5×VH组合版 + 0.5×QQE 0.9基线，每周重置），不是实际成交。数字来源：V_H行按同一方法由组合版pickle算出，其余行与原summary一致（research/compute_summary_VG.py）；实盘版按上面说明多了一周。2026-06-17那天所有版本都不算在内。</p>
 </div>
+<script>
+(function(){
+function ytdPanel(year){
+var idx=[];
+CHART_DATA.mondays.forEach(function(m,k){if(m.indexOf(year)===0)idx.push(k);});
+var weeks=idx.map(function(k){return CHART_DATA.mondays[k];});
+var series=CHART_DATA.line_series.map(function(s){
+var run=100000,data=[];
+idx.forEach(function(k){run+=s.data[k].pnl;data.push({value:Math.round(run*100)/100,pnl:s.data[k].pnl});});
+var o={name:s.name,type:'line',showSymbol:false,lineStyle:{width:2,color:s.lineStyle.color},itemStyle:{color:s.lineStyle.color},data:data};
+if(year==='2025'&&s.name==='ST版 V_H'){o.markLine={silent:false,symbol:'none',lineStyle:{type:'dashed',color:'#e5484d'},label:{formatter:'4/7周跳升',color:'#e5484d',fontSize:11},data:[{xAxis:'2025-04-07'}]};}
+return o;
+});
+var vals=[];
+series.forEach(function(s){s.data.forEach(function(p){vals.push(p.value);});});
+var lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals),pad=(hi-lo)*0.05||100000;
+return {weeks:weeks,series:series,ymin:Math.round(lo-pad),ymax:Math.round(hi+pad)};
+}
+['2024','2025','2026'].forEach(function(year){
+var p=ytdPanel(year);
+var opt={tooltip:{trigger:'axis',formatter:function(ps){var t=ps[0].axisValue+'<br/>';ps.forEach(function(pp){t+=pp.marker+' '+pp.seriesName+': 本年累计 '+fmtFull(pp.data.value)+'（本周 '+fmtFull(pp.data.pnl)+'）<br/>';});return t;}},legend:{data:legendData},grid:{left:56,right:16,top:36,bottom:28},xAxis:{type:'category',data:p.weeks,axisLabel:{interval:7}},yAxis:{type:'value',min:p.ymin,max:p.ymax,axisLabel:{formatter:function(v){return fmtMoney(v);}}},series:p.series,dataZoom:[{type:'inside'}]};
+charts.push(mkChart('chartY'+year,opt));
+});
+})();
+</script>
 </body>
 </html>
