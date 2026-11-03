@@ -1,6 +1,6 @@
 <!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="60">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>实盘dashboard 2026-11-03 | 今日 -$182 (-0.1%) | 持仓:实盘:put 182张@754 | k3clean L25</title>
+<title>实盘dashboard 2026-11-03 | 今日 +$910 (+0.7%) | 持仓:实盘:put 182张@754 | k3clean L25</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script src="theme.js"></script>
 <style>body{margin:0;background:#fff;font-family:sans-serif}#c{width:100%;height:95vh}</style>
@@ -26,7 +26,7 @@ const decayReal = [-6.59,-6.59,null,null,null,null,null,null,null,null,null,null
 const flipBlue = [-6.59,-6.59,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
 const hubuThr = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
 const pins = [{"coord": ["09:30", -10.0], "value": "跟P", "itemStyle": {"color": "#cc0000"}, "rs": "ST开盘开put"}];
-const line1m = [[0.1667, 752.94], [0.5, 753.28], [0.8333, 753.23], [1.1667, 753.03], [1.5, 753.5], [1.8333, 753.6], [2.1667, 753.63], [2.5, 753.74], [2.8333, 753.43], [3.1667, 753.72]];
+const line1m = [[0.1667, 752.94], [0.5, 753.28], [0.8333, 753.23], [1.1667, 753.03], [1.5, 753.5], [1.8333, 753.6], [2.1667, 753.63], [2.5, 753.74], [2.8333, 753.43], [3.1667, 753.72], [3.5, 753.56]];
 const spins = [{"coord": [0.8333, 753.23], "value": "跟P", "itemStyle": {"color": "#cc0000"}, "rs": "ST开盘开put"}];
 const filldots = [];
 const stUp = [null,null,null];
@@ -40,7 +40,7 @@ if (typeof THEME !== 'undefined') { THEME.applyColors(spins); THEME.applyColors(
 const barInfo = {"09:30": {"o": 752.61, "h": 753.45, "l": 752.44, "c": 753.23, "qqe": -8.23, "col": "灰", "acts": []}, "09:33": {"o": 753.25, "h": 753.65, "l": 752.95, "c": 753.6, "qqe": -2.47, "col": "灰", "acts": []}, "09:36": {"o": 753.68, "h": 753.93, "l": 753.38, "c": 753.43, "qqe": 0.32, "col": "灰", "acts": []}};
 var ch = echarts.init(document.getElementById('c'));
 ch.setOption({
-  title:{text:'实盘dashboard 2026-11-03 | 今日 -$182 (-0.1%) | 持仓:实盘:put 182张@754 | k3clean L25', left:'center', textStyle:{fontSize:14}},
+  title:{text:'实盘dashboard 2026-11-03 | 今日 +$910 (+0.7%) | 持仓:实盘:put 182张@754 | k3clean L25', left:'center', textStyle:{fontSize:14}},
   legend:{data:[
     {name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'},
     {name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'},
@@ -113,7 +113,7 @@ ch.setOption({
   ]
 });
 </script>
-<div id="tblWrap" style="max-width:1150px;margin:14px auto;padding:0 8px"><div style="font-size:14px;font-weight:bold;margin-bottom:6px">实盘信号单（实际成交 vs 信号预估）</div><div style="overflow-x:auto"><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap"><tr style="background:#f2f2f2"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:36</td><td>ST开盘开P</td><td>182</td><td>6.36</td><td>753.63</td><td>持仓中</td><td>—</td><td>753.72</td><td style="color:#e5484d;font-weight:bold">-$182(浮)</td><td style="color:#e5484d">-0.2%</td><td style="color:#e5484d">-$969</td><td style="color:#e5484d">-0.8%</td></tr><tr style="background:#f2f2f2;font-weight:bold"><td colspan="9">合计</td><td>-$182</td><td></td><td>-$969</td><td></td></tr></table></div><div style="font-size:11px;color:#888;margin-top:4px">实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准);开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div><div style="font-size:11px;color:#888;">Alpaca实际成交: 1笔, 最新09:36:20</div></div>
+<div id="tblWrap" style="max-width:1150px;margin:14px auto;padding:0 8px"><div style="font-size:14px;font-weight:bold;margin-bottom:6px">实盘信号单（实际成交 vs 信号预估）</div><div style="overflow-x:auto"><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap"><tr style="background:#f2f2f2"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:36</td><td>ST开盘开P</td><td>182</td><td>6.36</td><td>753.63</td><td>持仓中</td><td>—</td><td>753.56</td><td style="color:#1a9e54;font-weight:bold">+$910(浮)</td><td style="color:#1a9e54">+0.8%</td><td style="color:#1a9e54">+$802</td><td style="color:#1a9e54">+0.7%</td></tr><tr style="background:#f2f2f2;font-weight:bold"><td colspan="9">合计</td><td>+$910</td><td></td><td>+$802</td><td></td></tr></table></div><div style="font-size:11px;color:#888;margin-top:4px">实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准);开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div><div style="font-size:11px;color:#888;">Alpaca实际成交: 1笔, 最新09:36:20</div></div>
 <script>
 function toggleSeries(name){
   var c = window._waveChart;
@@ -150,7 +150,7 @@ const VH_SEG = [];
 const VH_MARKAREA = [[{xAxis:'09:30',itemStyle:{color:THEME.pnlBgColorST(-1.77)}},{xAxis:'09:36'}]];
 const VH_MARKLINE = [];
 const VH_ACTS = {"09:30": ["开put@753.25 ST开盘开put"]};
-const TITLES3 = {live: "实盘dashboard 2026-11-03 | 今日 -$182 (-0.1%) | 持仓:实盘:put 182张@754 | k3clean L25", vh: "2026-11-03 (ST版) | 不跳空 | 全天ST | +$0 (+0.0%)", qqe: "2026-11-03 (QQE版) | 不跳空 | 全天QQE | +$0 (+0.0%)"};
+const TITLES3 = {live: "实盘dashboard 2026-11-03 | 今日 +$910 (+0.7%) | 持仓:实盘:put 182张@754 | k3clean L25", vh: "2026-11-03 (ST版) | 不跳空 | 全天ST | +$0 (+0.0%)", qqe: "2026-11-03 (QQE版) | 不跳空 | 全天QQE | +$0 (+0.0%)"};
 const TITLES3E = {vh: "2026-11-03 ({st|ST}版) | 不跳空 | 全天{st|ST} | {pnl_pos|+$0 (+0.0%)}", qqe: "2026-11-03 ({qqe|QQE}版) | 不跳空 | 全天{qqe|QQE} | {pnl_pos|+$0 (+0.0%)}"};
 const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};
 const VH_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">ST VH版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:30</td><td>ST开盘开P</td><td>—</td><td>—</td><td>753.25</td><td>持仓中</td><td>—</td><td>—</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#e5484d\">~-$1,768</td><td style=\"color:#e5484d\">~-1.8%</td></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利；ST单按30分钟切段理论预估（段标签为理论切段预估，非实际成交），QQE单整单一段；非实际成交</div>";
