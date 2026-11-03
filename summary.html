@@ -55,7 +55,7 @@ document.getElementById('dayhint').textContent='共'+days.length+'天';
 
 <h2>分年曲线（每年从 $100k 起算）</h2>
 <p class="small">每年从 $100k 起算（周内复利、跨周不复利，与标准口径一致）；按钮切换按天/按周，悬浮显示本年累计值和当日/当周盈亏。</p>
-<button id="granBtn" style="background:#00a0a0;color:#fff;border:none;border-radius:16px;padding:6px 16px;font-size:14px;font-weight:bold;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.2)" onmouseover="this.style.background='#008888'" onmouseout="this.style.background='#00a0a0'">分年图：当前按天 · 点击切换到按周</button>
+<div style="text-align:right;margin:6px 0"><button id="btnDay" style="background:#00a0a0;color:#fff;border:1px solid #00a0a0;border-radius:16px 0 0 16px;padding:6px 16px;font-size:14px;font-weight:bold;cursor:pointer">按天</button><button id="btnWeek" style="background:#fff;color:#333;border:1px solid #00a0a0;border-radius:0 16px 16px 0;padding:6px 16px;font-size:14px;font-weight:bold;cursor:pointer;margin-left:-1px">按周</button></div>
 <h3 style="font-size:15px;margin:14px 0 2px">2024年</h3>
 <div id="chartY2024" class="chart"></div>
 <h3 style="font-size:15px;margin:14px 0 2px">2025年</h3>
@@ -173,8 +173,9 @@ var yearData={"2024": {"day": {"dates": ["2024-01-02", "2024-01-03", "2024-01-04
 function ytdOpt(dates, series){return {tooltip:{trigger:'axis',formatter:function(ps){var t=ps[0].axisValue+'<br/>';var u=(gran==='day'?'本日':'本周');ps.forEach(function(pp){t+=pp.marker+' '+pp.seriesName+': 本年累计 '+fmtFull(pp.data.value)+'（'+u+' '+fmtFull(pp.data.pnl)+'）<br/>';});return t;}},legend:{data:legendData},grid:{left:56,right:16,top:36,bottom:28},xAxis:{type:'category',data:dates},yAxis:{type:'value',axisLabel:{formatter:function(v){return fmtMoney(v);}}},series:series,dataZoom:[{type:'inside'}]};}
 var yearCharts={};
 ['2024','2025','2026'].forEach(function(y){yearCharts[y]=mkChart('chartY'+y, ytdOpt(yearData[y].day.dates, yearData[y].day.series));charts.push(yearCharts[y]);});
-function switchGran(){gran=(gran==='day')?'week':'day';document.getElementById('granBtn').textContent=(gran==='day')?'分年图：当前按天 · 点击切换到按周':'分年图：当前按周 · 点击切换到按天';['2024','2025','2026'].forEach(function(y){var d=yearData[y][gran];yearCharts[y].setOption({xAxis:{data:d.dates},series:d.series});});}
-document.getElementById('granBtn').onclick=switchGran;
+function setGran(g){gran=g;var bd=document.getElementById('btnDay'),bw=document.getElementById('btnWeek');if(g==='day'){bd.style.background='#00a0a0';bd.style.color='#fff';bw.style.background='#fff';bw.style.color='#333';}else{bw.style.background='#00a0a0';bw.style.color='#fff';bd.style.background='#fff';bd.style.color='#333';}['2024','2025','2026'].forEach(function(y){var d=yearData[y][gran];yearCharts[y].setOption({xAxis:{data:d.dates},series:d.series});});}
+document.getElementById('btnDay').onclick=function(){setGran('day');};
+document.getElementById('btnWeek').onclick=function(){setGran('week');};
 })();
 </script>
 </body>
