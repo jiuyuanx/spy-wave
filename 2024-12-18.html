@@ -44,8 +44,7 @@ ch.setOption({
   legend:{data:[
     {name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'},
     {name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'},
-    {name:'Supertrend上涨', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/></svg>'},
-    {name:'Supertrend下跌', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'},
+    {name:'st慢版', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'},
     {name:'st快版', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%231e40af%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff4500%22 stroke-width=%222%22/></svg>'},
     {name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'},
     {name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
@@ -54,7 +53,7 @@ ch.setOption({
     'cumslope','slope5',
     {name:'9mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(221,34,34,0.25)%22 stroke=%22rgba(221,34,34,1)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(0,170,68,0.25)%22 stroke=%22rgba(0,170,68,1)%22/></svg>'},
     {name:'9m QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(30,170,255,0.25)%22 stroke=%22rgba(30,170,255,0.7)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(255,130,180,0.25)%22 stroke=%22rgba(255,130,180,0.7)%22/></svg>'}
-  ], top:30, selected:{'cumslope':false,'slope5':false}},
+  ], top:30, selected:{'cumslope':false,'slope5':false,'st快版':false}},
   tooltip:Object.assign({trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
   dataZoom:[{type:'inside', xAxisIndex:[0,1,2,3]},{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}],
   grid:[{left:34,right:'8%',top:'12%',height:'38%'},{left:34,right:'8%',top:'53%',height:'42%'}],
@@ -63,7 +62,7 @@ ch.setOption({
          {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}},{type:'category',data:times,gridIndex:1,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}},{type:'value',gridIndex:0,min:-0.5,max:129.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],
   yAxis:[{type:'value',gridIndex:0,scale:true,max:612.66,axisLabel:{fontSize:8}},{type:'value',gridIndex:1,axisLabel:{fontSize:8}},{type:'value',gridIndex:0,scale:true,position:'right',splitLine:{show:false},axisLabel:{fontSize:8,color:'#20b2aa'}}],
   series:[
-    {name:'Supertrend填充', type:'custom', silent:true, z:1, data:stFill, xAxisIndex:0, yAxisIndex:0,
+    {name:'st慢版', type:'custom', silent:true, z:1, data:stFill, xAxisIndex:0, yAxisIndex:0,
       renderItem:function(params, api){
         var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6);
         if(v===v3) return null;
@@ -73,12 +72,12 @@ ch.setOption({
     {name:'3mK线', type:'candlestick', data:[[603.98,603.91,603.75,604.15],[603.92,603.58,603.47,604.1],[603.55,603.69,603.51,603.9],[603.68,603.7,603.61,603.9],[603.72,603.83,603.65,603.97],[603.83,603.99,603.7,604.0],[603.99,604.13,603.94,604.17],[604.14,604.32,603.92,604.33],[604.33,604.46,604.33,604.63],[604.45,604.61,604.32,604.66],[604.61,604.64,604.49,604.79],[604.64,604.95,604.6,604.97],[604.95,604.81,604.77,605.06],[604.81,604.96,604.68,605.0],[604.95,605.0,604.86,605.03],[605.01,604.93,604.85,605.04],[604.94,605.13,604.87,605.19],[605.13,605.2,605.11,605.42],[605.22,605.18,605.08,605.29],[605.19,605.4,605.14,605.41],[605.38,605.55,605.33,605.61],[605.55,605.71,605.5,605.78],[605.72,605.94,605.63,605.96],[605.93,605.95,605.83,606.0],[605.95,606.08,605.8,606.11],[606.09,606.13,606.02,606.25],[606.14,606.31,606.1,606.4],[606.32,606.2,606.12,606.39],[606.22,606.22,606.07,606.29],[606.21,605.96,605.96,606.32],[605.96,606.11,605.96,606.25],[606.1,606.02,605.91,606.15],[606.02,605.96,605.95,606.08],[605.98,605.72,605.66,605.98],[605.71,605.4,605.36,605.88],[605.39,604.88,604.82,605.4],[604.89,604.88,604.73,605.1],[604.86,604.86,604.63,604.95],[604.85,605.12,604.75,605.27],[605.13,605.63,605.13,605.65],[605.62,605.59,605.41,605.64],[605.56,605.49,605.41,605.68],[605.47,605.78,605.45,605.81],[605.78,605.68,605.6,605.81],[605.68,605.81,605.66,605.85],[605.81,605.89,605.79,605.91],[605.89,605.93,605.78,605.96],[605.93,606.07,605.88,606.11],[606.05,605.8,605.77,606.09],[605.8,605.76,605.69,605.86],[605.76,605.61,605.52,605.78],[605.58,605.57,605.53,605.82],[605.59,605.64,605.54,605.72],[605.65,605.65,605.58,605.74],[605.66,605.59,605.5,605.69],[605.6,605.92,605.57,605.94],[605.93,606.24,605.87,606.28],[606.23,606.23,606.13,606.31],[606.22,605.93,605.88,606.28],[605.94,605.68,605.64,606.0],[605.68,605.46,605.43,605.68],[605.47,605.78,605.3,605.83],[605.8,605.62,605.61,605.94],[605.6,605.45,605.35,605.61],[605.42,605.36,605.22,605.46],[605.35,605.43,605.3,605.45],[605.42,605.54,605.42,605.63],[605.54,605.38,605.33,605.57],[605.4,605.6,605.35,605.63],[605.6,605.57,605.51,605.61],[605.51,605.4,605.34,605.59],[605.4,605.33,605.2,605.48],[605.34,605.47,605.31,605.47],[605.46,605.36,605.34,605.57],[605.4,605.32,605.25,605.4],[605.34,605.37,605.22,605.45],[605.37,605.48,605.35,605.5],[605.47,605.52,605.46,605.6],[605.51,605.37,605.33,605.54],[605.38,605.21,605.2,605.42],[605.21,605.5,605.13,605.51],[605.51,605.65,605.48,605.66],[605.63,605.51,605.49,605.64],[605.51,605.33,605.32,605.52],[605.32,605.3,605.17,605.34],[605.28,605.46,605.21,605.46],[605.48,605.44,605.41,605.59],[605.46,605.52,605.36,605.55],[605.52,605.57,605.5,605.67],[605.57,605.47,605.43,605.66],[605.54,604.53,603.56,605.54],[604.55,602.76,602.64,604.58],[602.78,601.62,601.44,602.88],[601.64,601.21,600.67,601.67],[601.18,600.95,600.74,601.37],[600.94,600.57,600.31,601.25],[600.53,600.91,600.07,600.94],[600.9,601.14,600.71,601.58],[601.13,601.25,600.97,601.7],[601.27,600.08,600.03,601.48],[600.1,600.94,599.28,601.24],[600.93,600.66,600.38,601.25],[600.64,599.57,599.53,600.64],[599.52,600.18,599.45,600.6],[600.18,599.63,599.35,600.24],[599.6,598.13,598.09,599.68],[598.13,598.33,597.69,598.92],[598.33,597.69,597.61,599.04],[597.66,596.62,596.6,597.81],[596.6,596.44,596.09,596.92],[596.46,596.42,596.06,596.91],[596.44,595.46,594.89,596.5],[595.4,595.82,595.37,596.58],[595.87,595.14,595.05,596.2],[595.13,595.1,594.67,595.38],[595.11,594.08,594.0,595.29],[594.07,595.12,594.03,595.26],[595.13,594.95,594.9,595.89],[594.96,593.83,593.8,595.09],[593.8,593.14,592.92,593.92],[593.13,593.03,592.83,593.9],[592.98,591.57,591.52,593.17],[591.57,589.92,589.83,591.94],[589.91,588.43,587.59,590.27],[588.42,586.85,586.62,589.2],[586.86,588.43,586.3,588.54],[588.45,589.91,588.43,590.25],[589.89,589.95,589.37,590.44],[589.96,588.36,588.24,590.67],[588.37,586.3,585.89,588.47]], xAxisIndex:0, yAxisIndex:0,
       itemStyle:{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'},
       markArea:{silent:true,data:[[{xAxis:'09:30',itemStyle:{color:THEME.pnlBgColorST(7.27)}},{xAxis:'10:00'}],[{xAxis:'10:00',itemStyle:{color:THEME.pnlBgColorST(9.25)}},{xAxis:'10:30'}],[{xAxis:'10:30',itemStyle:{color:THEME.pnlBgColorST(5.63)}},{xAxis:'11:00'}],[{xAxis:'11:00',itemStyle:{color:THEME.pnlBgColorST(-6.95)}},{xAxis:'11:12'}],[{xAxis:'11:12',itemStyle:{color:THEME.pnlBgColorST(-3.81)}},{xAxis:'11:36'}],[{xAxis:'11:36',itemStyle:{color:THEME.pnlBgColorST(-1.38)}},{xAxis:'12:06'}],[{xAxis:'12:06',itemStyle:{color:THEME.pnlBgColorST(-0.25)}},{xAxis:'12:36'}],[{xAxis:'12:36',itemStyle:{color:THEME.pnlBgColorST(-2.6)}},{xAxis:'12:42'}],[{xAxis:'12:42',itemStyle:{color:THEME.pnlBgColorST(0.28)}},{xAxis:'13:12'}],[{xAxis:'13:12',itemStyle:{color:THEME.pnlBgColorST(0.22)}},{xAxis:'13:42'}],[{xAxis:'13:42',itemStyle:{color:THEME.pnlBgColorST(48.86)}},{xAxis:'14:12'}],[{xAxis:'14:12',itemStyle:{color:THEME.pnlBgColorST(13.58)}},{xAxis:'14:42'}],[{xAxis:'14:42',itemStyle:{color:THEME.pnlBgColorST(51.14)}},{xAxis:'15:12'}],[{xAxis:'15:12',itemStyle:{color:THEME.pnlBgColorST(102.68)}},{xAxis:'15:42'}],[{xAxis:'15:42',itemStyle:{color:THEME.pnlBgColorST(-16.6)}},{xAxis:'15:57'}]]}},
-    {name:'Supertrend上涨', type:'line', data:stUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#089981', width:2}, symbol:'none', showSymbol:false, z:5},
-    {name:'Supertrend下跌', type:'line', data:stDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#f23645', width:2}, symbol:'none', showSymbol:false, z:5},
+    {name:'st慢版', type:'line', data:stUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#089981', width:2}, symbol:'none', showSymbol:false, z:5},
+    {name:'st慢版', type:'line', data:stDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#f23645', width:2}, symbol:'none', showSymbol:false, z:5},
     {name:'st快版', type:'line', data:stFastUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#1e40af', width:2, opacity:0.5}, symbol:'none', showSymbol:false, z:5},
     {name:'st快版', type:'line', data:stFastDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff4500', width:2, opacity:0.5}, symbol:'none', showSymbol:false, z:5},
-    {name:'ST翻转', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:10, z:6, data:stFlips, label:{show:true, fontSize:12}},
-    {name:'快版ST翻转', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:8, z:6, data:stFastFlips, label:{show:true, fontSize:10}},
+    {name:'st慢版', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:10, z:6, data:stFlips, label:{show:true, fontSize:12}},
+    {name:'st快版', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:8, z:6, data:stFastFlips, label:{show:true, fontSize:10}},
     {name:'9mK线', type:'candlestick', data:[[NaN,NaN,NaN,NaN],[603.98,603.69,603.47,604.15],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[603.68,603.99,603.61,604.0],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[603.99,604.46,603.92,604.63],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[604.45,604.95,604.32,604.97],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[604.95,605.0,604.68,605.06],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.01,605.2,604.85,605.42],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.22,605.55,605.08,605.61],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.55,605.95,605.5,606.0],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.95,606.31,605.8,606.4],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[606.32,605.96,605.96,606.39],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.96,605.96,605.91,606.25],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.98,604.88,604.82,605.98],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[604.89,605.12,604.63,605.27],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.13,605.49,605.13,605.68],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.47,605.81,605.45,605.85],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.81,606.07,605.78,606.11],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[606.05,605.61,605.52,606.09],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.58,605.65,605.53,605.82],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.66,606.24,605.5,606.28],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[606.23,605.68,605.64,606.31],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.68,605.62,605.3,605.94],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.6,605.43,605.22,605.61],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.42,605.6,605.33,605.63],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.6,605.33,605.2,605.61],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.34,605.32,605.25,605.57],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.34,605.52,605.22,605.6],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.51,605.5,605.13,605.54],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.51,605.33,605.32,605.66],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.32,605.44,605.17,605.59],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.46,605.47,605.36,605.67],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[605.54,601.62,601.44,605.54],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[601.64,600.57,600.31,601.67],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[600.53,601.25,600.07,601.7],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[601.27,600.66,599.28,601.48],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[600.64,599.63,599.35,600.64],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[599.6,597.69,597.61,599.68],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[597.66,596.42,596.06,597.81],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[596.44,595.14,594.89,596.58],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[595.13,595.12,594.0,595.38],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[595.13,593.14,592.92,595.89],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[593.13,589.92,589.83,593.9],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[589.91,588.43,586.3,590.27],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN],[588.45,588.36,588.24,590.67],[NaN,NaN,NaN,NaN],[NaN,NaN,NaN,NaN]], xAxisIndex:0, yAxisIndex:0,
     itemStyle:THEME.k9.style,
     barWidth:THEME.k9.barWidth},
@@ -153,18 +152,28 @@ const VG_SEG_SCAT = [{"value": ["10:00", 608.56], "lbl": "+7.3%", "label": {"col
 const VG_MARKLINE = [{"xAxis": "10:00"}, {"xAxis": "10:30"}, {"xAxis": "11:00"}, {"xAxis": "12:06"}, {"xAxis": "12:36"}, {"xAxis": "13:12"}, {"xAxis": "13:42"}, {"xAxis": "14:12"}, {"xAxis": "14:42"}, {"xAxis": "15:12"}, {"xAxis": "15:42"}];
 const VG_ACTS = {"09:30": ["开call@603.92 ST开盘开call"], "11:12": ["平call@605.39 ST翻转平call", "开put@605.39 ST翻转开put"], "11:36": ["平put@605.78 ST翻转平put", "开call@605.78 ST翻转开call"], "12:42": ["平call@605.35 ST翻转平call", "开put@605.35 ST翻转开put"], "15:57": ["平put@588.63 日终平仓(1m15:55)"]};
 const QQE_ACTS = {"09:30": [], "09:33": ["开put@603.55 蓝衰减信号(峰14)"], "09:36": [], "09:39": [], "09:42": [], "09:45": [], "09:48": ["平put@604.14 蓝出现平put(需1根)"], "09:51": [], "09:54": ["开call@604.4509 两根长蓝跟随"], "09:57": [], "10:00": [], "10:03": [], "10:06": [], "10:09": [], "10:12": [], "10:15": [], "10:18": [], "10:21": [], "10:24": [], "10:27": [], "10:30": [], "10:33": [], "10:36": [], "10:39": [], "10:42": [], "10:45": [], "10:48": [], "10:51": [], "10:54": [], "10:57": ["持call@605.9603 蓝衰减持有(峰43,波29,比0.61>0.56)"], "11:00": ["平call@606.1 hold-watch翻仓(峰43,比0.51)", "开put@606.1 翻仓开put"], "11:03": [], "11:06": [], "11:09": [], "11:12": [], "11:15": [], "11:18": [], "11:21": [], "11:24": [], "11:27": ["平put@605.62 红衰减翻仓(峰27,波2)", "开call@605.62 翻仓开call"], "11:30": [], "11:33": [], "11:36": [], "11:39": [], "11:42": [], "11:45": [], "11:48": [], "11:51": [], "11:54": ["持call@605.805 蓝衰减持有(峰16,波1,比0.72>0.56)"], "11:57": ["平call@605.765 hold-watch翻仓(峰16,比0.49)", "开put@605.765 翻仓开put"], "12:00": [], "12:03": [], "12:06": [], "12:09": [], "12:12": [], "12:15": ["平put@605.93 红消失平put(需1根)"], "12:18": [], "12:21": ["开call@606.22 灰后跟随"], "12:24": ["平call@605.94 跟随失败平call"], "12:27": [], "12:30": [], "12:33": [], "12:36": [], "12:39": [], "12:42": ["开put@605.35 两根长红跟随"], "12:45": [], "12:48": ["平put@605.54 红衰减短峰只平(峰10)"], "12:51": [], "12:54": [], "12:57": [], "13:00": [], "13:03": ["开put@605.34 两根长红跟随"], "13:06": ["平put@605.46 跟随失败平put"], "13:09": [], "13:12": ["开put@605.335 两根长红跟随"], "13:15": [], "13:18": ["平put@605.47 红衰减短峰只平(峰9)"], "13:21": [], "13:24": [], "13:27": [], "13:30": [], "13:33": [], "13:36": [], "13:39": [], "13:42": [], "13:45": [], "13:48": [], "13:51": [], "13:54": [], "13:57": [], "14:00": [], "14:03": ["持-@602.78 3K跳过跟随P(净-2.81)"], "14:06": ["持-@601.64 3K跳过跟随P(净-3.92)"], "14:09": ["持-@601.18 3K跳过跟随P(净-3.34)"], "14:12": ["开put@600.942 两根长红跟随"], "14:15": [], "14:18": [], "14:21": [], "14:24": ["持put@601.27 红衰减持有(峰41,波3,比0.76>0.28)"], "14:27": [], "14:30": ["持put@600.93 红衰减持有(峰41,波5,比0.62>0.25)"], "14:33": ["持put@600.64 红衰减持有(峰41,波6,比0.55>0.17)"], "14:36": [], "14:39": ["持put@600.18 红衰减持有(峰41,波8,比0.49>0.23)"], "14:42": [], "14:45": [], "14:48": [], "14:51": [], "14:54": [], "14:57": [], "15:00": [], "15:03": [], "15:06": [], "15:09": [], "15:12": [], "15:15": [], "15:18": [], "15:21": ["持put@594.96 红衰减持有(峰35,波22,比0.70>0.19)"], "15:24": [], "15:27": [], "15:30": [], "15:33": [], "15:36": ["持put@589.91 3K止盈开始(净-3.21)"], "15:39": [], "15:42": [], "15:45": ["平put@588.45 3K止盈平仓(等3根)"], "15:48": [], "15:51": [], "15:54": [], "15:57": []};
-const RICH = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};
+const CE_PINS = [{"coord": ["09:30", 16.8], "value": "开C", "itemStyle": {"color": "#66cc66"}, "rs": "CE开盘"}, {"coord": ["15:57", -25.7], "value": "平P", "itemStyle": {"color": "#7ab27a"}, "rs": "日终平仓"}, {"coord": ["11:09", 4.0], "value": "翻P", "itemStyle": {"color": "#a80000"}, "rs": "CE卖出"}, {"coord": ["11:39", 5.4], "value": "翻C", "itemStyle": {"color": "#005000"}, "rs": "CE买入"}, {"coord": ["12:30", -3.8], "value": "翻P", "itemStyle": {"color": "#a80000"}, "rs": "CE卖出"}];
+const CE_SPINS = [{"coord": [0.8333, 603.91], "value": "开C", "itemStyle": {"color": "#66cc66"}, "rs": "CE开盘"}, {"coord": [129.8333, 586.3], "value": "平P", "itemStyle": {"color": "#7ab27a"}, "rs": "日终平仓"}, {"coord": [33.8333, 605.72], "value": "翻P", "itemStyle": {"color": "#a80000"}, "rs": "CE卖出"}, {"coord": [43.8333, 605.68], "value": "翻C", "itemStyle": {"color": "#005000"}, "rs": "CE买入"}, {"coord": [60.8333, 605.46], "value": "翻P", "itemStyle": {"color": "#a80000"}, "rs": "CE卖出"}];
+const CE_SCAT = [{"value":["11:09",607.02],"lbl":"+18.7%","label":{"color":THEME.tradeLabelColor(18.681675100000852)}},{"value":["11:39",608.56],"lbl":"+0.3%","label":{"color":THEME.tradeLabelColor(0.2966799000008553)}},{"value":["12:30",607.02],"lbl":"-2.1%","label":{"color":THEME.tradeLabelColor(-2.0610848999992464)}},{"value":["15:57",607.02],"lbl":"+303.7%","label":{"color":THEME.tradeLabelColor(303.68864790000157)}}];
+const CE_MARKAREA = [[{xAxis:'09:30',itemStyle:{color:THEME.pnlBgColor(18.68)}},{xAxis:'11:09'}],[{xAxis:'11:09',itemStyle:{color:THEME.pnlBgColor(0.3)}},{xAxis:'11:39'}],[{xAxis:'11:39',itemStyle:{color:THEME.pnlBgColor(-2.06)}},{xAxis:'12:30'}],[{xAxis:'12:30',itemStyle:{color:THEME.pnlBgColor(303.69)}},{xAxis:'15:57'}]];
+const CE_TABLE = "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:30</td><td>CE开盘C</td><td>—</td><td>—</td><td>603.92</td><td>11:09</td><td>—</td><td>605.71</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#1a9e54\">~+$18,682</td><td style=\"color:#1a9e54\">~+18.7%</td></tr><tr><td>2</td><td>11:09</td><td>CE卖出P</td><td>—</td><td>—</td><td>605.71</td><td>11:39</td><td>—</td><td>605.68</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#1a9e54\">~+$352</td><td style=\"color:#1a9e54\">~+0.3%</td></tr><tr><td>3</td><td>11:39</td><td>CE买入C</td><td>—</td><td>—</td><td>605.68</td><td>12:30</td><td>—</td><td>605.47</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#e5484d\">~-$2,453</td><td style=\"color:#e5484d\">~-2.1%</td></tr><tr><td>4</td><td>12:30</td><td>CE卖出P</td><td>—</td><td>—</td><td>605.47</td><td>15:57</td><td>—</td><td>586.30</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#1a9e54\">~+$354,041</td><td style=\"color:#1a9e54\">~+303.7%</td></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$370,622</td><td></td></tr>";
+const CE_ACTS = {"09:30": ["开C@603.92 CE开盘"], "11:09": ["平C@605.71 CE翻转", "开P@605.71 CE卖出"], "11:39": ["平P@605.68 CE翻转", "开C@605.68 CE买入"], "12:30": ["平C@605.47 CE翻转", "开P@605.47 CE卖出"], "15:57": ["平P@586.3 日终平仓"]};
+const CE_BS = [{"value": ["11:09", 605.98], "label": {"formatter": "S", "position": "top", "backgroundColor": "#e5484d", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["11:39", 605.6], "label": {"formatter": "B", "position": "bottom", "backgroundColor": "#1a9e54", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["12:30", 605.68], "label": {"formatter": "S", "position": "top", "backgroundColor": "#e5484d", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}];
+const CE_COMPARE = "<span style=\"color:#000\">比QQE</span> <span style=\"color:#1a9e54\">+178.2%</span>";
+const RICH = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'},ce:{color:'#e5484d',fontWeight:'bold'}};
 const TITLES = {
   ST: {echart: "2024-12-18 ({st|ST}版) | 不跳空 | 全天{st|ST} | {pnl_pos|+$360,916 (+360.9%)}", plain: "2024-12-18 (ST版) | 不跳空 | 全天ST | +$360,916 (+360.9%)"},
-  QQE: {echart: "2024-12-18 ({qqe|QQE}版) | 不跳空 | 全天{qqe|QQE} | {pnl_pos|+$192,380 (+192.4%)}", plain: "2024-12-18 (QQE版) | 不跳空 | 全天QQE | +$192,380 (+192.4%)"}
+  QQE: {echart: "2024-12-18 ({qqe|QQE}版) | 不跳空 | 全天{qqe|QQE} | {pnl_pos|+$192,380 (+192.4%)}", plain: "2024-12-18 (QQE版) | 不跳空 | 全天QQE | +$192,380 (+192.4%)"},
+  CE: {echart: "2024-12-18 ({ce|CE}版) | 不跳空 | 全天{ce|CE} | {pnl_pos|+$370,622 (+370.6%)}", plain: "2024-12-18 (CE版) | 不跳空 | 全天CE | +$370,622 (+370.6%)"}
 };
 function switchVersion(v) {
   curVer = v;
   var isST = (v === 'ST');
-  var pinsData = isST ? VG_PINS : pins;
-  var spinsData = isST ? VG_SPINS : spins;
-  var scatData = isST ? VG_SCAT : QQE_SCAT;
-  var actsData = isST ? VG_ACTS : QQE_ACTS;
+  var isCE = (v === 'CE');
+  var pinsData = isCE ? CE_PINS : (isST ? VG_PINS : pins);
+  var spinsData = isCE ? CE_SPINS : (isST ? VG_SPINS : spins);
+  var scatData = isCE ? CE_SCAT : (isST ? VG_SCAT : QQE_SCAT);
+  var actsData = isCE ? CE_ACTS : (isST ? VG_ACTS : QQE_ACTS);
   if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }
   ch.setOption({
     title: {text: TITLES[v].echart, left: 'center', textStyle: {fontSize: 14, rich: RICH}},
@@ -172,37 +181,43 @@ function switchVersion(v) {
       {name: '1m曲线', markPoint: {data: spinsData}},
       {name: 'QQE', markPoint: {data: pinsData}},
       {name: '每单盈亏', data: scatData, label: {show: true, opacity: 1, fontSize: isST ? THEME.tradeLabel.fontSize : 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}},
-      {name: '3mK线', markArea: {silent: true, data: isST ? VG_MARKAREA : QQE_MARKAREA}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: isST ? VG_MARKLINE : []}},
-      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: THEME.segLabel.fontSize, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: isST ? VG_SEG_SCAT : []}
+      {name: '3mK线', markArea: {silent: true, data: isCE ? CE_MARKAREA : (isST ? VG_MARKAREA : QQE_MARKAREA)}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: isST ? VG_MARKLINE : []}},
+      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: THEME.segLabel.fontSize, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: isST ? VG_SEG_SCAT : []},
+      {name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []}
     ]
   });
   var tbl = document.querySelector('table');
-  if (tbl) { tbl.innerHTML = isST ? VG_TABLE : QQE_TABLE; }
+  if (tbl) { tbl.innerHTML = isCE ? CE_TABLE : (isST ? VG_TABLE : QQE_TABLE); }
   for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }
   document.title = TITLES[v].plain;
-  if (verBtn) { verBtn.textContent = isST ? '切到QQE版' : '切到ST版'; verBtn.style.background = isST ? '#2b7fff' : '#00a0a0'; verBtn.style.borderColor = isST ? '#2b7fff' : '#00a0a0'; verBtn.style.color = '#fff'; }
+  if (window._verBtns) { window._verBtns.forEach(function(b) { var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }
+  var vc = document.getElementById('verCompare');
+  if (vc) { if (v === 'CE') { if (!window._vcOrig) { window._vcOrig = vc.innerHTML; } vc.innerHTML = CE_COMPARE; } else { if (window._vcOrig) { vc.innerHTML = window._vcOrig; } } }
 }
 var curVer = 'ST';
-var verBtn = null;
-function toggleVersion() { switchVersion(curVer === 'ST' ? 'QQE' : 'ST'); }
 (function() {
   var sel = document.getElementById('daypick');
   if (!sel) { return; }
-  var b = document.createElement('button');
-  b.id = 'verToggle';
-  b.type = 'button';
-  b.textContent = '切到QQE版';
-  b.style.fontSize = '13px';
-  b.style.padding = '2px 8px';
-  b.style.marginLeft = '8px';
-  b.style.borderRadius = '10px';
-  b.style.border = '1px solid #ccc';
-  b.style.background = '#fff';
-  b.style.color = '#333';
-  b.style.cursor = 'pointer';
-  b.onclick = function() { toggleVersion(); };
-  sel.parentNode.insertBefore(b, sel.nextSibling);
-  verBtn = b;
+  var wrap = document.createElement('span');
+  window._verBtns = [];
+  [['ST','ST版'],['QQE','QQE版'],['CE','CE版']].forEach(function(p) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.ver = p[0];
+    b.textContent = p[1];
+    b.style.fontSize = '13px';
+    b.style.padding = '2px 8px';
+    b.style.marginLeft = '8px';
+    b.style.borderRadius = '10px';
+    b.style.border = '1px solid #ccc';
+    b.style.background = '#fff';
+    b.style.color = '#333';
+    b.style.cursor = 'pointer';
+    b.onclick = function() { switchVersion(p[0]); };
+    wrap.appendChild(b);
+    window._verBtns.push(b);
+  });
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
   var dh = document.getElementById('dayhint');
   if (dh) dh.style.display = 'none';
   var cs = document.createElement('span');
@@ -211,11 +226,11 @@ function toggleVersion() { switchVersion(curVer === 'ST' ? 'QQE' : 'ST'); }
   cs.style.fontSize = '13px';
   cs.style.marginLeft = '8px';
   cs.style.fontWeight = 'bold';
-  sel.parentNode.insertBefore(cs, b.nextSibling);
+  sel.parentNode.insertBefore(cs, wrap.nextSibling);
   if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
 })();
 switchVersion('ST');
 // 去ST上涨下跌legend (用户不想关ST, 故直接去掉开关, 线常显)
-try { var lg = ch.getOption().legend; if (lg && lg[0] && lg[0].data) { var stLegFiltered = lg[0].data.filter(function(it){ var nm = (typeof it === 'string') ? it : it.name; return nm !== 'Supertrend上涨' && nm !== 'Supertrend下跌'; }); ch.setOption({legend: {data: stLegFiltered}}); } } catch (e) {}
+
 </script>
 </body></html>
