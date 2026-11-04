@@ -1224,7 +1224,7 @@ def main():
     _ce_today_l = sig["low"].iloc[today_idx].to_numpy(float)
     _ce_today_h = sig["high"].iloc[today_idx].to_numpy(float)
     _ce_last_hm = tstrs[today_idx[-1]]
-    _ce_eod = (WAVE_DATE is not None) or (_ce_last_hm == "15:57") or (
+    _ce_eod = bool(WAVE_DATE) or (_ce_last_hm == "15:57") or (
         vh_live._is_early_close_day(sig["t"].iloc[today_idx[-1]]) and _ce_last_hm == "12:57")
     _ce_trades = []  # 已平: {dir,px0,obi,reason,cbi,px1,close_reason} (obi/cbi = 当日位置)
     _ce_open = None  # 盘中未平: {dir,px0,obi,reason}
