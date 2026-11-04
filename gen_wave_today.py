@@ -1170,6 +1170,216 @@ def main():
     vh_title_echart = day_str + " ({st|ST}版) | " + gap_e + " | " + _strat_e(st_strat) + " | " + vh_pnl_e
     qqe_title_echart = day_str + " ({qqe|QQE}版) | " + gap_e + " | 全天{qqe|QQE} | " + qqe_pnl_e
 
+    # ---- CE版 (Chandelier Exit, ATR1x1.85 Heikin Ashi): 与研究 ce_backtest.py 同算法。
+    # 方向在全 sig (warmup+当日) 上连续算, 不按日重置; 当日交易按日页口径
+    # (-100口径Gamma, 日内$100k sequential, 信号bar记时间、下根开盘结算)。
+    # 盘中未平仓只算浮动 (与 VH/QQE 持仓中行一致); 仅完整日 (回放/15:57/早收12:57) 日终平。
+    def _ce_compute(df):
+        o = df["open"].to_numpy(float)
+        h = df["high"].to_numpy(float)
+        l = df["low"].to_numpy(float)
+        c = df["close"].to_numpy(float)
+        n = len(df)
+        ha_c = (o + h + l + c) / 4.0
+        ha_o = np.empty(n)
+        ha_o[0] = (o[0] + c[0]) / 2.0
+        for i in range(1, n):
+            ha_o[i] = (ha_o[i - 1] + ha_c[i - 1]) / 2.0
+        ha_h = np.maximum(np.maximum(h, ha_o), ha_c)
+        ha_l = np.minimum(np.minimum(l, ha_o), ha_c)
+        tr_arr = np.empty(n)
+        tr_arr[0] = ha_h[0] - ha_l[0]
+        for i in range(1, n):
+            tr_arr[i] = max(ha_h[i] - ha_l[i], abs(ha_h[i] - ha_c[i - 1]),
+                            abs(ha_l[i] - ha_c[i - 1]))
+        atr_val = 1.85 * tr_arr  # RMA(1) = TR 本身
+        long_raw = ha_h - atr_val
+        short_raw = ha_l + atr_val
+        long_stop = np.empty(n)
+        short_stop = np.empty(n)
+        long_stop[0] = long_raw[0]
+        short_stop[0] = short_raw[0]
+        for i in range(1, n):
+            long_stop[i] = (max(long_raw[i], long_stop[i - 1])
+                            if ha_c[i - 1] > long_stop[i - 1] else long_raw[i])
+            short_stop[i] = (min(short_raw[i], short_stop[i - 1])
+                             if ha_c[i - 1] < short_stop[i - 1] else short_raw[i])
+        dir_ = np.ones(n, dtype=int)
+        for i in range(1, n):
+            if ha_c[i] > short_stop[i - 1]:
+                dir_[i] = 1
+            elif ha_c[i] < long_stop[i - 1]:
+                dir_[i] = -1
+            else:
+                dir_[i] = dir_[i - 1]
+        buy_sig = np.zeros(n, dtype=bool)
+        sell_sig = np.zeros(n, dtype=bool)
+        buy_sig[1:] = (dir_[1:] == 1) & (dir_[:-1] == -1)
+        sell_sig[1:] = (dir_[1:] == -1) & (dir_[:-1] == 1)
+        return dir_, buy_sig, sell_sig
+
+    _ce_dir, _ce_buy, _ce_sell = _ce_compute(sig)
+    _ce_today_o = sig["open"].iloc[today_idx].to_numpy(float)
+    _ce_today_c = sig["close"].iloc[today_idx].to_numpy(float)
+    _ce_today_l = sig["low"].iloc[today_idx].to_numpy(float)
+    _ce_today_h = sig["high"].iloc[today_idx].to_numpy(float)
+    _ce_last_hm = tstrs[today_idx[-1]]
+    _ce_eod = (WAVE_DATE is not None) or (_ce_last_hm == "15:57") or (
+        vh_live._is_early_close_day(sig["t"].iloc[today_idx[-1]]) and _ce_last_hm == "12:57")
+    _ce_trades = []  # 已平: {dir,px0,obi,reason,cbi,px1,close_reason} (obi/cbi = 当日位置)
+    _ce_open = None  # 盘中未平: {dir,px0,obi,reason}
+    _ce_m = len(today_idx)
+    if day_str != "2026-06-17" and _ce_m >= 2:
+        for k in range(_ce_m):
+            bi = today_idx[k]
+            is_first = (k == 0)
+            is_last = (k == _ce_m - 1)
+            if _ce_open is None and is_first:
+                _d0 = "call" if _ce_dir[bi] == 1 else "put"
+                _ce_open = {"dir": _d0, "px0": float(_ce_today_o[1]), "obi": 0,
+                            "reason": "CE开盘"}
+                continue
+            if _ce_open is not None:
+                if _ce_buy[bi] and _ce_open["dir"] != "call":
+                    _px1 = float(_ce_today_o[k + 1]) if not is_last else float(_ce_today_c[k])
+                    _ce_trades.append({**_ce_open, "cbi": k, "px1": _px1,
+                                       "close_reason": "CE翻转"})
+                    _ce_open = ({"dir": "call", "px0": float(_ce_today_o[k + 1]), "obi": k,
+                                 "reason": "CE买入"} if not is_last else None)
+                    continue
+                if _ce_sell[bi] and _ce_open["dir"] != "put":
+                    _px1 = float(_ce_today_o[k + 1]) if not is_last else float(_ce_today_c[k])
+                    _ce_trades.append({**_ce_open, "cbi": k, "px1": _px1,
+                                       "close_reason": "CE翻转"})
+                    _ce_open = ({"dir": "put", "px0": float(_ce_today_o[k + 1]), "obi": k,
+                                 "reason": "CE卖出"} if not is_last else None)
+                    continue
+            if is_last and _ce_open is not None and _ce_eod:
+                _ce_trades.append({**_ce_open, "cbi": k, "px1": float(_ce_today_c[k]),
+                                   "close_reason": "日终平"})
+                _ce_open = None
+    _ce_rts = []
+    for tr in _ce_trades:
+        _ce_rts.append({"obi": today_idx[tr["obi"]], "odr": tr["dir"], "opx": tr["px0"],
+                        "ors": tr["reason"], "cbi": today_idx[tr["cbi"]], "cpx": tr["px1"],
+                        "crs": tr["close_reason"], "closed": True,
+                        "est_roi": gamma_roi_100(tr["dir"], tr["px0"], tr["px1"])})
+    if _ce_open is not None:
+        _ce_rts.append({"obi": today_idx[_ce_open["obi"]], "odr": _ce_open["dir"],
+                        "opx": _ce_open["px0"], "ors": _ce_open["reason"],
+                        "cbi": today_idx[-1], "cpx": float(_ce_today_c[-1]),
+                        "crs": None, "closed": False,
+                        "est_roi": gamma_roi_100(_ce_open["dir"], _ce_open["px0"],
+                                                 float(_ce_today_c[-1]))})
+    ce_inner, ce_tot, ce_tot_pct = _est_table_inner(
+        _ce_rts,
+        "CE版信号单（Gamma理论预估，-100口径）",
+        "预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交")
+    ce_title_txt = (f"{day_str} (CE版) | {gap_txt} | 全天CE | "
+                    f"{'+' if ce_tot >= 0 else '-'}${abs(ce_tot):,.0f} ({ce_tot_pct:+.1%})")
+    ce_pnl_e = ("{pnl_pos|+" if ce_tot >= 0 else "{pnl_neg|-") + f"${abs(ce_tot):,.0f} ({ce_tot_pct:+.1%})" + "}"
+    ce_title_echart = day_str + " ({ce|CE}版) | " + gap_e + " | 全天{ce|CE} | " + ce_pnl_e
+    # CE 图钉/价格钉: 非翻在前(时间序), 翻在后(时间序), 与注入器一致
+    def _ce_letter(d):
+        return "C" if d == "call" else "P"
+
+    def _ce_pin_color(kind, d):
+        if kind == "flip":
+            return "#005000" if d == "call" else "#a80000"
+        if kind == "open":
+            return "#66cc66" if d == "call" else "#ff6666"
+        return "#b27a7a" if d == "call" else "#7ab27a"
+
+    def _ce_yq(p):
+        hv = vals[p] if p < len(vals) else None
+        if hv is None or (isinstance(hv, float) and np.isnan(hv)):
+            return 5
+        return round(hv * 1.15 + (0.5 if hv > 0 else -0.5), 1)
+
+    _ce_nonflip = []
+    _ce_flips = []
+    _ce_all_opens = [(tr["obi"], tr["reason"], tr["dir"]) for tr in _ce_trades]
+    if _ce_open is not None:
+        _ce_all_opens.append((_ce_open["obi"], _ce_open["reason"], _ce_open["dir"]))
+    for (_obi, _rs, _dr) in _ce_all_opens:
+        if _rs == "CE开盘":
+            _ce_nonflip.append((_obi, "开" + _ce_letter(_dr),
+                                _ce_pin_color("open", _dr), "CE开盘"))
+        else:
+            _ce_flips.append((_obi, "翻" + _ce_letter(_dr),
+                              _ce_pin_color("flip", _dr),
+                              "CE买入" if _dr == "call" else "CE卖出"))
+    if _ce_trades:
+        _lt = _ce_trades[-1]
+        _ce_nonflip.append((_lt["cbi"], "平" + _ce_letter(_lt["dir"]),
+                            _ce_pin_color("close", _lt["dir"]),
+                            "日终平仓" if _lt["close_reason"] == "日终平" else "CE翻转"))
+    _ce_nonflip.sort()
+    _ce_flips.sort()
+    _ce_ordered = _ce_nonflip + _ce_flips
+    ce_pins = [{"coord": [tstrs[today_idx[p]], _ce_yq(p)], "value": v,
+                "itemStyle": {"color": c}, "rs": rs} for (p, v, c, rs) in _ce_ordered]
+    ce_spins = [{"coord": [round(p + 2.5 / 3, 4), round(float(_ce_today_c[p]), 2)],
+                 "value": v, "itemStyle": {"color": c}, "rs": rs}
+                for (p, v, c, rs) in _ce_ordered]
+    # CE 每单标签 (VH 风格) + 行错开, 共用 VH/QQE 的 _base/_row_h
+    _ce_placed, _ce_scat_data = [], []
+    _ce_max_row = 0
+    for tr in _ce_trades:
+        _cbi = tr["cbi"]
+        _row = 0
+        while any(abs(_cbi - _oc) < 15 and _or == _row for (_oc, _or) in _ce_placed):
+            _row += 1
+        _ce_placed.append((_cbi, _row))
+        _ce_max_row = max(_ce_max_row, _row)
+        _yy = round(_base + _row * _row_h, 2)
+        _vpct = gamma_roi_100(tr["dir"], tr["px0"], tr["px1"]) * 100
+        _ce_scat_data.append(
+            '{"value":["%s",%.2f],"lbl":"%s","label":{"color":THEME.tradeLabelColor(%s)}}' % (
+                tstrs[today_idx[_cbi]], _yy, f"{_vpct:+.1f}%", repr(float(_vpct))))
+    ce_scat_js = "[" + ",".join(_ce_scat_data) + "]"
+    y_max_js = max(y_max_js, round(_base + (_ce_max_row + 1) * _row_h + _rng * 0.05, 2))
+    # CE 色带 (已平单; 盘中未平画浮动带到最后一根, 与 QQE 持仓带一致)
+    _ce_ma = []
+    for tr in _ce_trades:
+        _pct = round(gamma_roi_100(tr["dir"], tr["px0"], tr["px1"]) * 100, 2)
+        _ce_ma.append("[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
+            tstrs[today_idx[tr["obi"]]], _pct, tstrs[today_idx[tr["cbi"]]]))
+    if _ce_open is not None:
+        _fpct = round(gamma_roi_100(_ce_open["dir"], _ce_open["px0"],
+                                    float(_ce_today_c[-1])) * 100, 2)
+        _ce_ma.append("[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
+            tstrs[today_idx[_ce_open["obi"]]], _fpct, tstrs[today_idx[-1]]))
+    ce_mark_area_js = "[" + ",".join(_ce_ma) + "]"
+    # CE tooltip 动作 (与生成器 acts 格式一致: 开call@px 原因)
+    ce_acts = {}
+    for tr in _ce_trades:
+        _ot = tstrs[today_idx[tr["obi"]]]
+        _ct = tstrs[today_idx[tr["cbi"]]]
+        ce_acts.setdefault(_ot, []).append(
+            f"开{tr['dir']}@{tr['px0']:.2f} {tr['reason']}")
+        _crs = "日终平仓" if tr["close_reason"] == "日终平" else "CE翻转"
+        ce_acts.setdefault(_ct, []).append(
+            f"平{tr['dir']}@{tr['px1']:.2f} {_crs}")
+    if _ce_open is not None:
+        ce_acts.setdefault(tstrs[today_idx[_ce_open["obi"]]], []).append(
+            f"开{_ce_open['dir']}@{_ce_open['px0']:.2f} {_ce_open['reason']}")
+    # CE 红绿 B/S 标签 (信号bar锚定, 跳过首根 dayopen; 与注入器一致)
+    ce_bs = []
+    for k in range(1, _ce_m):
+        bi = today_idx[k]
+        if _ce_buy[bi]:
+            ce_bs.append({"value": [tstrs[bi], round(float(_ce_today_l[k]), 2)],
+                          "label": {"formatter": "B", "position": "bottom",
+                                    "backgroundColor": "#1a9e54", "color": "#fff",
+                                    "borderRadius": 4, "padding": [3, 6], "fontSize": 12}})
+        elif _ce_sell[bi]:
+            ce_bs.append({"value": [tstrs[bi], round(float(_ce_today_h[k]), 2)],
+                          "label": {"formatter": "S", "position": "top",
+                                    "backgroundColor": "#e5484d", "color": "#fff",
+                                    "borderRadius": 4, "padding": [3, 6], "fontSize": 12}})
+    ce_bs_js = json.dumps(ce_bs, ensure_ascii=False)
+
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
     tj = {"day": day_str, "equity": equity,
@@ -1641,11 +1851,20 @@ def main():
     _sw.append("const VH_MARKAREA = " + vh_mark_area_js + ";")
     _sw.append("const VH_MARKLINE = " + vh_markline_js + ";")
     _sw.append("const VH_ACTS = " + json.dumps(_vh_acts, ensure_ascii=False) + ";")
+    _sw.append("const CE_PINS = " + json.dumps(ce_pins, ensure_ascii=False) + ";")
+    _sw.append("const CE_SPINS = " + json.dumps(ce_spins, ensure_ascii=False) + ";")
+    _sw.append("const CE_SCAT = " + ce_scat_js + ";")
+    _sw.append("const CE_MARKAREA = " + ce_mark_area_js + ";")
+    _sw.append("const CE_ACTS = " + json.dumps(ce_acts, ensure_ascii=False) + ";")
+    _sw.append("const CE_INNER = " + json.dumps(ce_inner, ensure_ascii=False) + ";")
+    _sw.append("const CE_BS = " + ce_bs_js + ";")
     _sw.append("const TITLES3 = {live: " + json.dumps(title_txt, ensure_ascii=False)
                + ", vh: " + json.dumps(vh_title_txt, ensure_ascii=False)
-               + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False) + "};")
+               + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False)
+               + ", ce: " + json.dumps(ce_title_txt, ensure_ascii=False) + "};")
     _sw.append("const TITLES3E = {vh: " + json.dumps(vh_title_echart, ensure_ascii=False)
-               + ", qqe: " + json.dumps(qqe_title_echart, ensure_ascii=False) + "};")
+               + ", qqe: " + json.dumps(qqe_title_echart, ensure_ascii=False)
+               + ", ce: " + json.dumps(ce_title_echart, ensure_ascii=False) + "};")
     _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
     _sw.append("const VH_INNER = " + json.dumps(vh_inner, ensure_ascii=False) + ";")
     _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
@@ -1656,24 +1875,26 @@ def main():
     _sw.append("  var isLive = (v === 'live');")
     _sw.append("  var isVH = (v === 'vh');")
     _sw.append("  var useVH = isLive || isVH;")
-    _sw.append("  var pinsData = useVH ? pins : QQE_PINS;")
-    _sw.append("  var spinsData = useVH ? spins : QQE_SPINS;")
-    _sw.append("  var scatData = useVH ? VH_SCAT : QQE_SCAT;")
-    _sw.append("  var scatFS = useVH ? 11 : 8;")
+    _sw.append("  var isCE = (v === 'ce');")
+    _sw.append("  var pinsData = isCE ? CE_PINS : (useVH ? pins : QQE_PINS);")
+    _sw.append("  var spinsData = isCE ? CE_SPINS : (useVH ? spins : QQE_SPINS);")
+    _sw.append("  var scatData = isCE ? CE_SCAT : (useVH ? VH_SCAT : QQE_SCAT);")
+    _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
     _sw.append("  ch.setOption({")
-    _sw.append("    title: {text: isLive ? TITLES3.live : (isVH ? TITLES3E.vh : TITLES3E.qqe), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
+    _sw.append("    title: {text: isLive ? TITLES3.live : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe)), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
     _sw.append("      {name: '1m曲线', markPoint: {data: spinsData}},")
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
     _sw.append("      {name: '每单盈亏', data: scatData, label: {show: true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}},")
-    _sw.append("      {name: '3mK线', markArea: {silent: true, data: useVH ? VH_MARKAREA : QQE_MARKAREA}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
-    _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []}")
+    _sw.append("      {name: '3mK线', markArea: {silent: true, data: isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
+    _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},")
+    _sw.append("      {name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []}")
     _sw.append("    ]")
     _sw.append("  });")
     _sw.append("  var tw = document.getElementById('tblWrap');")
-    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isVH ? VH_INNER : QQE_INNER); }")
-    _sw.append("  var actsData = useVH ? VH_ACTS : QQE_ACTS;")
+    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER)); }")
+    _sw.append("  var actsData = isCE ? CE_ACTS : (useVH ? VH_ACTS : QQE_ACTS);")
     _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
     _sw.append("  document.title = TITLES3[v];")
     _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
@@ -1682,7 +1903,7 @@ def main():
     _sw.append("  var sel = document.getElementById('daypick');")
     _sw.append("  if (!sel) return;")
     _sw.append("  var wrap = document.createElement('span');")
-    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版']].forEach(function(it){")
+    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
