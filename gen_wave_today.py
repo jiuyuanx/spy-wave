@@ -1696,7 +1696,6 @@ def main():
     _sw.append("  if (!sel.querySelector('option[value=\"summary.html\"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }")
     _sw.append("})();")
     _sw.append("switchVersion3('live');")
-    _sw.append("try { var lg = ch.getOption().legend; if (lg && lg[0] && lg[0].data) { var stLegFiltered = lg[0].data.filter(function(it){ var nm = (typeof it === 'string') ? it : it.name; return nm !== 'Supertrend上涨' && nm !== 'Supertrend下跌'; }); ch.setOption({legend: {data: stLegFiltered}}); } } catch (e) {}")
     _sw.append("</script>")
     html = html.replace("</body>", "\n".join(_sw) + "</body>", 1)
 
