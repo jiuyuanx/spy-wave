@@ -324,7 +324,8 @@ def main():
 
     # 展示信号=冷冻版 (2026-10-29 用户: 热力图可显示, 信号须为冷冻版, 不发做T信号; 热力计算照常, 下行get_heat_*供显示)
     actions = run_signals(sig, heat_signals=False)
-    # ---- VH (ST版) 当日动作: 与 EC2 实盘同一脚本 vh_live.run_vh ----
+    # ---- VH (ST版) 当日动作: ST版展示用纯 ST (force_st, 跳空也不切 QQE);
+    # 实盘版 (live) 仍是 Alpaca 实际成交, 不受影响; EC2 实盘引擎不传 force_st ----
     # EOD价: 当日1m取15:55收盘价; 提前收盘日取当日最后一根1m收盘价;
     # 盘中(1m未走完且未过期)不传, vh回退到3m收盘价。
     _eod_1m = None
@@ -340,8 +341,8 @@ def main():
     except Exception as _e:
         print(f"  WARN eod_1m failed: {_e}", flush=True)
         _eod_1m = None
-    vh_actions = vh_live.run_vh(sig, eod_1m=_eod_1m)
-    vh_info = vh_live.day_info(sig)
+    vh_actions = vh_live.run_vh(sig, eod_1m=_eod_1m, force_st=True)
+    vh_info = vh_live.day_info(sig, force_st=True)
     heat_edges = get_heat_edges()
     heat_arr = get_heat_arr()
     heat_bins = get_heat_bins()
@@ -1142,12 +1143,9 @@ def main():
     _gap_abs = abs(_gap)
     if _gap_abs < 5:
         gap_txt = "不跳空"
-        st_strat = "全天ST"
     else:
         gap_txt = f"{'上跳' if _gap > 0 else '下跳'}{_gap_abs:.1f}点"
-        _morn_txt = {"qqe": "QQE", "skip": "空仓", "st": "ST"}.get(vh_info.get("morn"), "ST")
-        _aft_txt = "ST" if vh_info.get("aft") == "st" else ("QQE" if _gap > 0 else "ST")
-        st_strat = f"上午{_morn_txt} 下午{_aft_txt}"
+    st_strat = "全天ST"  # ST版展示用纯 ST, 不再分上午/下午腿
     vh_title_txt = (f"{day_str} (ST版) | {gap_txt} | {st_strat} | "
                     f"{'+' if vh_tot >= 0 else '-'}${abs(vh_tot):,.0f} ({vh_tot_pct:+.1%})")
     qqe_title_txt = (f"{day_str} (QQE版) | {gap_txt} | 全天QQE | "

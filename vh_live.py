@@ -397,12 +397,15 @@ def _day_gap_values(warm):
     return gap, band, morn, aft
 
 
-def day_info(bars):
-    """当日分类 dict, 与 run_vh 的 hybrid 分类一致。空输入返回 gap=0 的非跳空分类。"""
+def day_info(bars, force_st=False):
+    """当日分类 dict, 与 run_vh 的 hybrid 分类一致。空输入返回 gap=0 的非跳空分类。
+    force_st=True: 仅展示用, 腿强制 st/st (gap 数值保持真实, 供标题跳空文案用)。"""
     warm = _normalize_bars(bars)
     if len(warm) == 0:
         return {"gap": 0.0, "gap_band": "none", "morn": "st", "aft": "st"}
     gap, band, morn, aft = _day_gap_values(warm)
+    if force_st:
+        morn, aft = "st", "st"
     return {"gap": float(gap), "gap_band": band, "morn": morn, "aft": aft}
 
 
@@ -426,7 +429,7 @@ def _is_early_close_day(ts):
     return False
 
 
-def _run_all(warm, eod_1m):
+def _run_all(warm, eod_1m, force_st=False):
     _eod_1m = dict(eod_1m) if eod_1m else {}
     close = warm["close"].values
     high = warm["high"].values
@@ -1002,12 +1005,18 @@ def _run_all(warm, eod_1m):
                     _gap = abs(_day_open_px - _prev_close_px)
                     _day_gap_hyb = _day_open_px - _prev_close_px
                 _day_ign_n = 2 if _gap > 2.0 else 0
+                # 组合桶 ignore (2026-11-02, ignmap0-1_1-2): 桶0→1、桶1→2, 其余保持 VH
+                _IGN_MAP_COMB = {0: 1, 1: 2}
+                if int(_gap // 1) in _IGN_MAP_COMB:
+                    _day_ign_n = _IGN_MAP_COMB[int(_gap // 1)]
                 _day_ign_day = _day_start
                 # hybrid当日规则 (每天开盘定一次, 全天不变)
                 _hyb_gap_abs = abs(_day_gap_hyb)
                 _hyb_is_big_d = _hyb_gap_abs >= 10.0
                 _hyb_is_gap_d = _hyb_gap_abs >= 5.0
                 _hyb_active_today = _hyb_is_gap_d and not (_HYB_VARIANT == "F" and not _hyb_is_big_d)
+                if force_st:
+                    _hyb_active_today = False  # ST版展示用: 跳空也走全天ST (仅本地生成器, 实盘不用)
                 if _hyb_is_big_d:
                     _hyb_morn_today = "skip"
                 elif _HYB_VARIANT in ("A", "C", "F", "G"):
@@ -3123,12 +3132,13 @@ def _run_all(warm, eod_1m):
     return actions
 
 
-def run_vh(bars, eod_1m=None):
-    """见模块 docstring。只返回传入 bars 最后一天的动作。"""
+def run_vh(bars, eod_1m=None, force_st=False):
+    """见模块 docstring。只返回传入 bars 最后一天的动作。
+    force_st=True: 仅展示用, 全天走 ST 腿 (跳空也不切 QQE); 实盘不传。"""
     warm = _normalize_bars(bars)
     if len(warm) == 0:
         return []
-    actions = _run_all(warm, eod_1m)
+    actions = _run_all(warm, eod_1m, force_st=force_st)
     last_date = warm["t"].iloc[-1].date()
     dates = warm["t"].dt.date.values
     last_start = next(i for i, d in enumerate(dates) if d == last_date)
