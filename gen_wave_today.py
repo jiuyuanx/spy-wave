@@ -1988,7 +1988,10 @@ def main():
         _env_trend_segs = []
         _tday = [_env_trend_raw[i] for i in _env_day_idx] if _env_trend_raw else []
         if _tday and len(line1m) == len(_tday):
-            _tcol = {1: "#14532d", -1: "#7f1d1d", 0: "#1e40af"}
+            # 趋势段颜色统一走 theme (hex 仅记在 const 里备查, 线色以 THEME 为准)。
+            _tcol = {1: ("#14532d", "THEME.envelope.trendUp"),
+                     -1: ("#7f1d1d", "THEME.envelope.trendDown"),
+                     0: ("#1e40af", "THEME.envelope.trendFlat")}
             _runs = []
             _rd, _rs = _tday[0], 0
             for _k in range(1, len(_tday) + 1):
@@ -2004,7 +2007,8 @@ def main():
                 else:
                     continue  # 最后一根单 bar: 前一段的重叠已覆盖, 不单独成段
                 if len(_seg) >= 2:
-                    _env_trend_segs.append({"color": _tcol[_d], "data": _seg})
+                    _hex, _thm = _tcol[_d]
+                    _env_trend_segs.append({"color": _hex, "theme": _thm, "data": _seg})
         _env_opens = _env_df["open"].to_numpy(float)
         _env_highs = _env_df["high"].to_numpy(float)
         _env_lows = _env_df["low"].to_numpy(float)
@@ -2620,7 +2624,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    series: [")
     _sw.append("      {name: '1m曲线', data: (isENVELOPE && ENVELOPE_TREND_SEGS.length) ? [] : line1m, lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
     for _si, _sg in enumerate(_env_trend_segs):
-        _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: '%s', width: 2}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["color"], _si))
+        _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: 2}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["theme"], _si))
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
     _sw.append("      {name: '每单盈亏', data: scatData, label: {show: isENVELOPE ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : []}},")
     _sw.append("      {name: '3mK线', markArea: {silent: true, data: isENVELOPE ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
