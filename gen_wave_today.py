@@ -75,27 +75,28 @@ def gamma_roi_100(pos, open_px, close_px):
 
 
 # ---- Envelope (TradingView SPY Adaptive Envelope v3.9 With-trend, 止损1.5) ----
-# 移植自 research/tv_envelope_v39_withtrend.py (compute_indicators + simulate):
-# 高斯中线权重已纠正 (最新根权重最大); 平移通道 + 40% 边缘区; 趋势政策 With-trend-only。
+# 移植自 research/tv_envelope_v39_withtrend_trendflip.py (compute_indicators + simulate):
+# 高斯中线权重已纠正 (最新根权重最大); 平移通道 + 20% 边缘区; 趋势政策 With-trend-only;
+# 新参数 1m 特调 + 趋势翻仓开 (强趋势上升沿顺势开, 可绕过 EXIT T 同根翻仓, EOD 不可绕过)。
 # 生成器内联 (与 CE 的 _ce_compute 同款做法, 保证 GitHub Actions 部署包自包含)。
-_ENV_GAUSS_LEN = 24
+_ENV_GAUSS_LEN = 30
 _ENV_GAUSS_BW = 3.5
-_ENV_ATR_LEN = 14
+_ENV_ATR_LEN = 12
 _ENV_MULT = 1.05
-_ENV_SLOPE_LEN = 9
+_ENV_SLOPE_LEN = 7
 _ENV_ASYM_SHIFT = 1.35
 _ENV_FAST_EMA_LEN = 5
-_ENV_MOM_LOOKBACK = 9
+_ENV_MOM_LOOKBACK = 15
 _ENV_MOM_SENS = 0.55
-_ENV_MAX_SHIFT_ATR = 0.60
-_ENV_EDGE_PCT = 40.0
-_ENV_MAX_OUTSIDE = 0.35
-_ENV_ER_LEN = 10
-_ENV_ER_TH = 0.45
-_ENV_DI_LEN = 10
-_ENV_ADX_SMOOTH = 14
-_ENV_ADX_TH = 22
-_ENV_TAKEOVER_SLOPE = 0.12
+_ENV_MAX_SHIFT_ATR = 0.50
+_ENV_EDGE_PCT = 20.0
+_ENV_MAX_OUTSIDE = 0.55
+_ENV_ER_LEN = 17
+_ENV_ER_TH = 0.35
+_ENV_DI_LEN = 8
+_ENV_ADX_SMOOTH = 12
+_ENV_ADX_TH = 20
+_ENV_TAKEOVER_SLOPE = 0.13
 _ENV_SL_ATR = 1.5
 
 
@@ -190,6 +191,7 @@ def _env_simulate(df, ind, day_str):
     entry_bar = -1
     entry_date = None
     entry_kind = None
+    prev_strong_up = prev_strong_down = False
     trades = []
 
     def close_pos(bar, px, reason):
@@ -236,20 +238,32 @@ def _env_simulate(df, ind, day_str):
             strong_up = trending and (slope[i] > _ENV_TAKEOVER_SLOPE * atr[i])
             allow_long = not strong_down
             allow_short = not strong_up
+        # ---- 趋势入场: 强趋势上升沿 (edge-triggered), 顺势开 ----
+        edge_up = strong_up and not prev_strong_up
+        edge_down = strong_down and not prev_strong_down
+        trend_long_sig = edge_up and in_session
+        trend_short_sig = edge_down and in_session
         if pos != 0 and i > entry_bar:
             if pos == 1 and l[i] <= entry_px - _ENV_SL_ATR * entry_atr:
                 close_pos(i, entry_px - _ENV_SL_ATR * entry_atr, "SL")
             elif pos == -1 and h[i] >= entry_px + _ENV_SL_ATR * entry_atr:
                 close_pos(i, entry_px + _ENV_SL_ATR * entry_atr, "SL")
         force_exit = False
+        force_exit_regime = False
         if pos != 0:
             exit_regime = (strong_down and pos == 1) or (strong_up and pos == -1)
             exit_eod = eod
             if exit_regime or exit_eod:
                 force_exit = True
+                # 翻仓版: 只有纯 EXIT T (非 EOD) 的 force_exit 才可被趋势信号绕过
+                force_exit_regime = bool(exit_regime and not exit_eod)
                 close_pos(i, c[i], "EOD" if exit_eod else "EXIT T")
-        can_long = allow_long and (not force_exit) and long_sig and (pos == 0 or pos == -1)
-        can_short = allow_short and (not force_exit) and short_sig and (pos == 0 or pos == 1)
+        # 边缘信号与趋势信号 OR 合并 (同向同bar只开一单); 趋势信号可绕过 EXIT T 的 force_exit
+        # (同根翻仓); EOD 不可绕过, 边缘信号也不可绕过。
+        long_bypass = bool(trend_long_sig and force_exit_regime)
+        short_bypass = bool(trend_short_sig and force_exit_regime)
+        can_long = allow_long and ((not force_exit) or long_bypass) and (long_sig or trend_long_sig) and (pos == 0 or pos == -1)
+        can_short = allow_short and ((not force_exit) or short_bypass) and (short_sig or trend_short_sig) and (pos == 0 or pos == 1)
         if can_long:
             entry_kind = "flip" if pos == -1 else "open"
             if pos == -1:
@@ -260,6 +274,8 @@ def _env_simulate(df, ind, day_str):
             if pos == 1:
                 close_pos(i, c[i], "FLIP")
             pos = -1; entry_px = c[i]; entry_atr = atr[i]; entry_bar = i; entry_date = dstr
+        prev_strong_up = strong_up
+        prev_strong_down = strong_down
     open_pos = None
     if pos != 0:
         open_pos = {"dir": "long" if pos == 1 else "short", "px0": float(entry_px),
