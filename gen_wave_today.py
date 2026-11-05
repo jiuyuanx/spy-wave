@@ -293,13 +293,41 @@ def _vh_kind(rs):
     return "qqe"
 
 
+def _data_api(path, params, retries=3):
+    """Alpaca data API 直调 (不依赖 w4.api)。
+    根因 (2026-11-05): 旧代码调 w4.api(..., base=w4.DATA); 本地因 sys.path 影子
+    (alpaca_watcher/watcher_v4 从 trader 导入带 base 参数的 api) 能跑, GitHub
+    Actions 干净 checkout 下 w4 是部署包自带的 watcher_v4, 其 api(path, params,
+    retries) 没有 base 参数 -> TypeError, 被 envelope 的 try/except 吃掉, 当天
+    Envelope 版全天 $0、轨道全空。"""
+    import time as _time
+    import urllib.parse as _up
+    import urllib.request as _ur
+    base = "https://data.alpaca.markets/v2"
+    key = os.environ["ALPACA_KEY"]
+    secret = os.environ["ALPACA_SECRET"]
+    q = _up.urlencode(params)
+    last_err = None
+    for attempt in range(retries):
+        try:
+            req = _ur.Request(base + path + "?" + q,
+                              headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
+            with _ur.urlopen(req, timeout=25) as r:
+                return json.load(r)
+        except Exception as e:
+            last_err = e
+            if attempt < retries - 1:
+                _time.sleep(2 ** attempt)
+    raise last_err
+
+
 def _warmup_before(day):
     """某日前 7 天的 3m warmup (回放用, 不碰生产 load_history)。"""
     start = (day - timedelta(days=7)).strftime("%Y-%m-%dT00:00:00Z")
     end = day.strftime("%Y-%m-%dT00:00:00Z")
     params = {"symbols": "SPY", "timeframe": "3Min", "limit": 1000, "feed": "iex",
               "sort": "desc", "start": start, "end": end}
-    data = w4.api("/stocks/bars", params, base=w4.DATA)
+    data = _data_api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     if not bars:
         raise RuntimeError(f"no warmup bars before {day}")
@@ -320,7 +348,7 @@ def _fetch_1m_day(day):
               "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "limit": 10000, "feed": "iex", "sort": "asc"}
-    data = w4.api("/stocks/bars", params, base=w4.DATA)
+    data = _data_api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     df = pd.DataFrame(bars)
     if df.empty:
@@ -339,7 +367,7 @@ def _fetch_1m_range(start_day, end_day):
               "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
               "limit": 10000, "feed": "iex", "sort": "asc"}
-    data = w4.api("/stocks/bars", params, base=w4.DATA)
+    data = _data_api("/stocks/bars", params)
     bars = data.get("bars", {}).get("SPY", [])
     df = pd.DataFrame(bars)
     if df.empty:
