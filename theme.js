@@ -64,6 +64,14 @@ var THEME = {
     }
   },
 
+  // Envelope 轨道线 (2026-11-05 user's: 下轨改橘红, 统一进theme; solve once for all)
+  envelope: {
+    upper:   '#1a9e54',  // 上轨 绿
+    lower:   '#ea580c',  // 下轨 橘红
+    chanmid: '#eab308',  // 中轨 黄
+    mid:     '#888888'   // 均线 灰
+  },
+
   // Chinese label (e.g. '翻C') -> semantic key
   keyFor: function(value) {
     var m = {
