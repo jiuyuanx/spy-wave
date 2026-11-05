@@ -1748,7 +1748,17 @@ def main():
     # ---- Envelope 显示对象 (与 envelope_common.build_consts 同款) ----
     _env_tstr = _env_df["t"].dt.strftime("%H:%M").tolist() if _env_df is not None else []
     _env_closes = _env_df["close"].to_numpy(float) if _env_df is not None else []
-    _env_times1m = [_env_tstr[i] for i in _env_day_idx]
+    # 固定x轴为全天 09:30-15:59 (390根1m), 数据左对齐, 右侧留白 (与3m times同款;
+    # 只用已走bars会使类目轴被拉满全宽, 轨道/色带相对股价曲线横向拉伸 390/N 倍,
+    # 盘中 N=280 时拉伸 1.39 倍: 14:09 的轨道画到 100% 宽处, 股价只到 71.7%)
+    _env_times1m = []
+    _h1, _m1 = 9, 30
+    for _k in range(390):
+        _env_times1m.append(f"{_h1:02d}:{_m1:02d}")
+        _m1 += 1
+        if _m1 >= 60:
+            _h1 += 1
+            _m1 -= 60
     _pmins = []
     for _t in times:
         _hh, _mm = _t.split(":")
@@ -1974,7 +1984,7 @@ def main():
         _env_edge = _ENV_EDGE_PCT / 100.0
         env_tip = {}
         for _k, _i in enumerate(_env_day_idx):
-            _t1m = _env_times1m[_k]
+            _t1m = _env_tstr[_i]
             _up, _mid, _lo = env_upper[_k], env_chanmid[_k], env_lower[_k]
             _pi = _i - 1
             _zt = _zb = None
