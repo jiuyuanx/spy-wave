@@ -9,6 +9,7 @@ QQE/真色/衰减/翻仓need 全部按 signal_engine(k3clean L25当前基线) �
 输出: ~/workspace/alpaca_watcher/wave-today-YYYYMMDD.html
 """
 import sys, os, json, re
+import bisect
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
@@ -73,6 +74,199 @@ def gamma_roi_100(pos, open_px, close_px):
     return max(r, -100.0) / 100.0
 
 
+# ---- Envelope (TradingView SPY Adaptive Envelope v3.9 With-trend, 止损1.5) ----
+# 移植自 research/tv_envelope_v39_withtrend.py (compute_indicators + simulate):
+# 高斯中线权重已纠正 (最新根权重最大); 平移通道 + 40% 边缘区; 趋势政策 With-trend-only。
+# 生成器内联 (与 CE 的 _ce_compute 同款做法, 保证 GitHub Actions 部署包自包含)。
+_ENV_GAUSS_LEN = 24
+_ENV_GAUSS_BW = 3.5
+_ENV_ATR_LEN = 14
+_ENV_MULT = 1.05
+_ENV_SLOPE_LEN = 9
+_ENV_ASYM_SHIFT = 1.35
+_ENV_FAST_EMA_LEN = 5
+_ENV_MOM_LOOKBACK = 9
+_ENV_MOM_SENS = 0.55
+_ENV_MAX_SHIFT_ATR = 0.60
+_ENV_EDGE_PCT = 40.0
+_ENV_MAX_OUTSIDE = 0.35
+_ENV_ER_LEN = 10
+_ENV_ER_TH = 0.45
+_ENV_DI_LEN = 10
+_ENV_ADX_SMOOTH = 14
+_ENV_ADX_TH = 22
+_ENV_TAKEOVER_SLOPE = 0.12
+_ENV_SL_ATR = 1.5
+
+
+def _env_rma(x, n):
+    """Pine ta.rma: 前 n-1 根 na, 第 n 根 = 前 n 根 SMA, 之后 alpha=1/n 平滑。"""
+    x = np.asarray(x, dtype=float)
+    out = np.full(len(x), np.nan)
+    if len(x) < n:
+        return out
+    out[n - 1] = np.nanmean(x[:n])
+    a = 1.0 / n
+    for i in range(n, len(x)):
+        out[i] = a * x[i] + (1 - a) * out[i - 1]
+    return out
+
+
+def _env_indicators(df):
+    """df: 1m bars (t/open/high/low/close)。返回 dict of arrays (与 tv 模块同款)。"""
+    o = df["open"].values.astype(float)
+    h = df["high"].values.astype(float)
+    l = df["low"].values.astype(float)
+    c = df["close"].values.astype(float)
+    n = len(df)
+    prev_c = np.empty(n); prev_c[0] = np.nan; prev_c[1:] = c[:-1]
+    tr = np.maximum(h - l, np.maximum(np.abs(h - prev_c), np.abs(l - prev_c)))
+    tr[0] = h[0] - l[0]
+    atr = _env_rma(tr, _ENV_ATR_LEN)
+    w = np.exp(-0.5 * (np.arange(_ENV_GAUSS_LEN) / _ENV_GAUSS_BW) ** 2)
+    mid = np.full(n, np.nan)
+    for i in range(n):
+        k = min(i + 1, _ENV_GAUSS_LEN)
+        # Pine close[i] = i根前, 最新根权重 w[0]=1 最大 (原移植把权重配反过, 已纠正)
+        mid[i] = np.sum(c[i - k + 1:i + 1] * w[:k][::-1]) / np.sum(w[:k])
+    slope = np.full(n, np.nan)
+    slope[_ENV_SLOPE_LEN:] = (mid[_ENV_SLOPE_LEN:] - mid[:-_ENV_SLOPE_LEN]) / _ENV_SLOPE_LEN
+    ema = np.full(n, np.nan)
+    if n > 0:
+        ema[0] = c[0]
+        a_ema = 2.0 / (_ENV_FAST_EMA_LEN + 1)
+        for i in range(1, n):
+            ema[i] = a_ema * c[i] + (1 - a_ema) * ema[i - 1]
+    mom = np.full(n, np.nan)
+    mom[_ENV_MOM_LOOKBACK:] = (ema[_ENV_MOM_LOOKBACK:] - ema[:-_ENV_MOM_LOOKBACK]) / _ENV_MOM_LOOKBACK
+    with np.errstate(invalid="ignore", divide="ignore"):
+        nmom = mom / (atr * _ENV_MOM_SENS)
+        smooth = nmom / np.sqrt(1.0 + nmom * nmom)
+        raw_shift = atr * _ENV_MULT * _ENV_ASYM_SHIFT * smooth
+        shift = np.clip(raw_shift, -_ENV_MAX_SHIFT_ATR * atr, _ENV_MAX_SHIFT_ATR * atr)
+    width = _ENV_MULT * atr
+    upper = mid + shift + width
+    lower = mid + shift - width
+    chan_mid = (upper + lower) / 2.0
+    chg = np.abs(np.diff(c, prepend=np.nan))
+    chg[0] = 0.0
+    er = np.full(n, np.nan)
+    for i in range(_ENV_ER_LEN, n):
+        noise = np.sum(chg[i - _ENV_ER_LEN + 1:i + 1])
+        er[i] = abs(c[i] - c[i - _ENV_ER_LEN]) / noise if noise > 0 else 0.0
+    prev_h = np.empty(n); prev_h[0] = np.nan; prev_h[1:] = h[:-1]
+    prev_l = np.empty(n); prev_l[0] = np.nan; prev_l[1:] = l[:-1]
+    up = h - prev_h; dn = prev_l - l
+    up[0] = 0.0; dn[0] = 0.0
+    pdm = np.where((up > 0) & (up > dn), up, 0.0)
+    mdm = np.where((dn > 0) & (dn > up), dn, 0.0)
+    r_tr = _env_rma(tr, _ENV_DI_LEN)
+    r_pdm = _env_rma(pdm, _ENV_DI_LEN)
+    r_mdm = _env_rma(mdm, _ENV_DI_LEN)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        dip = 100 * r_pdm / r_tr
+        dim = 100 * r_mdm / r_tr
+        dx = 100 * np.abs(dip - dim) / (dip + dim)
+    adx = _env_rma(np.where(np.isnan(dx), 0.0, dx), _ENV_ADX_SMOOTH)
+    adx[:_ENV_DI_LEN + _ENV_ADX_SMOOTH - 1] = np.nan
+    return dict(open=o, high=h, low=l, close=c, atr=atr, mid=mid, slope=slope,
+                upper=upper, lower=lower, chan_mid=chan_mid, er=er, adx=adx)
+
+
+def _env_simulate(df, ind, day_str):
+    """Pine 语义模拟 (bar 收盘执行), 返回 (trades, open_pos)。
+    trades: [(entry_bar, exit_bar, dir, entry_px, exit_px, reason)] (仅当日进场);
+    open_pos: 盘末未平仓 {dir, px0, obi, entry_kind} 或 None (日内盘中用, 仅完整日才日终平,
+    由调用方按 _env_eod 决定是否转为日终平仓单)。"""
+    n = len(df)
+    times = df["t"]
+    sm = times.dt.hour.values * 60 + times.dt.minute.values
+    dates = times.dt.strftime("%Y-%m-%d").values
+    c, h, l = ind["close"], ind["high"], ind["low"]
+    atr, upper, lower, chan_mid = ind["atr"], ind["upper"], ind["lower"], ind["chan_mid"]
+    slope, er, adx = ind["slope"], ind["er"], ind["adx"]
+    pos = 0
+    entry_px = entry_atr = None
+    entry_bar = -1
+    entry_date = None
+    entry_kind = None
+    trades = []
+
+    def close_pos(bar, px, reason):
+        nonlocal pos, entry_px, entry_atr, entry_bar, entry_date, entry_kind
+        if pos == 0:
+            return
+        d = "long" if pos == 1 else "short"
+        if entry_date is not None and entry_date == day_str:
+            trades.append((entry_bar, bar, d, entry_px, px, reason))
+        pos = 0; entry_px = entry_atr = None; entry_bar = -1; entry_date = None
+        entry_kind = None
+
+    for i in range(n):
+        dstr = dates[i]
+        if dstr >= day_str and pos != 0 and (entry_date or "") < day_str:
+            pos = 0; entry_px = entry_atr = None; entry_bar = -1; entry_date = None
+            entry_kind = None
+        s = sm[i]
+        close_min = s + 1
+        in_session = (570 <= s <= 955) and (close_min < 945)
+        eod = (957 <= close_min <= 960)
+        long_sig = short_sig = False
+        if i >= 1 and not (np.isnan(upper[i - 1]) or np.isnan(lower[i - 1])
+                            or np.isnan(atr[i]) or np.isnan(chan_mid[i])):
+            tU, tL = upper[i - 1], lower[i - 1]
+            width = tU - tL
+            if width > 0:
+                buy_top = tL + width * _ENV_EDGE_PCT / 100.0
+                sell_bot = tU - width * _ENV_EDGE_PCT / 100.0
+                low_touch = (l[i] <= buy_top) and (h[i] >= tL - _ENV_MAX_OUTSIDE * atr[i])
+                up_touch = (h[i] >= sell_bot) and (l[i] <= tU + _ENV_MAX_OUTSIDE * atr[i])
+                ls = low_touch and (c[i] <= chan_mid[i])
+                ss = up_touch and (c[i] >= chan_mid[i])
+                if not (ls and ss):
+                    long_sig = ls and in_session
+                    short_sig = ss and in_session
+        ind_ok = not (np.isnan(er[i]) or np.isnan(adx[i])
+                      or np.isnan(slope[i]) or np.isnan(atr[i]))
+        allow_long = allow_short = False
+        strong_down = strong_up = False
+        if ind_ok:
+            trending = (er[i] >= _ENV_ER_TH) and (adx[i] >= _ENV_ADX_TH)
+            strong_down = trending and (slope[i] < -_ENV_TAKEOVER_SLOPE * atr[i])
+            strong_up = trending and (slope[i] > _ENV_TAKEOVER_SLOPE * atr[i])
+            allow_long = not strong_down
+            allow_short = not strong_up
+        if pos != 0 and i > entry_bar:
+            if pos == 1 and l[i] <= entry_px - _ENV_SL_ATR * entry_atr:
+                close_pos(i, entry_px - _ENV_SL_ATR * entry_atr, "SL")
+            elif pos == -1 and h[i] >= entry_px + _ENV_SL_ATR * entry_atr:
+                close_pos(i, entry_px + _ENV_SL_ATR * entry_atr, "SL")
+        force_exit = False
+        if pos != 0:
+            exit_regime = (strong_down and pos == 1) or (strong_up and pos == -1)
+            exit_eod = eod
+            if exit_regime or exit_eod:
+                force_exit = True
+                close_pos(i, c[i], "EOD" if exit_eod else "EXIT T")
+        can_long = allow_long and (not force_exit) and long_sig and (pos == 0 or pos == -1)
+        can_short = allow_short and (not force_exit) and short_sig and (pos == 0 or pos == 1)
+        if can_long:
+            entry_kind = "flip" if pos == -1 else "open"
+            if pos == -1:
+                close_pos(i, c[i], "FLIP")
+            pos = 1; entry_px = c[i]; entry_atr = atr[i]; entry_bar = i; entry_date = dstr
+        elif can_short:
+            entry_kind = "flip" if pos == 1 else "open"
+            if pos == 1:
+                close_pos(i, c[i], "FLIP")
+            pos = -1; entry_px = c[i]; entry_atr = atr[i]; entry_bar = i; entry_date = dstr
+    open_pos = None
+    if pos != 0:
+        open_pos = {"dir": "long" if pos == 1 else "short", "px0": float(entry_px),
+                    "obi": int(entry_bar), "entry_kind": entry_kind or "open"}
+    return trades, open_pos
+
+
 def _vh_kind(rs):
     """按开仓原因分 ST/QQE 单 (照抄 research/settle_hybrid.classify)。"""
     rs = rs or ""
@@ -117,6 +311,60 @@ def _fetch_1m_day(day):
         raise RuntimeError(f"no 1m bars for {day}")
     df["t"] = pd.to_datetime(df["t"], utc=True).dt.tz_convert(ET)
     return df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
+
+
+def _fetch_1m_range(start_day, end_day):
+    """start_day 09:30 -> end_day 16:00 的全部 1m (Envelope warmup 用)。
+    API 数据带时区, utc=True 转美东是正确归一化 (与 _fetch_1m_day 同款);
+    绝不用于本地缓存 (缓存 naive 行是美东墙钟, 不可 utc=True)。"""
+    s_et = datetime(start_day.year, start_day.month, start_day.day, 9, 30, tzinfo=ET)
+    e_et = datetime(end_day.year, end_day.month, end_day.day, 16, 0, tzinfo=ET)
+    params = {"symbols": "SPY", "timeframe": "1Min",
+              "start": s_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "end": e_et.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "limit": 10000, "feed": "iex", "sort": "asc"}
+    data = w4.api("/stocks/bars", params, base=w4.DATA)
+    bars = data.get("bars", {}).get("SPY", [])
+    df = pd.DataFrame(bars)
+    if df.empty:
+        raise RuntimeError(f"no 1m bars for {start_day}..{end_day}")
+    df["t"] = pd.to_datetime(df["t"], utc=True).dt.tz_convert(ET)
+    return df[["t", "o", "h", "l", "c", "v"]].sort_values("t").reset_index(drop=True)
+
+
+def _env_load_cache_1m(start_day, end_day):
+    """回放时读本地 1m 缓存 (与注入器同源)。缓存是 IEX/SIP 混合:
+    10-30/10-22 与 IEX API 逐根一致, 10-13 与 SIP API 逐根一致,
+    单一 feed 的 API 无法同时复现三日 (10-13 IEX 缺 13:43/14:34 且 283 根收盘差几分)。
+    缓存不存在/覆盖不足时返回 None (调用方走 API)。
+    时区铁律: naive 行就是美东墙钟 (与 tv.load_bars 修后同款分流), 绝不 utc=True。"""
+    pkl = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                       "research", "data_cache", "spy_1m.pkl")
+    if not os.path.exists(pkl):
+        return None
+    try:
+        df = pd.read_pickle(pkl)
+    except Exception:
+        return None
+    s = df["t"].astype(str)
+    aware_mask = s.str.contains(r"[+-]\d{2}:?\d{2}$", regex=True)
+    t_aware = pd.to_datetime(df.loc[aware_mask, "t"], utc=True
+                             ).dt.tz_convert("America/New_York").dt.tz_localize(None)
+    t_naive = pd.to_datetime(df.loc[~aware_mask, "t"])
+    df = df.assign(_t=pd.concat([t_aware, t_naive]).sort_index())
+    df["_t"] = pd.to_datetime(df["_t"])
+    m = (df["_t"].dt.date >= start_day) & (df["_t"].dt.date <= end_day)
+    df = df[m].copy()
+    if df.empty:
+        return None
+    mins = df["_t"].dt.hour * 60 + df["_t"].dt.minute
+    df = df[(mins >= 570) & (mins <= 959)].sort_values("_t").drop_duplicates("_t", keep="last")
+    n_today = int((df["_t"].dt.date == end_day).sum())
+    if n_today < 100:  # 覆盖不足 (如 10-21 仅 151 根下午缺失) -> 走 API
+        return None
+    return pd.DataFrame({"t": df["_t"].values, "open": df["open"].values,
+                         "high": df["high"].values, "low": df["low"].values,
+                         "close": df["close"].values}).reset_index(drop=True)
 
 
 def fetch_day_fills(day_str, live=True):
@@ -617,7 +865,7 @@ def main():
     # 1m曲线数据: x=分数类目坐标(分钟中点), y=1m收盘
     t0 = sig["t"].iloc[today_idx[0]]
     df1 = df1m[df1m["t"] >= t0].sort_values("t")
-    line1m = [[round((r["t"] - t0).total_seconds() / 180.0 + 1 / 6, 4),
+    line1m = [[round((r["t"] - t0).total_seconds() / 180.0, 4),
                round(float(r["c"]), 2)] for _, r in df1.iterrows()]
     # 实际成交点 (live): 绿=买入 红=卖出, 落在1m曲线上 (y取所在1m bar收盘价)
     filldots = []
@@ -632,7 +880,7 @@ def main():
             _bt = _ts1.iloc[_i1]
             if not (_bt <= _ft < _bt + pd.Timedelta(minutes=1)):
                 continue
-            _fx = round((_bt - t0).total_seconds() / 180.0 + 1 / 6, 4)
+            _fx = round((_bt - t0).total_seconds() / 180.0, 4)
             _fy = round(float(df1["c"].iloc[_i1]), 2)
             _fc = "#00aa00" if _f["side"] == "buy" else "#ff0000"
             _ftip = ("%s %s %.2f x%d" % (
@@ -1378,6 +1626,373 @@ def main():
                                     "borderRadius": 4, "padding": [3, 6], "fontSize": 12}})
     ce_bs_js = json.dumps(ce_bs, ensure_ascii=False)
 
+    # ---- Envelope版 (TradingView SPY Adaptive Envelope v3.9 With-trend, 止损1.5) ----
+    # 移植自 research/envelope_common.py (与注入器逐字一致的口径):
+    # 信号柱收盘进出, 止损按止损价, 日终=15:56柱收盘; 日内$100k sequential, 单笔floor -100%。
+    # 1m 来源: 回放优先本地缓存 (与注入器同源; 缓存是 IEX/SIP 混合, API 单一 feed 无法复现),
+    # 缓存不存在/覆盖不足时走 API (warmup IEX + 当日 df1m); 实盘 (WAVE_DATE 为空) 一律走 API。
+    # EOD 只在完整日: _env_eod 用 bool(WAVE_DATE) (绝不用 is not None, 见 CE 假日终平 bug)。
+    _env_day = day if day is not None else datetime.now(ET).date()
+    _env_df = None
+    _env_src = "api"
+    if WAVE_DATE:
+        _env_df = _env_load_cache_1m(_env_day - timedelta(days=10), _env_day)
+        if _env_df is not None:
+            _env_src = "cache"
+    if _env_df is None:
+        try:
+            _warm = _fetch_1m_range(_env_day - timedelta(days=10), _env_day - timedelta(days=1))
+            _today1 = df1m[["t", "o", "h", "l", "c", "v"]].copy()
+            _today1.columns = ["t", "open", "high", "low", "close", "v"]
+            _env_df = pd.concat([_warm.rename(columns={"o": "open", "h": "high", "l": "low", "c": "close"}),
+                                 _today1[["t", "open", "high", "low", "close"]]],
+                                ignore_index=True)
+            _env_df = _env_df.sort_values("t").drop_duplicates("t", keep="last").reset_index(drop=True)
+            _m1 = _env_df["t"].dt.hour * 60 + _env_df["t"].dt.minute
+            _env_df = _env_df[(_m1 >= 570) & (_m1 <= 959)].reset_index(drop=True)
+        except Exception as _e:
+            print(f"  WARN envelope 1m 拉取失败: {_e}", flush=True)
+            _env_df = None
+    _env_trades = []  # 已平对象化: {obi,cbi,dir,px0,px1,entry_kind,entry_rs,close_rs,roi,pnl}
+    _env_open = None  # 盘中未平: {dir,px0,obi,entry_kind,entry_rs}
+    _env_ind = None
+    _env_day_idx = []
+    if _env_df is not None and len(_env_df):
+        _env_ind = _env_indicators(_env_df)
+        _env_dates = _env_df["t"].dt.strftime("%Y-%m-%d").values
+        _env_mins = _env_df["t"].dt.hour.values * 60 + _env_df["t"].dt.minute.values
+        _env_day_idx = [i for i in range(len(_env_df))
+                        if _env_dates[i] == day_str and 570 <= int(_env_mins[i]) <= 959]
+        _env_raw, _env_open_raw = _env_simulate(_env_df, _env_ind, day_str)
+        if day_str == "2026-06-17":
+            _env_raw, _env_open_raw = [], None
+        _env_last_hm = _env_df["t"].dt.strftime("%H:%M").iloc[_env_day_idx[-1]] if _env_day_idx else ""
+        _env_eod = bool(WAVE_DATE) or (_env_last_hm == "15:59") or (
+            vh_live._is_early_close_day(_env_df["t"].iloc[_env_day_idx[-1]]) and _env_last_hm == "12:57") \
+            if _env_day_idx else bool(WAVE_DATE)
+        if _env_open_raw is not None and _env_eod and _env_day_idx:
+            _last_i = _env_day_idx[-1]
+            _env_raw.append((_env_open_raw["obi"], _last_i, _env_open_raw["dir"],
+                             _env_open_raw["px0"], float(_env_df["close"].iloc[_last_i]), "EOD"))
+            _env_open_raw = None
+        for _j, (_eb, _xb, _d, _epx, _xpx, _rs) in enumerate(_env_raw):
+            _is_flip = (_j > 0 and _env_raw[_j - 1][1] == _eb and _env_raw[_j - 1][5] == "FLIP")
+            _dr = "call" if _d == "long" else "put"
+            _env_trades.append({
+                "obi": int(_eb), "cbi": int(_xb), "dir": _dr,
+                "px0": float(_epx), "px1": float(_xpx),
+                "entry_kind": "flip" if _is_flip else "open",
+                "entry_rs": "Envelope买入" if _d == "long" else "Envelope卖出",
+                "close_rs": {"SL": "止损", "FLIP": "Envelope翻转",
+                             "EXIT T": "EXIT T", "EOD": "日终平仓"}.get(_rs, _rs),
+                "roi": gamma_roi_100(_dr, float(_epx), float(_xpx))})
+        if _env_open_raw is not None:
+            _env_open = {"dir": "call" if _env_open_raw["dir"] == "long" else "put",
+                         "px0": float(_env_open_raw["px0"]), "obi": int(_env_open_raw["obi"]),
+                         "entry_kind": _env_open_raw["entry_kind"] or "open",
+                         "entry_rs": "Envelope买入" if _env_open_raw["dir"] == "long" else "Envelope卖出"}
+    _env_cap = 100000.0
+    for _tr in _env_trades:
+        _tr["pnl"] = _env_cap * _tr["roi"]
+        _env_cap *= (1.0 + _tr["roi"])
+    env_tot = _env_cap - 100000.0
+    env_tot_pct = _env_cap / 100000.0 - 1.0
+    print(f"  envelope({_env_src}): {_env_trades and len(_env_trades) or 0} 单, "
+          f"tot=${env_tot:,.0f} ({env_tot_pct:+.1%})"
+          + (f", 持仓中 {_env_open['dir']}@{_env_open['px0']:.2f}" if _env_open else ""),
+          flush=True)
+    # ---- Envelope 显示对象 (与 envelope_common.build_consts 同款) ----
+    _env_tstr = _env_df["t"].dt.strftime("%H:%M").tolist() if _env_df is not None else []
+    _env_closes = _env_df["close"].to_numpy(float) if _env_df is not None else []
+    _env_times1m = [_env_tstr[i] for i in _env_day_idx]
+    _pmins = []
+    for _t in times:
+        _hh, _mm = _t.split(":")
+        _pmins.append(int(_hh) * 60 + int(_mm))
+
+    def _env_snap(t1m):
+        _hh, _mm = t1m.split(":")
+        _mnt = int(_hh) * 60 + int(_mm)
+        return max(0, bisect.bisect_right(_pmins, _mnt) - 1)
+
+    def _env_letter(d):
+        return "C" if d == "call" else "P"
+
+    def _env_pin_color(kind, d):
+        if kind == "flip":
+            return "#005000" if d == "call" else "#a80000"
+        if kind == "open":
+            return "#66cc66" if d == "call" else "#ff6666"
+        return "#b27a7a" if d == "call" else "#7ab27a"
+
+    def _env_yq(slot):
+        _hv = vals[slot] if slot < len(vals) else None
+        if _hv is None or (isinstance(_hv, float) and np.isnan(_hv)):
+            return 5
+        return round(_hv * 1.15 + (0.5 if _hv > 0 else -0.5), 1)
+
+    _env_nonflip, _env_flips = [], []
+    for _j, _tr in enumerate(_env_trades):
+        _slot_o = _env_snap(_env_tstr[_tr["obi"]])
+        if _tr["entry_kind"] == "flip":
+            _env_flips.append((_slot_o, "翻" + _env_letter(_tr["dir"]),
+                               _env_pin_color("flip", _tr["dir"]), _tr["entry_rs"]))
+        else:
+            _env_nonflip.append((_slot_o, "开" + _env_letter(_tr["dir"]),
+                                 _env_pin_color("open", _tr["dir"]), _tr["entry_rs"]))
+        _is_last = _j == len(_env_trades) - 1
+        if _tr["close_rs"] != "Envelope翻转" or _is_last:
+            _slot_c = _env_snap(_env_tstr[_tr["cbi"]])
+            _env_nonflip.append((_slot_c, "平" + _env_letter(_tr["dir"]),
+                                 _env_pin_color("close", _tr["dir"]), _tr["close_rs"]))
+    if _env_open is not None:
+        _slot_o = _env_snap(_env_tstr[_env_open["obi"]])
+        if _env_open["entry_kind"] == "flip":
+            _env_flips.append((_slot_o, "翻" + _env_letter(_env_open["dir"]),
+                               _env_pin_color("flip", _env_open["dir"]), _env_open["entry_rs"]))
+        else:
+            _env_nonflip.append((_slot_o, "开" + _env_letter(_env_open["dir"]),
+                                 _env_pin_color("open", _env_open["dir"]), _env_open["entry_rs"]))
+    _env_nonflip.sort()
+    _env_flips.sort()
+    _env_ordered = _env_nonflip + _env_flips
+    env_pins = [{"coord": [times[s], _env_yq(s)], "value": v,
+                 "itemStyle": {"color": c}, "rs": rs} for (s, v, c, rs) in _env_ordered]
+
+    def _env_spin_x(t1m):
+        _hh, _mm = t1m.split(":")
+        return round((int(_hh) * 60 + int(_mm) - 570) / 3, 4)
+
+    def _env_spin_item(x, y, value, color, rs, is_call):
+        _d = {"coord": [x, y], "value": value, "itemStyle": {"color": color}, "rs": rs}
+        if is_call:
+            _d["symbolRotate"] = 180
+            _d["label"] = {"offset": [0, 5]}
+        return _d
+
+    _env_nf_spins, _env_f_spins = [], []
+    for _j, _tr in enumerate(_env_trades):
+        _ic = _tr["dir"] == "call"
+        if _tr["entry_kind"] == "flip":
+            _env_f_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_tr["obi"]]),
+                                                round(float(_env_closes[_tr["obi"]]), 2),
+                                                "翻" + _env_letter(_tr["dir"]),
+                                                _env_pin_color("flip", _tr["dir"]),
+                                                _tr["entry_rs"], _ic))
+        else:
+            _env_nf_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_tr["obi"]]),
+                                                 round(float(_env_closes[_tr["obi"]]), 2),
+                                                 "开" + _env_letter(_tr["dir"]),
+                                                 _env_pin_color("open", _tr["dir"]),
+                                                 _tr["entry_rs"], _ic))
+        _is_last = _j == len(_env_trades) - 1
+        if _tr["close_rs"] != "Envelope翻转" or _is_last:
+            _env_nf_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_tr["cbi"]]),
+                                                 round(float(_env_closes[_tr["cbi"]]), 2),
+                                                 "平" + _env_letter(_tr["dir"]),
+                                                 _env_pin_color("close", _tr["dir"]),
+                                                 _tr["close_rs"], _ic))
+    if _env_open is not None:
+        _ic = _env_open["dir"] == "call"
+        if _env_open["entry_kind"] == "flip":
+            _env_f_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_env_open["obi"]]),
+                                                round(float(_env_closes[_env_open["obi"]]), 2),
+                                                "翻" + _env_letter(_env_open["dir"]),
+                                                _env_pin_color("flip", _env_open["dir"]),
+                                                _env_open["entry_rs"], _ic))
+        else:
+            _env_nf_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_env_open["obi"]]),
+                                                 round(float(_env_closes[_env_open["obi"]]), 2),
+                                                 "开" + _env_letter(_env_open["dir"]),
+                                                 _env_pin_color("open", _env_open["dir"]),
+                                                 _env_open["entry_rs"], _ic))
+    _env_nf_spins.sort(key=lambda s: (s["coord"][0], s["value"]))
+    _env_f_spins.sort(key=lambda s: (s["coord"][0], s["value"]))
+    env_spins = _env_nf_spins + _env_f_spins
+    _env_open_keys = {(s["coord"][0], s["value"][-1]) for s in env_spins if s["value"].startswith("开")}
+    env_spins = [s for s in env_spins
+                 if not (s["value"].startswith("平") and (s["coord"][0], s["value"][-1]) in _env_open_keys)]
+    # Envelope 每单标签 (30 分钟错行, 行高 rng*0.05, 与注入器一致; 标签在 envelope 版隐藏)
+    _env_row_h = _rng * 0.05
+    _env_base = _hi + _rng * 0.03
+    _env_placed, _env_scat_data = [], []
+    for _tr in sorted(_env_trades, key=lambda t: t["cbi"]):
+        _t_c = _env_tstr[_tr["cbi"]]
+        _mnt = int(_t_c[:2]) * 60 + int(_t_c[3:5])
+        _row = 0
+        while any(abs(_mnt - _om) < 30 and _orow == _row for (_om, _orow) in _env_placed):
+            _row += 1
+        _env_placed.append((_mnt, _row))
+        _yy = round(_env_base + _row * _env_row_h, 2)
+        _col = "#1a9e54" if _tr["roi"] >= 0 else "#e5484d"
+        _env_scat_data.append({"value": [_t_c, _yy], "lbl": "(%s)" % format(_tr["roi"], "+.1%"),
+                               "label": {"color": _col}})
+    env_scat_js = json.dumps(_env_scat_data, ensure_ascii=False)
+    # Envelope 色带 (1m 时间; 盘中未平画浮动带到最后一根)
+    _env_ma = []
+    for _tr in _env_trades:
+        _pct = round(_tr["roi"] * 100, 2)
+        _env_ma.append("[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
+            _env_tstr[_tr["obi"]], _pct, _env_tstr[_tr["cbi"]]))
+    if _env_open is not None and _env_day_idx:
+        _fpct = round(gamma_roi_100(_env_open["dir"], _env_open["px0"],
+                                    float(_env_closes[_env_day_idx[-1]])) * 100, 2)
+        _env_ma.append("[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColor(%s)}},{xAxis:'%s'}]" % (
+            _env_tstr[_env_open["obi"]], _fpct, _env_tstr[_env_day_idx[-1]]))
+    env_mark_area_js = "[" + ",".join(_env_ma) + "]"
+    # Envelope 信号单表 (1m 时间; 持仓中行只算浮动、不推进 cap, 与 _est_table_inner 一致)
+    def _env_money(x):
+        return ("%s$%s" % ("+" if x >= 0 else "-", format(abs(x), ",.0f")))
+    _env_rows = []
+    for _k, _tr in enumerate(_env_trades, 1):
+        _ec = "#1a9e54" if _tr["pnl"] >= 0 else "#e5484d"
+        _op = _tr["entry_rs"] + _env_letter(_tr["dir"])
+        _env_rows.append(
+            "<tr><td>%d</td><td>%s</td><td>%s</td><td>—</td>"
+            "<td>—</td><td>%.2f</td><td>%s</td><td>—</td><td>%.2f</td>"
+            "<td style=\"color:#888888;font-weight:bold\">—</td>"
+            "<td style=\"color:#888888\">—</td>"
+            "<td style=\"color:%s\">~%s</td>"
+            "<td style=\"color:%s\">~%s</td></tr>" % (
+                _k, _env_tstr[_tr["obi"]], _op, _tr["px0"], _env_tstr[_tr["cbi"]], _tr["px1"],
+                _ec, _env_money(_tr["pnl"]), _ec, format(_tr["roi"], "+.1%")))
+    if _env_open is not None and _env_day_idx:
+        _froi = gamma_roi_100(_env_open["dir"], _env_open["px0"],
+                              float(_env_closes[_env_day_idx[-1]]))
+        _fpnl = _env_cap * _froi
+        _ec = "#1a9e54" if _fpnl >= 0 else "#e5484d"
+        _op = _env_open["entry_rs"] + _env_letter(_env_open["dir"])
+        _env_rows.append(
+            "<tr><td>%d</td><td>%s</td><td>%s</td><td>—</td>"
+            "<td>—</td><td>%.2f</td><td>持仓中</td><td>—</td><td>%.2f</td>"
+            "<td style=\"color:#888888;font-weight:bold\">—</td>"
+            "<td style=\"color:#888888\">—</td>"
+            "<td style=\"color:%s\">~%s</td>"
+            "<td style=\"color:%s\">~%s</td></tr>" % (
+                len(_env_trades) + 1, _env_tstr[_env_open["obi"]], _op, _env_open["px0"],
+                float(_env_closes[_env_day_idx[-1]]),
+                _ec, _env_money(_fpnl), _ec, format(_froi, "+.1%")))
+    _env_rows.append(
+        "<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
+        "</td><td>—</td><td></td>"
+        "<td>~%s</td><td></td></tr>" % _env_money(env_tot))
+    env_inner = (
+        "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+        "Envelope版信号单（Gamma理论预估，-100口径）</div>"
+        "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
+        "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
+        "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
+        "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
+        "<th>预估收益</th><th>预估收益率</th></tr>"
+        + "".join(_env_rows) + "</table></div>"
+        "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
+        "预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；信号按1m算，"
+        "Envelope版 x 轴为 1m，标记按精确 1m 时间；非实际成交</div>")
+    env_acts = {}
+    for _tr in _env_trades:
+        _t_o = _env_tstr[_tr["obi"]]
+        env_acts.setdefault(_t_o, []).append(
+            "开%s@%s %s" % (_env_letter(_tr["dir"]), str(float(_tr["px0"])), _tr["entry_rs"]))
+        _t_c = _env_tstr[_tr["cbi"]]
+        env_acts.setdefault(_t_c, []).append(
+            "平%s@%s %s" % (_env_letter(_tr["dir"]), str(float(_tr["px1"])), _tr["close_rs"]))
+    if _env_open is not None:
+        _t_o = _env_tstr[_env_open["obi"]]
+        env_acts.setdefault(_t_o, []).append(
+            "开%s@%s %s" % (_env_letter(_env_open["dir"]), str(float(_env_open["px0"])),
+                            _env_open["entry_rs"]))
+    env_title_txt = "%s (Envelope版) | %s | 全天Envelope | %s (%s)" % (
+        day_str, gap_txt, _env_money(env_tot), format(env_tot_pct, "+.1%"))
+    if gap_txt.startswith("上跳"):
+        _env_gap_e = "{up|" + gap_txt + "}"
+    elif gap_txt.startswith("下跳"):
+        _env_gap_e = "{dn|" + gap_txt + "}"
+    else:
+        _env_gap_e = gap_txt
+    _env_pnl_e = ("{pnl_pos|+" if env_tot >= 0 else "{pnl_neg|-") + \
+        "$%s (%s)" % (format(abs(env_tot), ",.0f"), format(env_tot_pct, "+.1%")) + "}"
+    env_title_echart = day_str + " ({envelope|Envelope}版) | " + _env_gap_e + \
+        " | 全天{envelope|Envelope} | " + _env_pnl_e
+    # Envelope 轨道 (全 1m) + 悬浮窗 TIP (390 条全覆盖, 3 行依据)
+    def _env_v1(a, i):
+        _x = float(a[i])
+        return round(_x, 2) if _x == _x else None
+    if _env_ind is not None and _env_day_idx:
+        _up_a, _dn_a, _md_a, _cm_a = (_env_ind["upper"], _env_ind["lower"],
+                                      _env_ind["mid"], _env_ind["chan_mid"])
+        env_upper = [_env_v1(_up_a, i) for i in _env_day_idx]
+        env_lower = [_env_v1(_dn_a, i) for i in _env_day_idx]
+        env_mid = [_env_v1(_md_a, i) for i in _env_day_idx]
+        env_chanmid = [_env_v1(_cm_a, i) for i in _env_day_idx]
+        _env_opens = _env_df["open"].to_numpy(float)
+        _env_highs = _env_df["high"].to_numpy(float)
+        _env_lows = _env_df["low"].to_numpy(float)
+        _env_edge = _ENV_EDGE_PCT / 100.0
+        env_tip = {}
+        for _k, _i in enumerate(_env_day_idx):
+            _t1m = _env_times1m[_k]
+            _up, _mid, _lo = env_upper[_k], env_chanmid[_k], env_lower[_k]
+            _pi = _i - 1
+            _zt = _zb = None
+            if _pi >= 0:
+                _up_p, _lo_p = _env_v1(_up_a, _pi), _env_v1(_dn_a, _pi)
+                if _up_p is not None and _lo_p is not None:
+                    _wp = _up_p - _lo_p
+                    _zt = round(_lo_p + _env_edge * _wp, 2)
+                    _zb = round(_up_p - _env_edge * _wp, 2)
+            _o = round(float(_env_opens[_i]), 2)
+            _h = round(float(_env_highs[_i]), 2)
+            _l = round(float(_env_lows[_i]), 2)
+            _c = round(float(_env_closes[_i]), 2)
+            _entries = []
+            _closes = []
+            for _tr in _env_trades:
+                if _tr["obi"] == _i:
+                    _entries.append((("翻" if _tr["entry_kind"] == "flip" else "开")
+                                     + _env_letter(_tr["dir"]), _tr["dir"], float(_tr["px0"])))
+                if _tr["cbi"] == _i and (_tr["close_rs"] != "Envelope翻转"
+                                         or _tr is _env_trades[-1]):
+                    _closes.append(("平" + _env_letter(_tr["dir"]), _tr["dir"],
+                                    float(_tr["px1"]), _tr["close_rs"]))
+            if _env_open is not None and _env_open["obi"] == _i:
+                _entries.append((("翻" if _env_open["entry_kind"] == "flip" else "开")
+                                 + _env_letter(_env_open["dir"]), _env_open["dir"],
+                                 float(_env_open["px0"])))
+            _open_letters = {_lab[-1] for (_lab, _, _) in _entries if _lab.startswith("开")}
+            _closes = [_cl for _cl in _closes if _cl[0][-1] not in _open_letters]
+            _segs = []
+            for (_lab, _d, _px) in _entries:
+                _col = "#1a9e54" if _d == "call" else "#e5484d"
+                if _d == "call":
+                    _cop = "<" if _c <= _mid else ">"
+                    _lseg = "" if _zt is None else (
+                        "，<br/>低%.2f ≤ 下区顶%.2f" % (_l, _zt) if _l <= _zt else
+                        "，<br/>低%.2f > 下区顶%.2f" % (_l, _zt))
+                    _segs.append("<b style='color:%s'>收%.2f %s 中轨%.2f%s →<br/>%s@%.2f</b>"
+                                 % (_col, _c, _cop, _mid, _lseg, _lab, _px))
+                else:
+                    _cop = ">" if _c >= _mid else "<"
+                    _hseg = "" if _zb is None else (
+                        "，<br/>高%.2f ≥ 上区底%.2f" % (_h, _zb) if _h >= _zb else
+                        "，<br/>高%.2f < 上区底%.2f" % (_h, _zb))
+                    _segs.append("<b style='color:%s'>收%.2f %s 中轨%.2f%s →<br/>%s@%.2f</b>"
+                                 % (_col, _c, _cop, _mid, _hseg, _lab, _px))
+            for (_lab, _d, _px, _rs) in _closes:
+                _col = "#1a9e54" if _d == "call" else "#e5484d"
+                _segs.append("<b style='color:%s'>%s@%.2f %s</b>" % (_col, _lab, _px, _rs))
+            env_tip[_t1m] = {"o": _o, "h": _h, "l": _l, "c": _c, "up": _up, "mid": _mid,
+                             "lo": _lo, "why": "<br/>".join(_segs)}
+        _env_day_closes = [float(_env_closes[i]) for i in _env_day_idx]
+        _env_px_hi, _env_px_lo = max(_env_day_closes), min(_env_day_closes)
+        env_max = round(_env_px_hi + 1.0, 2)
+        env_min = round(_env_px_lo - 1.0, 2)
+    else:
+        env_upper = env_lower = env_mid = env_chanmid = []
+        env_tip = {}
+        env_max = env_min = None
+    env_min_js = str(env_min) if env_min is not None else "null"
+    env_max_js = str(env_max) if env_max is not None else "null"
+
     # ---- JSON 存档 ----
     os.makedirs(WDIR, exist_ok=True)
     tj = {"day": day_str, "equity": equity,
@@ -1856,14 +2471,51 @@ def main():
     _sw.append("const CE_ACTS = " + json.dumps(ce_acts, ensure_ascii=False) + ";")
     _sw.append("const CE_INNER = " + json.dumps(ce_inner, ensure_ascii=False) + ";")
     _sw.append("const CE_BS = " + ce_bs_js + ";")
+    _sw.append("const ENVELOPE_PINS = " + json.dumps(env_pins, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_SPINS = " + json.dumps(env_spins, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_SCAT_1M = " + env_scat_js + ";")
+    _sw.append("const ENVELOPE_MARKAREA_1M = " + env_mark_area_js + ";")
+    _sw.append("const ENVELOPE_INNER = " + json.dumps(env_inner, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_ACTS = " + json.dumps(env_acts, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_TITLE = " + json.dumps(env_title_txt, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_TITLEE = " + json.dumps(env_title_echart, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_TIMES1M = " + json.dumps(_env_times1m) + ";")
+    _sw.append("const ENVELOPE_UPPER_1M = " + json.dumps(env_upper) + ";")
+    _sw.append("const ENVELOPE_LOWER_1M = " + json.dumps(env_lower) + ";")
+    _sw.append("const ENVELOPE_CHANMID_1M = " + json.dumps(env_chanmid) + ";")
+    _sw.append("const ENVELOPE_MID_1M = " + json.dumps(env_mid) + ";")
+    _sw.append("const ENVELOPE_TIP = " + json.dumps(env_tip, ensure_ascii=False) + ";")
+    _sw.append("""(function(){
+if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
+var _origEnvTip = THEME.tooltipFormatter;
+THEME._envTipWrapped = true;
+THEME.tooltipFormatter = function(ps, barInfo) {
+try {
+if (typeof curVer3 !== 'undefined' && curVer3 === 'envelope' && typeof ENVELOPE_TIP !== 'undefined') {
+var t = ps[0].axisValue;
+var e = ENVELOPE_TIP[t];
+if (e) {
+var s = '<b>' + t + '</b><br/>开' + e.o + ' 收' + e.c;
+s += '<br/><span style=\\'color:#1a9e54\\'>上' + e.up + '</span> <span style=\\'color:#b58900\\'>中' + e.mid + '</span> <span style=\\'color:#e5484d\\'>下' + e.lo + '</span>';
+if (e.why) s += '<br/>' + e.why;
+else s += '<br/><span style=\\'color:#888\\'>无Envelope动作</span>';
+return s;
+}
+}
+} catch (err) {}
+return _origEnvTip(ps, barInfo);
+};
+})();""")
     _sw.append("const TITLES3 = {live: " + json.dumps(title_txt, ensure_ascii=False)
                + ", vh: " + json.dumps(vh_title_txt, ensure_ascii=False)
                + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False)
-               + ", ce: " + json.dumps(ce_title_txt, ensure_ascii=False) + "};")
+               + ", ce: " + json.dumps(ce_title_txt, ensure_ascii=False)
+               + ", envelope: " + json.dumps(env_title_txt, ensure_ascii=False) + "};")
     _sw.append("const TITLES3E = {vh: " + json.dumps(vh_title_echart, ensure_ascii=False)
                + ", qqe: " + json.dumps(qqe_title_echart, ensure_ascii=False)
-               + ", ce: " + json.dumps(ce_title_echart, ensure_ascii=False) + "};")
-    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
+               + ", ce: " + json.dumps(ce_title_echart, ensure_ascii=False)
+               + ", envelope: " + json.dumps(env_title_echart, ensure_ascii=False) + "};")
+    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
     _sw.append("const VH_INNER = " + json.dumps(vh_inner, ensure_ascii=False) + ";")
     _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
     _sw.append("var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();")
@@ -1874,25 +2526,31 @@ def main():
     _sw.append("  var isVH = (v === 'vh');")
     _sw.append("  var useVH = isLive || isVH;")
     _sw.append("  var isCE = (v === 'ce');")
-    _sw.append("  var pinsData = isCE ? CE_PINS : (useVH ? pins : QQE_PINS);")
-    _sw.append("  var spinsData = isCE ? CE_SPINS : (useVH ? spins : QQE_SPINS);")
-    _sw.append("  var scatData = isCE ? CE_SCAT : (useVH ? VH_SCAT : QQE_SCAT);")
+    _sw.append("  var isENVELOPE = (v === 'envelope');")
+    _sw.append("  var pinsData = isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (useVH ? pins : QQE_PINS));")
+    _sw.append("  var spinsData = isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (useVH ? spins : QQE_SPINS));")
+    _sw.append("  var scatData = isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (useVH ? VH_SCAT : QQE_SCAT));")
     _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
     _sw.append("  ch.setOption({")
-    _sw.append("    title: {text: isLive ? TITLES3.live : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe)), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
+    _sw.append("    title: {text: isLive ? TITLES3.live : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
-    _sw.append("      {name: '1m曲线', markPoint: {data: spinsData}},")
+    _sw.append("      {name: '1m曲线', lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
-    _sw.append("      {name: '每单盈亏', data: scatData, label: {show: true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}},")
-    _sw.append("      {name: '3mK线', markArea: {silent: true, data: isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
+    _sw.append("      {name: '每单盈亏', data: scatData, label: {show: isENVELOPE ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : []}},")
+    _sw.append("      {name: '3mK线', markArea: {silent: true, data: isENVELOPE ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
     _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},")
-    _sw.append("      {name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []}")
-    _sw.append("    ]")
+    _sw.append("      {name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},")
+    _sw.append("      {name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#1a9e54', width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : []},")
+    _sw.append("      {name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#e5484d', width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : []},")
+    _sw.append("      {name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#eab308', width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : []},")
+    _sw.append("      {name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#888888', width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : []},")
+    _sw.append("      {name: '成交点', data: isENVELOPE ? [] : filldots}")
+    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': isENVELOPE ? false : true, '9mK线': isENVELOPE ? false : true, '9m QQE': isENVELOPE ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': isENVELOPE ? false : true, '80%衰减线': isENVELOPE ? false : true, '翻仓线': isENVELOPE ? false : true, '回补门槛': isENVELOPE ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : null, max: isENVELOPE ? " + env_max_js + " : " + str(y_max_js) + "}, {show: isENVELOPE ? false : true}], grid: [{height: isENVELOPE ? '83%' : '38%'}, {height: isENVELOPE ? '0%' : '42%'}]")
     _sw.append("  });")
     _sw.append("  var tw = document.getElementById('tblWrap');")
-    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER)); }")
-    _sw.append("  var actsData = isCE ? CE_ACTS : (useVH ? VH_ACTS : QQE_ACTS);")
+    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER))); }")
+    _sw.append("  var actsData = isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (useVH ? VH_ACTS : QQE_ACTS));")
     _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
     _sw.append("  document.title = TITLES3[v];")
     _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
@@ -1901,7 +2559,7 @@ def main():
     _sw.append("  var sel = document.getElementById('daypick');")
     _sw.append("  if (!sel) return;")
     _sw.append("  var wrap = document.createElement('span');")
-    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版']].forEach(function(it){")
+    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
