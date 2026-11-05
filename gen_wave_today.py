@@ -1987,7 +1987,14 @@ def main():
         # line 系列、各自定 lineStyle 颜色; 相邻段重叠 1 根 bar 保证线不断。
         _env_trend_segs = []
         _tday = [_env_trend_raw[i] for i in _env_day_idx] if _env_trend_raw else []
-        if _tday and len(line1m) == len(_tday):
+        # line1m 可能含盘后 bar (实盘 API 常多出 16:00 后的几根, 本地缓存没有),
+        # 长度不必与趋势严格相等: 取重叠前缀对齐, 差几根只丢尾巴不断整段。
+        if _tday and line1m:
+            _nseg = min(len(line1m), len(_tday))
+            if len(line1m) != len(_tday):
+                print(f"  WARN trend segs: line1m {len(line1m)} vs trend {len(_tday)}, 用前 {_nseg} 根对齐", flush=True)
+            _tday = _tday[:_nseg]
+            _lm = line1m[:_nseg]
             # 趋势段颜色统一走 theme (hex 仅记在 const 里备查, 线色以 THEME 为准)。
             _tcol = {1: ("#14532d", "THEME.envelope.trendUp"),
                      -1: ("#7f1d1d", "THEME.envelope.trendDown"),
@@ -2001,9 +2008,9 @@ def main():
                         _rd, _rs = _tday[_k], _k
             for _j, (_s, _e, _d) in enumerate(_runs):
                 if _j < len(_runs) - 1:
-                    _seg = line1m[_s:_e + 2]
+                    _seg = _lm[_s:_e + 2]
                 elif _e > _s:
-                    _seg = line1m[_s:_e + 1]
+                    _seg = _lm[_s:_e + 1]
                 else:
                     continue  # 最后一根单 bar: 前一段的重叠已覆盖, 不单独成段
                 if len(_seg) >= 2:
