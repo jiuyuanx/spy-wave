@@ -1988,7 +1988,7 @@ def main():
         _env_trend_segs = []
         _tday = [_env_trend_raw[i] for i in _env_day_idx] if _env_trend_raw else []
         if _tday and len(line1m) == len(_tday):
-            _tcol = {1: "#15803d", -1: "#b91c1c", 0: "#1e40af"}
+            _tcol = {1: "#14532d", -1: "#7f1d1d", 0: "#1e40af"}
             _runs = []
             _rd, _rs = _tday[0], 0
             for _k in range(1, len(_tday) + 1):
@@ -2579,7 +2579,7 @@ var t = ps[0].axisValue;
 var e = ENVELOPE_TIP[t];
 if (e) {
 var s = '<b>' + t + '</b><br/>开' + e.o + ' 收' + e.c;
-s += '<br/><span style=\\'color:#1a9e54\\'>上' + e.up + '</span> <span style=\\'color:#b58900\\'>中' + e.mid + '</span> <span style=\\'color:#e5484d\\'>下' + e.lo + '</span>';
+s += '<br/><span style=\\'color:' + THEME.envelope.upper + '\\'>上' + e.up + '</span> <span style=\\'color:#b58900\\'>中' + e.mid + '</span> <span style=\\'color:' + THEME.envelope.lower + '\\'>下' + e.lo + '</span>';
 if (e.why) s += '<br/>' + e.why;
 else s += '<br/><span style=\\'color:#888\\'>无Envelope动作</span>';
 return s;
@@ -2626,10 +2626,10 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {name: '3mK线', markArea: {silent: true, data: isENVELOPE ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
     _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},")
     _sw.append("      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},")
-    _sw.append("      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#1a9e54', width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : []},")
-    _sw.append("      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#e5484d', width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : []},")
-    _sw.append("      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#eab308', width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : []},")
-    _sw.append("      {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#888888', width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : []},")
+    _sw.append("      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : []},")
+    _sw.append("      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : []},")
+    _sw.append("      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : []},")
+    _sw.append("      {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : []},")
     _sw.append("      {name: '成交点', data: isENVELOPE ? [] : filldots}")
     _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': isENVELOPE ? false : true, '9mK线': isENVELOPE ? false : true, '9m QQE': isENVELOPE ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': isENVELOPE ? false : true, '80%衰减线': isENVELOPE ? false : true, '翻仓线': isENVELOPE ? false : true, '回补门槛': isENVELOPE ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : null, max: isENVELOPE ? " + env_max_js + " : " + str(y_max_js) + "}, {show: isENVELOPE ? false : true}], grid: [{height: isENVELOPE ? '83%' : '38%'}, {height: isENVELOPE ? '0%' : '42%'}]")
     _sw.append("  });")
