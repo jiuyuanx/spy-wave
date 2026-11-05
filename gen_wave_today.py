@@ -1996,7 +1996,7 @@ def main():
             _tday = _tday[:_nseg]
             _lm = line1m[:_nseg]
             # 趋势段颜色统一走 theme (hex 仅记在 const 里备查, 线色以 THEME 为准)。
-            _tcol = {1: ("#15803d", "THEME.envelope.trendUp"),
+            _tcol = {1: ("#0d9488", "THEME.envelope.trendUp"),
                      -1: ("#b91c1c", "THEME.envelope.trendDown"),
                      0: ("#1e40af", "THEME.envelope.trendFlat")}
             _runs = []
