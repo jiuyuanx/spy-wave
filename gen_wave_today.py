@@ -175,10 +175,11 @@ def _env_indicators(df):
 
 
 def _env_simulate(df, ind, day_str):
-    """Pine 语义模拟 (bar 收盘执行), 返回 (trades, open_pos)。
+    """Pine 语义模拟 (bar 收盘执行), 返回 (trades, open_pos, trend_dir)。
     trades: [(entry_bar, exit_bar, dir, entry_px, exit_px, reason)] (仅当日进场);
     open_pos: 盘末未平仓 {dir, px0, obi, entry_kind} 或 None (日内盘中用, 仅完整日才日终平,
-    由调用方按 _env_eod 决定是否转为日终平仓单)。"""
+    由调用方按 _env_eod 决定是否转为日终平仓单)。
+    trend_dir: 每根趋势方向 +1 强涨 / -1 强跌 / 0 中性, 与 df 行对齐。"""
     n = len(df)
     times = df["t"]
     sm = times.dt.hour.values * 60 + times.dt.minute.values
@@ -193,6 +194,7 @@ def _env_simulate(df, ind, day_str):
     entry_kind = None
     prev_strong_up = prev_strong_down = False
     trades = []
+    trend_dir = []  # 每根趋势方向: +1 强涨 / -1 强跌 / 0 中性 (供 1m 曲线分段着色)
 
     def close_pos(bar, px, reason):
         nonlocal pos, entry_px, entry_atr, entry_bar, entry_date, entry_kind
@@ -238,6 +240,7 @@ def _env_simulate(df, ind, day_str):
             strong_up = trending and (slope[i] > _ENV_TAKEOVER_SLOPE * atr[i])
             allow_long = not strong_down
             allow_short = not strong_up
+        trend_dir.append(1 if strong_up else (-1 if strong_down else 0))
         # ---- 趋势入场: 强趋势上升沿 (edge-triggered), 顺势开 ----
         edge_up = strong_up and not prev_strong_up
         edge_down = strong_down and not prev_strong_down
@@ -280,7 +283,7 @@ def _env_simulate(df, ind, day_str):
     if pos != 0:
         open_pos = {"dir": "long" if pos == 1 else "short", "px0": float(entry_px),
                     "obi": int(entry_bar), "entry_kind": entry_kind or "open"}
-    return trades, open_pos
+    return trades, open_pos, trend_dir
 
 
 def _vh_kind(rs):
@@ -1701,13 +1704,14 @@ def main():
     _env_open = None  # 盘中未平: {dir,px0,obi,entry_kind,entry_rs}
     _env_ind = None
     _env_day_idx = []
+    _env_trend_raw = []  # 每根趋势方向 (与 _env_df 行对齐)
     if _env_df is not None and len(_env_df):
         _env_ind = _env_indicators(_env_df)
         _env_dates = _env_df["t"].dt.strftime("%Y-%m-%d").values
         _env_mins = _env_df["t"].dt.hour.values * 60 + _env_df["t"].dt.minute.values
         _env_day_idx = [i for i in range(len(_env_df))
                         if _env_dates[i] == day_str and 570 <= int(_env_mins[i]) <= 959]
-        _env_raw, _env_open_raw = _env_simulate(_env_df, _env_ind, day_str)
+        _env_raw, _env_open_raw, _env_trend_raw = _env_simulate(_env_df, _env_ind, day_str)
         if day_str == "2026-06-17":
             _env_raw, _env_open_raw = [], None
         _env_last_hm = _env_df["t"].dt.strftime("%H:%M").iloc[_env_day_idx[-1]] if _env_day_idx else ""
@@ -1978,6 +1982,20 @@ def main():
         env_lower = [_env_v1(_dn_a, i) for i in _env_day_idx]
         env_mid = [_env_v1(_md_a, i) for i in _env_day_idx]
         env_chanmid = [_env_v1(_cm_a, i) for i in _env_day_idx]
+        # 1m 曲线按 Envelope 趋势分段着色: 强涨深绿 / 强跌深红 / 其余深蓝。
+        # visualMap pieces 做全覆盖分段 (中性段也显式给深蓝, 避免 outOfRange 默认色);
+        # x 为 3m 单位 (第 k 根 1m bar 对应 x=k/3, 与 line1m 的 round(...,4) 对齐)。
+        _env_trend_pieces = []
+        _tday = [_env_trend_raw[i] for i in _env_day_idx] if _env_trend_raw else []
+        if _tday:
+            _tcol = {1: "#15803d", -1: "#b91c1c", 0: "#1e40af"}
+            _rd, _rs = _tday[0], 0
+            for _k in range(1, len(_tday) + 1):
+                if _k == len(_tday) or _tday[_k] != _rd:
+                    _env_trend_pieces.append({"gte": round(_rs / 3, 4), "lte": round((_k - 1) / 3, 4),
+                                              "color": _tcol[_rd]})
+                    if _k < len(_tday):
+                        _rd, _rs = _tday[_k], _k
         _env_opens = _env_df["open"].to_numpy(float)
         _env_highs = _env_df["high"].to_numpy(float)
         _env_lows = _env_df["low"].to_numpy(float)
@@ -2042,6 +2060,7 @@ def main():
         env_min = round(_env_px_lo - 1.0, 2)
     else:
         env_upper = env_lower = env_mid = env_chanmid = []
+        _env_trend_pieces = []
         env_tip = {}
         env_max = env_min = None
     env_min_js = str(env_min) if env_min is not None else "null"
@@ -2539,6 +2558,7 @@ def main():
     _sw.append("const ENVELOPE_CHANMID_1M = " + json.dumps(env_chanmid) + ";")
     _sw.append("const ENVELOPE_MID_1M = " + json.dumps(env_mid) + ";")
     _sw.append("const ENVELOPE_TIP = " + json.dumps(env_tip, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_TREND_PIECES = " + json.dumps(_env_trend_pieces) + ";")
     _sw.append("""(function(){
 if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
 var _origEnvTip = THEME.tooltipFormatter;
@@ -2587,6 +2607,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
     _sw.append("  ch.setOption({")
+    _sw.append("    visualMap: {show: false, type: 'piecewise', dimension: 0, seriesIndex: 0, pieces: isENVELOPE ? ENVELOPE_TREND_PIECES : []},")
     _sw.append("    title: {text: isLive ? TITLES3.live : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
     _sw.append("      {name: '1m曲线', lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
