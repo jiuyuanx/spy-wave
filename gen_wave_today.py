@@ -1983,19 +1983,28 @@ def main():
         env_mid = [_env_v1(_md_a, i) for i in _env_day_idx]
         env_chanmid = [_env_v1(_cm_a, i) for i in _env_day_idx]
         # 1m 曲线按 Envelope 趋势分段着色: 强涨深绿 / 强跌深红 / 其余深蓝。
-        # visualMap pieces 做全覆盖分段 (中性段也显式给深蓝, 避免 outOfRange 默认色);
-        # x 为 3m 单位 (第 k 根 1m bar 对应 x=k/3, 与 line1m 的 round(...,4) 对齐)。
-        _env_trend_pieces = []
+        # visualMap 只能给散点上色、线段本身不变色 (探针实测), 故改用分段系列: 每段一个
+        # line 系列、各自定 lineStyle 颜色; 相邻段重叠 1 根 bar 保证线不断。
+        _env_trend_segs = []
         _tday = [_env_trend_raw[i] for i in _env_day_idx] if _env_trend_raw else []
-        if _tday:
+        if _tday and len(line1m) == len(_tday):
             _tcol = {1: "#15803d", -1: "#b91c1c", 0: "#1e40af"}
+            _runs = []
             _rd, _rs = _tday[0], 0
             for _k in range(1, len(_tday) + 1):
                 if _k == len(_tday) or _tday[_k] != _rd:
-                    _env_trend_pieces.append({"gte": round(_rs / 3, 4), "lte": round((_k - 1) / 3, 4),
-                                              "color": _tcol[_rd]})
+                    _runs.append((_rs, _k - 1, _rd))
                     if _k < len(_tday):
                         _rd, _rs = _tday[_k], _k
+            for _j, (_s, _e, _d) in enumerate(_runs):
+                if _j < len(_runs) - 1:
+                    _seg = line1m[_s:_e + 2]
+                elif _e > _s:
+                    _seg = line1m[_s:_e + 1]
+                else:
+                    continue  # 最后一根单 bar: 前一段的重叠已覆盖, 不单独成段
+                if len(_seg) >= 2:
+                    _env_trend_segs.append({"color": _tcol[_d], "data": _seg})
         _env_opens = _env_df["open"].to_numpy(float)
         _env_highs = _env_df["high"].to_numpy(float)
         _env_lows = _env_df["low"].to_numpy(float)
@@ -2060,7 +2069,7 @@ def main():
         env_min = round(_env_px_lo - 1.0, 2)
     else:
         env_upper = env_lower = env_mid = env_chanmid = []
-        _env_trend_pieces = []
+        _env_trend_segs = []
         env_tip = {}
         env_max = env_min = None
     env_min_js = str(env_min) if env_min is not None else "null"
@@ -2558,7 +2567,7 @@ def main():
     _sw.append("const ENVELOPE_CHANMID_1M = " + json.dumps(env_chanmid) + ";")
     _sw.append("const ENVELOPE_MID_1M = " + json.dumps(env_mid) + ";")
     _sw.append("const ENVELOPE_TIP = " + json.dumps(env_tip, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_TREND_PIECES = " + json.dumps(_env_trend_pieces) + ";")
+    _sw.append("const ENVELOPE_TREND_SEGS = " + json.dumps(_env_trend_segs) + ";")
     _sw.append("""(function(){
 if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
 var _origEnvTip = THEME.tooltipFormatter;
@@ -2606,13 +2615,12 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var scatData = isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (useVH ? VH_SCAT : QQE_SCAT));")
     _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
-    _sw.append("  var _lmIdx = 0;")
-    _sw.append("  try { var _ss = ch.getOption().series || []; for (var _si = 0; _si < _ss.length; _si++) { if (_ss[_si] && _ss[_si].name === '1m曲线') { _lmIdx = _si; break; } } } catch (_e) {}")
     _sw.append("  ch.setOption({")
-    _sw.append("    visualMap: {show: false, type: 'piecewise', dimension: 0, seriesIndex: _lmIdx, pieces: isENVELOPE ? ENVELOPE_TREND_PIECES : []},")
     _sw.append("    title: {text: isLive ? TITLES3.live : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
-    _sw.append("      {name: '1m曲线', lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
+    _sw.append("      {name: '1m曲线', data: (isENVELOPE && ENVELOPE_TREND_SEGS.length) ? [] : line1m, lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
+    for _si, _sg in enumerate(_env_trend_segs):
+        _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: '%s', width: 2}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["color"], _si))
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
     _sw.append("      {name: '每单盈亏', data: scatData, label: {show: isENVELOPE ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : []}},")
     _sw.append("      {name: '3mK线', markArea: {silent: true, data: isENVELOPE ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
