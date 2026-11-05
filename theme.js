@@ -70,9 +70,10 @@ var THEME = {
     lower:   '#f97316',  // 下轨 橙色
     chanmid: '#eab308',  // 中轨 黄
     mid:     '#888888',  // 均线 灰
-    trendUp:   '#14532d',  // 趋势强涨 深绿
-    trendDown: '#7f1d1d',  // 趋势强跌 深红
-    trendFlat: '#1e40af'   // 趋势中性 深蓝
+    trendUp:   '#15803d',  // 趋势强涨 绿
+    trendDown: '#b91c1c',  // 趋势强跌 红
+    trendFlat: '#1e40af',  // 趋势中性 深蓝
+    trendWidth: 3          // 趋势段线宽 (加粗)
   },
 
   // Chinese label (e.g. '翻C') -> semantic key
