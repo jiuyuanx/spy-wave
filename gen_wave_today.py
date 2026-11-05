@@ -1996,8 +1996,8 @@ def main():
             _tday = _tday[:_nseg]
             _lm = line1m[:_nseg]
             # 趋势段颜色统一走 theme (hex 仅记在 const 里备查, 线色以 THEME 为准)。
-            _tcol = {1: ("#14532d", "THEME.envelope.trendUp"),
-                     -1: ("#7f1d1d", "THEME.envelope.trendDown"),
+            _tcol = {1: ("#15803d", "THEME.envelope.trendUp"),
+                     -1: ("#b91c1c", "THEME.envelope.trendDown"),
                      0: ("#1e40af", "THEME.envelope.trendFlat")}
             _runs = []
             _rd, _rs = _tday[0], 0
@@ -2631,7 +2631,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    series: [")
     _sw.append("      {name: '1m曲线', data: (isENVELOPE && ENVELOPE_TREND_SEGS.length) ? [] : line1m, lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
     for _si, _sg in enumerate(_env_trend_segs):
-        _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: 2}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["theme"], _si))
+        _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["theme"], _si))
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
     _sw.append("      {name: '每单盈亏', data: scatData, label: {show: isENVELOPE ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : []}},")
     _sw.append("      {name: '3mK线', markArea: {silent: true, data: isENVELOPE ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
