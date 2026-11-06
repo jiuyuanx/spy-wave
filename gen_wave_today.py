@@ -985,13 +985,38 @@ def main():
     first_t = tstrs[today_idx[0]]
     mark_areas = []
     _open = None  # (bi, dr, opx)
+    def _vh_trade_roi(rt):
+        """返回 (总ROI fraction, [(段ROI, 段开bar, 段平bar), ...])。
+        ST单按30分钟切段复利(gamma_roi_100, -100下限); QQE单整单一段。
+        2026-11-05 用户令: 实盘预估与ST VH版统一口径, 此处定义前移以便实盘表复用。"""
+        dr, bi0, bi1 = rt["odr"], rt["obi"], rt["cbi"]
+        px0, px1 = rt["opx"], rt["cpx"]
+        if _vh_kind(rt["ors"]) == "qqe":
+            _r = gamma_roi_100(dr, px0, px1)
+            return _r, [(_r, bi0, bi1)]
+        bounds = []
+        b = bi0 + 10
+        while b < bi1:
+            bounds.append(b)
+            b += 10
+        pts = [px0] + [float(sig["close"].iloc[bb]) for bb in bounds] + [px1]
+        bis = [bi0] + bounds + [bi1]
+        segs = []
+        cap = 1.0
+        for _si in range(len(pts) - 1):
+            _r = gamma_roi_100(dr, pts[_si], pts[_si + 1])
+            segs.append((_r, bis[_si], bis[_si + 1]))
+            cap *= (1.0 + _r)
+        return cap - 1.0, segs
+
     def _emit(obi, odr, opx, cbi, cpx):
         try:
             pnl = (float(cpx) - float(opx)) if odr == "call" else (float(opx) - float(cpx))
         except (TypeError, ValueError):
             return
         # 2026-10-19 用户: alpha公式拆到theme.js (THEME.pnlBgColor)，这里只传收益率百分比
-        _pct = round(gamma_roi(odr, opx, cpx), 2)
+        # 2026-11-05 用户令统一: -100下限(gamma_roi_100), 与各版预估表同口径
+        _pct = round(gamma_roi_100(odr, opx, cpx) * 100, 2)
         s = tstrs[obi] if obi in today_set else first_t
         mark_areas.append([
             {"xAxis": s, "pnlPct": _pct},
@@ -1056,7 +1081,8 @@ def main():
             rt["pnl"] = None
             rt["ret"] = None
         # 预估统一Gamma公式ROI (2026-10-20 用户: 实盘/回放都用ROI公式, 不再用delta线性模型)
-        _roi = gamma_roi(rt["odr"], rt["opx"], rt["cpx"]) / 100.0
+        # 2026-11-05 用户令统一: -100下限 + 30分钟切段复利, 与ST VH版同口径(_vh_trade_roi)
+        _roi = _vh_trade_roi(rt)[0]
         if rt["o_qty"]:
             # 有实际成交: 预估=ROI×实际期权成本
             rt["est_ret"] = _roi
@@ -1145,28 +1171,6 @@ def main():
 
     # ---- VH版色带/单标签/段标签 (ST单30分钟切段=每10根3m一段、段间复利;
     # QQE单整单一段、无段标签; 色带/标签走THEME ST专用色, 照抄backfill VH版) ----
-    def _vh_trade_roi(rt):
-        """返回 (总ROI fraction, [(段ROI, 段开bar, 段平bar), ...])。"""
-        dr, bi0, bi1 = rt["odr"], rt["obi"], rt["cbi"]
-        px0, px1 = rt["opx"], rt["cpx"]
-        if _vh_kind(rt["ors"]) == "qqe":
-            _r = gamma_roi_100(dr, px0, px1)
-            return _r, [(_r, bi0, bi1)]
-        bounds = []
-        b = bi0 + 10
-        while b < bi1:
-            bounds.append(b)
-            b += 10
-        pts = [px0] + [float(sig["close"].iloc[bb]) for bb in bounds] + [px1]
-        bis = [bi0] + bounds + [bi1]
-        segs = []
-        cap = 1.0
-        for _si in range(len(pts) - 1):
-            _r = gamma_roi_100(dr, pts[_si], pts[_si + 1])
-            segs.append((_r, bis[_si], bis[_si + 1]))
-            cap *= (1.0 + _r)
-        return cap - 1.0, segs
-
     vh_mark_bands = []  # (t0, pct, t1), ST色
     vh_scat_raw = []    # (close_tstr, roi) 已平仓单
     vh_seg_raw = []     # (seg_end_tstr, seg_end_bi, roi) 多段ST单的每段
@@ -1298,7 +1302,16 @@ def main():
         else:
             _ar["_cpx"] = _last1m or _fb_c or float(sig["close"].iloc[-1])
         # 预估: Gamma公式ROI×实际期权成本, ROI按成交时刻SPY价算 (2026-10-20 用户统一口径)
-        _roi2 = gamma_roi(_ar["odr"], _ar["_opx"], _ar["_cpx"]) / 100.0
+        # 2026-11-05 用户令统一: -100下限 + 30分钟切段复利, 与ST VH版同口径(_vh_trade_roi)
+        # 实际成交时间映射到3m bar序号; 配对信号的ors定ST/QQE种类, 无配对按QQE整单一段
+        try:
+            _o_bi = int((sig["t"] - _ar["o_t"]).abs().argsort().iloc[0])
+            _c_bi = int((sig["t"] - _ar["c_t"]).abs().argsort().iloc[0]) if _ar.get("c_t") is not None else len(sig) - 1
+            _ors2 = _best.get("ors") if (_best is not None and _best_s < 900) else ""
+            _roi2 = _vh_trade_roi({"odr": _ar["odr"], "obi": _o_bi, "cbi": max(_c_bi, _o_bi),
+                                   "opx": _ar["_opx"], "cpx": _ar["_cpx"], "ors": _ors2})[0]
+        except Exception:
+            _roi2 = gamma_roi_100(_ar["odr"], _ar["_opx"], _ar["_cpx"])
         _ocost = _ar["o_avg"] * _ar["qty"] * 100
         _ar["est_ret"] = _roi2
         _ar["est_pnl"] = _roi2 * _ocost
@@ -1373,7 +1386,7 @@ def main():
         + "".join(trows) + "</table></div>"
         "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
         "实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;"
-        "预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准);开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
+        "预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准),单笔floor -100%;ST单按30分钟切段复利,QQE单整单一段;开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div>"
         f"<div style=\"font-size:11px;color:#888;\">Alpaca实际成交: {len(fills)}笔"
         + (f", 最新{fills[-1]['t'].strftime('%H:%M:%S')}" if fills else "") + "</div></div>")
 
