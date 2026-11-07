@@ -95,7 +95,7 @@ _ENV_ER_LEN = 17
 _ENV_ER_TH = 0.35
 _ENV_DI_LEN = 8
 _ENV_ADX_SMOOTH = 12
-_ENV_ADX_TH = 20
+_ENV_ADX_TH = 30  # envelope_adx30 正式版 (2026-11-07): 原 20 -> 30
 _ENV_TAKEOVER_SLOPE = 0.13
 _ENV_SL_ATR = 1.5
 
@@ -123,7 +123,20 @@ def _env_indicators(df):
     prev_c = np.empty(n); prev_c[0] = np.nan; prev_c[1:] = c[:-1]
     tr = np.maximum(h - l, np.maximum(np.abs(h - prev_c), np.abs(l - prev_c)))
     tr[0] = h[0] - l[0]
-    atr = _env_rma(tr, _ENV_ATR_LEN)
+    # Gap-Adjusted ATR (envelope_adx30 正式版 2026-11-07): 每日首根 RTH bar (09:30)
+    # 的 TR = high-low, 不含隔夜跳空; 其余 bar 用正常 TR。DMI (DI/ADX) 始终用正常 TR。
+    times = df["t"]
+    sm = times.dt.hour.values * 60 + times.dt.minute.values
+    dates = times.dt.strftime("%Y-%m-%d").values
+    in_rth = (sm >= 570) & (sm < 960)
+    first_rth = np.zeros(n, dtype=bool)
+    for i in range(n):
+        if not in_rth[i]:
+            continue
+        if i == 0 or (not in_rth[i - 1]) or (dates[i] != dates[i - 1]):
+            first_rth[i] = True
+    tr_atr = np.where(first_rth, h - l, tr)
+    atr = _env_rma(tr_atr, _ENV_ATR_LEN)
     w = np.exp(-0.5 * (np.arange(_ENV_GAUSS_LEN) / _ENV_GAUSS_BW) ** 2)
     mid = np.full(n, np.nan)
     for i in range(n):
