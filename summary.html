@@ -167,6 +167,14 @@ window.addEventListener('resize', function(){charts.forEach(function(c){c.resize
 </table></div>
 <p class="small">本节为 148 周数字（到 2026-10-26 周）；图里是 149 周，11/02 周含 11/2–4 三天（其余版本仅 11/2–3 两天），周五收盘后更新为完整周。2025-04-07 周为 $-99,708，去掉该周后本节合计 $36,049,095（149 周口径去掉该周为 $36,067,435）。</p>
 
+<h2 style="color:#1a9e54">10. Envelope envelope_adx30</h2>
+<p>Envelope 正式版（2026-11-07 起）：ADX 门槛 20 → 30，ATR 改 Gap-Adjusted（每天开盘第一根 09:30 的 TR = high − low，不含隔夜跳空；DMI 的 DI/ADX 仍用正常 TR）。强趋势更难触发，趋势单减少、边缘单增多；2024–2026 合计 $51,350,444（52,982 单，胜率 52.34%，PF 1.2245，周胜 85/149），2021–2023 合计 $19,691,430（61,289 单，胜率 50.81%，PF 1.1631，周胜 130/156），两期合计 $71,041,874；去掉 2025-11-17 周后合计 $29,430,293（2024–2026 去 11/17 周为 $9,738,863，2021–2023 无此周）。旧版 Envelope（ADX 20、正常 ATR）见第 9 节。</p>
+<div class="tblwrap"><table>
+<tr><th>2024</th><th>2025</th><th>2026</th><th>合计</th><th>单数</th><th>周数</th><th>最大回撤</th></tr>
+<tr><td class="pos">$1,802,512</td><td class="pos">$45,337,995</td><td class="pos">$4,209,936</td><td class="tot pos">$51,350,444</td><td>52,982</td><td>149</td><td class="dd">100.00%（2024-09-09周 → 2025-05-05周）</td></tr>
+</table></div>
+<p class="small">本节为 149 周数字（2024–2026，到 2026-11-06 周）。2021–2023：2021 $4,766,082 / 2022 $9,259,114 / 2023 $5,666,234，合计 $19,691,430；两期合计 $71,041,874。2025-04-07 周为 $-99,640，去掉该周后本节合计 $51,450,083。</p>
+
 <hr>
 <p class="small">注1（总额口径）：每周$100k起，周内逐笔复利，跨周重置，总额=各周利润和；-100口径（单笔最多亏100%）。年度金额四舍五入到整美元，三个年度加起来可能和合计差$1，以合计为准（V_G年度和为$12,119,322，比合计$12,119,321多$1，系四舍五入所致；V_H年度和为$20,342,831，与合计一致）。</p>
 <p class="small">注2（最大回撤定义，原文）：build a continuous equity curve from weekly returns — start $100k, each week's return = weekly profit / $100k, equity *= (1 + weekly return) sequentially with NO weekly reset — then max drawdown = largest peak-to-trough percentage decline of that curve over 2024-2026。中文意思：从每周利润算每周收益率（周利润除以10万美元），起点10万美元、按周顺序连乘、不重置，画一条连续权益曲线，最大回撤就是这条曲线从历史高点跌到随后低点的最大百分比跌幅。</p>
