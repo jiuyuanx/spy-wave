@@ -308,8 +308,10 @@ def _env_merge_junctions(raw):
     (入场取链首、出场取链末, 出场原因取链末); 链式接点继续并。
     raw: [(entry_bar, exit_bar, dir, entry_px, exit_px, reason), ...] (时间序)。
     返回 (merged_raw, n_groups, is_chain): n_groups = 发生合并的组数 (每条链
-    算 1 组); is_chain 与 merged_raw 对齐, True = 该笔由接点链并成 (展示层
-    对这类单子不画信号圈, 太密; 用户 2026-11-09 追加令)。"""
+    算 1 组); is_chain 与 merged_raw 对齐, True = 该笔由接点链并成 (仅作
+    标记; 展示层把合并行当作一笔普通单画圈 — 链首入场 + 链尾出场 + 合并
+    ROI 散点, 只隐藏链内止损+同向重开的中间标记; 用户 2026-11-09 纠正:
+    初版整链不画圈误伤了翻仓/反向开仓圈)。"""
     out = []
     flags = []
     groups = 0
@@ -1856,8 +1858,6 @@ def main():
 
     _env_nonflip, _env_flips = [], []
     for _j, _tr in enumerate(_env_trades):
-        if _tr.get("is_chain"):
-            continue  # 接点链单不画信号圈 (太密); 列表/色带/合计照常
         _slot_o = _env_snap(_env_tstr[_tr["obi"]])
         if _tr["entry_kind"] == "flip":
             _env_flips.append((_slot_o, "翻" + _env_letter(_tr["dir"]),
@@ -1866,9 +1866,8 @@ def main():
             _env_nonflip.append((_slot_o, "开" + _env_letter(_tr["dir"]),
                                  _env_pin_color("open", _tr["dir"]), _tr["entry_rs"]))
         _is_last = _j == len(_env_trades) - 1
-        # 翻仓平仓圈本与下一笔的翻仓开仓圈同点只留一个; 下一笔是链单 (不画圈) 时恢复画
-        _next_chain = _j + 1 < len(_env_trades) and bool(_env_trades[_j + 1].get("is_chain"))
-        if _tr["close_rs"] != "Envelope翻转" or _is_last or _next_chain:
+        # 翻仓平仓圈与下一笔的翻仓开仓圈同点只留一个 (下一笔照常画翻仓圈)
+        if _tr["close_rs"] != "Envelope翻转" or _is_last:
             _slot_c = _env_snap(_env_tstr[_tr["cbi"]])
             _env_nonflip.append((_slot_c, "平" + _env_letter(_tr["dir"]),
                                  _env_pin_color("close", _tr["dir"]), _tr["close_rs"]))
@@ -1899,8 +1898,6 @@ def main():
 
     _env_nf_spins, _env_f_spins = [], []
     for _j, _tr in enumerate(_env_trades):
-        if _tr.get("is_chain"):
-            continue  # 接点链单不画信号圈 (与 pins 同规)
         _ic = _tr["dir"] == "call"
         if _tr["entry_kind"] == "flip":
             _env_f_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_tr["obi"]]),
@@ -1915,8 +1912,7 @@ def main():
                                                  _env_pin_color("open", _tr["dir"]),
                                                  _tr["entry_rs"], _ic))
         _is_last = _j == len(_env_trades) - 1
-        _next_chain = _j + 1 < len(_env_trades) and bool(_env_trades[_j + 1].get("is_chain"))
-        if _tr["close_rs"] != "Envelope翻转" or _is_last or _next_chain:
+        if _tr["close_rs"] != "Envelope翻转" or _is_last:
             _env_nf_spins.append(_env_spin_item(_env_spin_x(_env_tstr[_tr["cbi"]]),
                                                  round(float(_env_closes[_tr["cbi"]]), 2),
                                                  "平" + _env_letter(_tr["dir"]),
@@ -1947,8 +1943,6 @@ def main():
     _env_base = _hi + _rng * 0.03
     _env_placed, _env_scat_data = [], []
     for _tr in sorted(_env_trades, key=lambda t: t["cbi"]):
-        if _tr.get("is_chain"):
-            continue  # 接点链单不画散点圈 (与 pins/spins 同规); 色带保留
         _t_c = _env_tstr[_tr["cbi"]]
         _mnt = int(_t_c[:2]) * 60 + int(_t_c[3:5])
         _row = 0
