@@ -74,30 +74,33 @@ def gamma_roi_100(pos, open_px, close_px):
     return max(r, -100.0) / 100.0
 
 
-# ---- Envelope (TradingView SPY Adaptive Envelope v3.9 With-trend, 止损1.5) ----
+# ---- Envelope (TradingView SPY Adaptive Envelope v3.9 With-trend) ----
 # 移植自 research/tv_envelope_v39_withtrend_trendflip.py (compute_indicators + simulate):
 # 高斯中线权重已纠正 (最新根权重最大); 平移通道 + 20% 边缘区; 趋势政策 With-trend-only;
-# 新参数 1m 特调 + 趋势翻仓开 (强趋势上升沿顺势开, 可绕过 EXIT T 同根翻仓, EOD 不可绕过)。
+# 趋势翻仓开 (强趋势上升沿顺势开, 可绕过 EXIT T 同根翻仓, EOD 不可绕过)。
+# 参数 (用户 2026-11-09 拍板全覆盖): 1mEnvelope V2 (研究基线) + 止损 0.5xATR,
+# 替代原 envelope_adx30 套 (MULT 1.05/ATR 12/ER 17/DI 8/ADX平滑 12/MOM 15/EMA 5/
+# TSLOPE 0.13/SL 1.5); 展示层另把止损+同向接点单合并成一笔 (见 _env_merge_junctions)。
 # 生成器内联 (与 CE 的 _ce_compute 同款做法, 保证 GitHub Actions 部署包自包含)。
 _ENV_GAUSS_LEN = 30
 _ENV_GAUSS_BW = 3.5
-_ENV_ATR_LEN = 12
-_ENV_MULT = 1.05
+_ENV_ATR_LEN = 8
+_ENV_MULT = 1.00
 _ENV_SLOPE_LEN = 7
 _ENV_ASYM_SHIFT = 1.35
-_ENV_FAST_EMA_LEN = 5
-_ENV_MOM_LOOKBACK = 15
+_ENV_FAST_EMA_LEN = 3
+_ENV_MOM_LOOKBACK = 10
 _ENV_MOM_SENS = 0.55
 _ENV_MAX_SHIFT_ATR = 0.50
 _ENV_EDGE_PCT = 20.0
 _ENV_MAX_OUTSIDE = 0.55
-_ENV_ER_LEN = 17
+_ENV_ER_LEN = 12
 _ENV_ER_TH = 0.35
-_ENV_DI_LEN = 8
-_ENV_ADX_SMOOTH = 12
-_ENV_ADX_TH = 30  # envelope_adx30 正式版 (2026-11-07): 原 20 -> 30
-_ENV_TAKEOVER_SLOPE = 0.13
-_ENV_SL_ATR = 1.5
+_ENV_DI_LEN = 16
+_ENV_ADX_SMOOTH = 16
+_ENV_ADX_TH = 30
+_ENV_TAKEOVER_SLOPE = 0.20
+_ENV_SL_ATR = 0.5
 
 
 def _env_rma(x, n):
@@ -297,6 +300,30 @@ def _env_simulate(df, ind, day_str):
         open_pos = {"dir": "long" if pos == 1 else "short", "px0": float(entry_px),
                     "obi": int(entry_bar), "entry_kind": entry_kind or "open"}
     return trades, open_pos, trend_dir
+
+
+def _env_merge_junctions(raw):
+    """接点合并 (展示层, 与价差合并口径同一定义; 用户 2026-11-09 令):
+    一笔以 SL 出场、出场 bar == 下一笔入场 bar、且同向 -> 并成一笔
+    (入场取链首、出场取链末, 出场原因取链末); 链式接点继续并。
+    raw: [(entry_bar, exit_bar, dir, entry_px, exit_px, reason), ...] (时间序)。
+    返回 (merged_raw, n_groups): n_groups = 发生合并的组数 (每条链算 1 组)。"""
+    out = []
+    groups = 0
+    i = 0
+    while i < len(raw):
+        j = i
+        while (j + 1 < len(raw) and raw[j][5] == "SL"
+               and raw[j + 1][0] == raw[j][1] and raw[j + 1][2] == raw[j][2]):
+            j += 1
+        if j > i:
+            groups += 1
+            out.append((raw[i][0], raw[j][1], raw[i][2],
+                        raw[i][3], raw[j][4], raw[j][5]))
+        else:
+            out.append(raw[i])
+        i = j + 1
+    return out, groups
 
 
 def _vh_kind(rs):
@@ -1699,8 +1726,7 @@ def main():
                                     "borderRadius": 4, "padding": [3, 6], "fontSize": 12}})
     ce_bs_js = json.dumps(ce_bs, ensure_ascii=False)
 
-    # ---- Envelope版 (TradingView SPY Adaptive Envelope v3.9 With-trend, 止损1.5) ----
-    # 移植自 research/envelope_common.py (与注入器逐字一致的口径):
+    # ---- Envelope版 (V2 参数 + 0.5 止损, 接点合并显示; 2026-11-09 全覆盖) ----
     # 信号柱收盘进出, 止损按止损价, 日终=15:56柱收盘; 日内$100k sequential, 单笔floor -100%。
     # 1m 来源: 回放优先本地缓存 (与注入器同源; 缓存是 IEX/SIP 混合, API 单一 feed 无法复现),
     # 缓存不存在/覆盖不足时走 API (warmup IEX + 当日 df1m); 实盘 (WAVE_DATE 为空) 一律走 API。
@@ -1728,6 +1754,8 @@ def main():
             _env_df = None
     _env_trades = []  # 已平对象化: {obi,cbi,dir,px0,px1,entry_kind,entry_rs,close_rs,roi,pnl}
     _env_open = None  # 盘中未平: {dir,px0,obi,entry_kind,entry_rs}
+    _env_jx_groups = 0  # 接点合并组数 (展示口径)
+    _env_n_orig = 0     # 合并前已平单数 (展示口径)
     _env_ind = None
     _env_day_idx = []
     _env_trend_raw = []  # 每根趋势方向 (与 _env_df 行对齐)
@@ -1749,6 +1777,11 @@ def main():
             _env_raw.append((_env_open_raw["obi"], _last_i, _env_open_raw["dir"],
                              _env_open_raw["px0"], float(_env_df["close"].iloc[_last_i]), "EOD"))
             _env_open_raw = None
+        # 接点合并 (展示层): 止损出场根同向重开的链并成一笔, 列表/色带/日合计
+        # 全部按合并后序列走 (与存量回填页同一副面孔)。盘中未平仓不并 (仍浮动显示),
+        # 日终平仓补单已在上面入列, 完整日会自然并入链。
+        _env_n_orig = len(_env_raw)
+        _env_raw, _env_jx_groups = _env_merge_junctions(_env_raw)
         for _j, (_eb, _xb, _d, _epx, _xpx, _rs) in enumerate(_env_raw):
             _is_flip = (_j > 0 and _env_raw[_j - 1][1] == _eb and _env_raw[_j - 1][5] == "FLIP")
             _dr = "call" if _d == "long" else "put"
@@ -1960,9 +1993,13 @@ def main():
         "<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
         "</td><td>—</td><td></td>"
         "<td>~%s</td><td></td></tr>" % _env_money(env_tot))
+    _env_note = ("V2参数 · 0.5止损 · 止损同向接点已合并 %d 组（原 %d 单）"
+                 % (_env_jx_groups, _env_n_orig))
     env_inner = (
         "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
         "Envelope版信号单（Gamma理论预估，-100口径）</div>"
+        "<div style=\"font-size:12px;color:#555;margin-bottom:6px\">"
+        + _env_note + "</div>"
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
         "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
         "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
