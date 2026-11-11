@@ -3216,6 +3216,8 @@ def main():
                   '/home/hatch/workspace/wave-deploy/2026-04-02.html']
     _tpl = next((p for p in _tpl_cands if os.path.exists(p)), _tpl_cands[0])
     html = open(_tpl).read()
+    # 2026-11-11 布局: 主图#c原95vh手机上纵向过长, 压到55vh (约原值58%); 只改输出不改模板源文件
+    html = html.replace('#c{width:100%;height:95vh}', '#c{width:100%;height:55vh}', 1)
     html = re.sub(r'<title>.*?</title>', f'<title>{title_txt}</title>', html, count=1)
     html = re.sub(r"title:\{text:'.*?', left:'center'",
                   f"title:{{text:'{title_txt}', left:'center'", html, count=1)
@@ -3485,7 +3487,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var wrap = document.createElement('div');")
     _sw.append("  wrap.id = 'werPanel';")
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
-    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">WER · dose 0.10（水位降门槛 · 仅显示）</div><div id=\"werCh\" style=\"width:100%;height:250px\"></div>';")
+    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">WER · dose 0.10（水位降门槛 · 仅显示）</div><div id=\"werCh\" style=\"width:100%;height:220px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null;")
     _sw.append("  var evIn = {}, evOut = {};")
