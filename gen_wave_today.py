@@ -2398,6 +2398,112 @@ def main():
     env_min_js = str(env_min) if env_min is not None else "null"
     env_max_js = str(env_max) if env_max is not None else "null"
 
+    # ---- Envelope WER 面板 (dose 0.10; 仅显示, 2026-11-11 用户令) ----
+    # 移植自 research/er_leg_backtest_20261110: wer_deep_common.wer_series
+    # (WER12 非对称 λ 分子 0.98/分母 0.96) + tv_v67_er_overlay_wdose 突变支
+    # 段状态机 (to 0.675/from 0.50/end 0.30/k5/出段迟滞 2 根; dose:
+    # eff_to = 0.675 - min(0.10, max(0, 0.50 - avg10)), avg10 = 前 10 根 WER
+    # 均值 (不含当根, 窗内任一 NaN 不降))。纯指标展示: 不产生交易、不动
+    # 任何一版口径。数据 = 与 Envelope 版同一份 _env_df (warmup+当日 1m),
+    # 段不过夜/触发根门 (in_session 且 s>=580) 与引擎逐条同款。
+    wer_panel = {"wer": [], "eff": [], "areas": [], "entries": [], "exits": []}
+    try:
+        if _env_df is not None and len(_env_df) and _env_day_idx:
+            _wc = _env_df["close"].to_numpy(float)
+            _wn = len(_wc)
+            _wdc = np.diff(_wc, prepend=_wc[0])
+            _wdc[0] = 0.0
+            _wnn = 12
+            _wer = np.full(_wn, np.nan)
+            if _wn > _wnn:
+                from numpy.lib.stride_tricks import sliding_window_view as _swv
+                _win = _swv(_wdc, _wnn)
+                _wnum = 0.98 ** np.arange(_wnn - 1, -1, -1, dtype=float)
+                _wden = 0.96 ** np.arange(_wnn - 1, -1, -1, dtype=float)
+                _num = np.abs(_win @ _wnum)
+                _den = np.abs(_win) @ _wden
+                _vals = np.where(_den > 0, _num / np.where(_den > 0, _den, 1.0), 0.0)
+                _wer[_wnn:] = _vals[1:]
+            _wsm = (_env_df["t"].dt.hour.values * 60
+                    + _env_df["t"].dt.minute.values)
+            _wdt = _env_df["t"].dt.strftime("%Y-%m-%d").values
+            _wlast = {}
+            for _d, _s in zip(_wdt, _wsm):
+                _wlast[_d] = int(_s) + 1
+            _WTO, _WFROM, _WEND, _WK = 0.675, 0.50, 0.30, 5
+            _WCAP, _WR, _WW = 0.10, 0.50, 10
+
+            def _weff(i):
+                if i >= _WW:
+                    _dw = _wer[i - _WW:i]
+                    if np.all(np.isfinite(_dw)):
+                        _dr = _WR - float(np.mean(_dw))
+                        if _dr > 0.0:
+                            return _WTO - min(_WCAP, _dr)
+                return _WTO
+
+            _segs = []  # [start, end, dir, date, ended]
+            _act = False
+            _sdir = 0
+            _sdate = None
+            _below = 0
+            for i in range(_wn):
+                _dstr = _wdt[i]
+                _s = int(_wsm[i])
+                _cm = _s + 1
+                _eod = (_wlast[_dstr] - 3) <= _cm <= _wlast[_dstr]
+                _ins = (570 <= _s <= 955) and (_cm < 945) and (not _eod)
+                if _act and _dstr != _sdate:
+                    _act = False
+                if not _act:
+                    if _ins and _s >= 580 and i >= _WK + 1:
+                        _to_i = _weff(i)
+                        if (not np.isnan(_wer[i]) and _wer[i] >= _to_i
+                                and not np.isnan(_wer[i - 1])
+                                and _wer[i - 1] < _to_i):
+                            _ww = _wer[i - _WK:i]
+                            if (np.all(np.isfinite(_ww))
+                                    and float(np.min(_ww)) < _WFROM):
+                                _dd = int(np.sign(_wc[i] - _wc[i - _wnn]))
+                                if _dd != 0:
+                                    _act = True
+                                    _sdir = _dd
+                                    _sdate = _dstr
+                                    _below = 0
+                                    _segs.append([i, i, _dd, _dstr, False])
+                else:
+                    _segs[-1][1] = i
+                    if np.isnan(_wer[i]) or _wer[i] < _WEND:
+                        _below += 1
+                    else:
+                        _below = 0
+                    if _below >= 2:
+                        _act = False
+                        _segs[-1][4] = True
+                        _below = 0
+            _pos = {gi: k for k, gi in enumerate(_env_day_idx)}
+
+            def _wr4(x):
+                return round(float(x), 4) if x == x else None
+
+            wer_panel["wer"] = [_wr4(_wer[i]) for i in _env_day_idx]
+            wer_panel["eff"] = [round(_weff(i), 3) for i in _env_day_idx]
+            for (_s0, _s1, _sd, _sdt2, _ended) in _segs:
+                if _sdt2 != day_str or _s0 not in _pos or _s1 not in _pos:
+                    continue
+                _sgn = 1 if _sd > 0 else -1
+                wer_panel["areas"].append([_pos[_s0], _pos[_s1], _sgn])
+                wer_panel["entries"].append([_pos[_s0], _wr4(_wer[_s0]), _sgn])
+                if _ended:
+                    wer_panel["exits"].append([_pos[_s1], _wr4(_wer[_s1])])
+            if wer_panel["eff"]:
+                print(f"  wer-panel(dose0.10): 当日段 {len(wer_panel['areas'])}, "
+                      f"eff {min(wer_panel['eff']):.3f}~{max(wer_panel['eff']):.3f}",
+                      flush=True)
+    except Exception as _we:
+        print(f"  WARN wer-panel 计算失败: {_we}", flush=True)
+        wer_panel = {"wer": [], "eff": [], "areas": [], "entries": [], "exits": []}
+
     # ---- Envelope 3m版 (envelope_adx30 口径, 3m bar, 止损 1.5xATR, -100口径) ----
     # 与回填注入页 (research/inject_envelope3m.py) 同款结构与口径, 数据改为生成器内算:
     # _env_df (与 1m 版同一份 1m 数据) 按 09:30 对齐聚合为 3m, _env3_* 引擎 (adx30) 计算;
@@ -3275,6 +3381,7 @@ def main():
     _sw.append("const ENVELOPE3M_CHANMID = " + json.dumps(env3_chanmid) + ";")
     _sw.append("const ENVELOPE3M_MID = " + json.dumps(env3_mid) + ";")
     _sw.append("const ENVELOPE3M_TIP = " + json.dumps(env3_tip, ensure_ascii=False) + ";")
+    _sw.append("const ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
     _sw.append("const ENVELOPE3M_TREND_SEGS = " + json.dumps(_env3_trend_segs) + ";")
     _sw.append("""(function(){
 if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
@@ -3348,6 +3455,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  });")
     _sw.append("  var tw = document.getElementById('tblWrap');")
     _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER)))); }")
+    _sw.append("  if (window._werSync) window._werSync(isENVELOPE);")
     _sw.append("  var actsData = isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (useVH ? VH_ACTS : QQE_ACTS)));")
     _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
     _sw.append("  document.title = TITLES3[v];")
@@ -3369,6 +3477,38 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  sel.parentNode.insertBefore(wrap, sel.nextSibling);")
     _sw.append("  window._verBtns3 = wrap.querySelectorAll('button');")
     _sw.append("  if (!sel.querySelector('option[value=\"summary.html\"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }")
+    _sw.append("})();")
+    # ---- WER 面板 (Envelope 版股票图下方; 仅 envelope 时显示) ----
+    _sw.append("(function(){")
+    _sw.append("  var host = document.getElementById('c');")
+    _sw.append("  if (!host || typeof ENVELOPE_WER === 'undefined' || !ENVELOPE_WER.wer.length) return;")
+    _sw.append("  var wrap = document.createElement('div');")
+    _sw.append("  wrap.id = 'werPanel';")
+    _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
+    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">WER · dose 0.10（水位降门槛 · 仅显示）</div><div id=\"werCh\" style=\"width:100%;height:250px\"></div>';")
+    _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
+    _sw.append("  var werCh = null;")
+    _sw.append("  var evIn = {}, evOut = {};")
+    _sw.append("  ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; });")
+    _sw.append("  ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; });")
+    _sw.append("  function werOpt(){")
+    _sw.append("    var areas = ENVELOPE_WER.areas.map(function(a){ return [{xAxis: ENVELOPE_TIMES1M[a[0]], itemStyle: {color: a[2] > 0 ? 'rgba(26,158,84,0.10)' : 'rgba(229,72,77,0.10)'}}, {xAxis: ENVELOPE_TIMES1M[a[1]]}]; });")
+    _sw.append("    var pts = ENVELOPE_WER.entries.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#7c3aed', borderColor: '#fff', borderWidth: 1.5}}; })")
+    _sw.append("      .concat(ENVELOPE_WER.exits.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#6b7280', borderColor: '#fff', borderWidth: 1.5}}; }));")
+    _sw.append("    return {animation: false,")
+    _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || ENVELOPE_WER.wer[idx] == null) return ''; var h = t + '<br/>WER = <b>' + Number(ENVELOPE_WER.wer[idx]).toFixed(4) + '</b><br/>有效门槛 eff_to = <b>' + Number(ENVELOPE_WER.eff[idx]).toFixed(3) + '</b>'; if (evIn[t]) h += '<br/><b style=\"color:#7c3aed\">段入场</b>（' + (evIn[t] > 0 ? '上行' : '下行') + '）'; if (evOut[t]) h += '<br/><b style=\"color:#6b7280\">段出场</b>'; return h; }},")
+    _sw.append("      grid: {left: 40, right: 12, top: 24, bottom: 24},")
+    _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
+    _sw.append("      yAxis: {type: 'value', min: 0, max: 1.25, name: 'WER', nameTextStyle: {fontSize: 11, color: '#7c3aed'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
+    _sw.append("      series: [")
+    _sw.append("        {name: 'WER', type: 'line', data: ENVELOPE_WER.wer, showSymbol: false, lineStyle: {width: 1.8, color: '#7c3aed'}, itemStyle: {color: '#7c3aed'}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 0.675, label: {formatter: '0.675'}}, {yAxis: 0.5, label: {formatter: '0.50'}}, {yAxis: 0.3, label: {formatter: '0.30'}}]}, markArea: {silent: true, data: areas}, markPoint: {symbol: 'circle', symbolSize: 8, label: {show: false}, data: pts}},")
+    _sw.append("        {name: '有效门槛', type: 'line', data: ENVELOPE_WER.eff, showSymbol: false, step: 'end', lineStyle: {width: 1.5, color: '#f97316', type: 'dashed'}, itemStyle: {color: '#f97316'}}")
+    _sw.append("      ]};")
+    _sw.append("  }")
+    _sw.append("  window._werSync = function(show){")
+    _sw.append("    wrap.style.display = show ? 'block' : 'none';")
+    _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } }")
+    _sw.append("  };")
     _sw.append("})();")
     _sw.append("switchVersion3('live');")
     _sw.append("</script>")
