@@ -3217,6 +3217,8 @@ def main():
     _tpl = next((p for p in _tpl_cands if os.path.exists(p)), _tpl_cands[0])
     html = open(_tpl).read()
     # 2026-11-11 布局: 主图#c原95vh手机上纵向过长, 压到55vh (约原值58%); 只改输出不改模板源文件
+    # 2026-11-12 布局: 55vh 只剩 Envelope 两版与初始态; 实盘/ST VH/QQE/CE 四版由 switchVersion3 里
+    # _fitChartH 按视口动态撑满 (innerHeight - #c文档偏移), 用户反馈四版在手机上被压扁
     html = html.replace('#c{width:100%;height:95vh}', '#c{width:100%;height:55vh}', 1)
     html = re.sub(r'<title>.*?</title>', f'<title>{title_txt}</title>', html, count=1)
     html = re.sub(r"title:\{text:'.*?', left:'center'",
@@ -3422,6 +3424,8 @@ return _origEnvTip(ps, barInfo);
     _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
     _sw.append("var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();")
     _sw.append("var curVer3 = 'live';")
+    _sw.append("window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };")
+    _sw.append("window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && curVer3 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });")
     _sw.append("function switchVersion3(v){")
     _sw.append("  curVer3 = v;")
     _sw.append("  try { localStorage.setItem('waveVer3', v); } catch(e) {}")
@@ -3456,6 +3460,8 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {name: '成交点', data: (isENVELOPE || isENV3M) ? [] : filldots}")
     _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : (isENV3M ? " + env3_min_js + " : null), max: isENVELOPE ? " + env_max_js + " : (isENV3M ? " + env3_max_js + " : " + str(y_max_js) + ")}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]")
     _sw.append("  });")
+    _sw.append("  var _chHost = document.getElementById('c');")
+    _sw.append("  if (_chHost) { if (isENVELOPE || isENV3M) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }")
     _sw.append("  var tw = document.getElementById('tblWrap');")
     _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER)))); }")
     _sw.append("  if (window._werSync) window._werSync(isENVELOPE);")
