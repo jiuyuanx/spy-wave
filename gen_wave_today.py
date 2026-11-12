@@ -3424,6 +3424,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("var curVer3 = 'live';")
     _sw.append("function switchVersion3(v){")
     _sw.append("  curVer3 = v;")
+    _sw.append("  try { localStorage.setItem('waveVer3', v); } catch(e) {}")
     _sw.append("  var isLive = (v === 'live');")
     _sw.append("  var isVH = (v === 'vh');")
     _sw.append("  var useVH = isLive || isVH;")
@@ -3609,7 +3610,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); werSyncZoom(); }")
     _sw.append("  };")
     _sw.append("})();")
-    _sw.append("switchVersion3('live');")
+    _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m'].indexOf(_v) >= 0 ? _v : 'live'; })());")
     _sw.append("</script>")
     html = html.replace("</body>", "\n".join(_sw) + "</body>", 1)
 
