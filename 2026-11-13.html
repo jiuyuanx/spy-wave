@@ -1,0 +1,408 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="60">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>实盘dashboard 2026-11-13 | 今日 +$0 (+0.0%) | 持仓:实盘:空仓 | k3clean L25</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="theme.js"></script>
+<style>body{margin:0;background:#fff;font-family:sans-serif}#c{width:100%;height:55vh}</style>
+</head><body>
+<div style="text-align:center;padding:6px 0 0;font-size:13px">
+<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
+<option value="">📅 选择日期…</option>
+</select> <span id="dayhint" style="color:#888"></span>
+</div>
+<script>
+fetch('archive.json').then(function(r){return r.json();}).then(function(d){
+var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
+var cur=location.pathname.split('/').pop().replace('.html','');
+days.forEach(function(x){var o=document.createElement('option');o.value=x+'.html';o.textContent=x;if(x===cur)o.selected=true;s.appendChild(o);});
+document.getElementById('dayhint').textContent='共'+days.length+'天';
+}).catch(function(){});
+</script>
+<div id="c"></div><script>
+const times = ["09:30", "09:33", "09:36", "09:39", "09:42", "09:45", "09:48", "09:51", "09:54", "09:57", "10:00", "10:03", "10:06", "10:09", "10:12", "10:15", "10:18", "10:21", "10:24", "10:27", "10:30", "10:33", "10:36", "10:39", "10:42", "10:45", "10:48", "10:51", "10:54", "10:57", "11:00", "11:03", "11:06", "11:09", "11:12", "11:15", "11:18", "11:21", "11:24", "11:27", "11:30", "11:33", "11:36", "11:39", "11:42", "11:45", "11:48", "11:51", "11:54", "11:57", "12:00", "12:03", "12:06", "12:09", "12:12", "12:15", "12:18", "12:21", "12:24", "12:27", "12:30", "12:33", "12:36", "12:39", "12:42", "12:45", "12:48", "12:51", "12:54", "12:57", "13:00", "13:03", "13:06", "13:09", "13:12", "13:15", "13:18", "13:21", "13:24", "13:27", "13:30", "13:33", "13:36", "13:39", "13:42", "13:45", "13:48", "13:51", "13:54", "13:57", "14:00", "14:03", "14:06", "14:09", "14:12", "14:15", "14:18", "14:21", "14:24", "14:27", "14:30", "14:33", "14:36", "14:39", "14:42", "14:45", "14:48", "14:51", "14:54", "14:57", "15:00", "15:03", "15:06", "15:09", "15:12", "15:15", "15:18", "15:21", "15:24", "15:27", "15:30", "15:33", "15:36", "15:39", "15:42", "15:45", "15:48", "15:51", "15:54", "15:57"];
+const vals = [7.75,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const colors = ["up", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray"];
+const decayReal = [6.2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const flipBlue = [6.2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const hubuThr = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const pins = [];
+const line1m = [[0.0, 759.27], [0.3333, 759.83], [0.6667, 759.56], [1.0, 758.99], [1.3333, 758.13]];
+const spins = [];
+const filldots = [];
+const stUp = [757.41];
+const stDn = [null];
+const stFastUp = [758.11];
+const stFastDn = [null];
+const stFastFlips = [{"value":["09:30",758.11],"itemStyle":{"color":"#1e40af"},"label":{"formatter":"Buy","position":"bottom","backgroundColor":"#1e40af","color":"#fff","borderRadius":4,"padding":[2,4],"fontSize":10}}];
+const stFill = [["09:30",757.41,759.56,"09:30",757.41,759.56,1]];
+const stFlips = [{"value":["09:30",757.41],"itemStyle":{"color":"#089981"},"label":{"formatter":"Buy","position":"bottom","backgroundColor":"#089981","color":"#fff","borderRadius":4,"padding":[3,6],"fontSize":12}}];
+if (typeof THEME !== 'undefined') { THEME.applyColors(spins); THEME.applyColors(pins); }
+const barInfo = {"09:30": {"o": 759.99, "h": 760.07, "l": 758.95, "c": 759.56, "qqe": 7.75, "col": "灰", "acts": []}};
+var ch = echarts.init(document.getElementById('c'));
+ch.setOption({
+  title:{text:'实盘dashboard 2026-11-13 | 今日 +$0 (+0.0%) | 持仓:实盘:空仓 | k3clean L25', left:'center', textStyle:{fontSize:14}},
+  legend:{data:[
+    {name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'},
+    {name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'},
+    {name:'st慢版', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'},
+    {name:'st快版', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%231e40af%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff4500%22 stroke-width=%222%22/></svg>'},
+    {name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'},
+    {name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+    {name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'},
+    {name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+    'cumslope','slope5',
+    {name:'9mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(221,34,34,0.25)%22 stroke=%22rgba(221,34,34,1)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(0,170,68,0.25)%22 stroke=%22rgba(0,170,68,1)%22/></svg>'},
+    {name:'9m QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(30,170,255,0.25)%22 stroke=%22rgba(30,170,255,0.7)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(255,130,180,0.25)%22 stroke=%22rgba(255,130,180,0.7)%22/></svg>'}
+  ], top:30, selected:{'cumslope':false,'slope5':false,'st快版':false}},
+  tooltip:Object.assign({trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
+  dataZoom:[{type:'inside', xAxisIndex:[0,1,2,3]},{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}],
+  grid:[{left:34,right:'8%',top:'12%',height:'38%'},{left:34,right:'8%',top:'53%',height:'42%'}],
+  axisPointer:{link:{xAxisIndex:'all'}},
+  xAxis:[{type:'category',data:times,gridIndex:0,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false}},
+         {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}},{type:'category',data:times,gridIndex:1,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}},{type:'value',gridIndex:0,min:-0.5,max:129.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],
+  yAxis:[{type:'value',gridIndex:0,scale:true,max:760.24,axisLabel:{fontSize:8}},{type:'value',gridIndex:1,axisLabel:{fontSize:8}},{type:'value',gridIndex:0,scale:true,position:'right',splitLine:{show:false},axisLabel:{fontSize:8,color:'#20b2aa'}}],
+  series:[
+    {name:'st慢版', type:'custom', silent:true, z:1, data:stFill, xAxisIndex:0, yAxisIndex:0,
+      renderItem:function(params, api){
+        var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6);
+        if(v===v3) return null;
+        var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]);
+        return {type:'polygon', shape:{points:[p1,p2,p3,p4]}, style:{fill:tr===1?'rgba(8,153,129,0.12)':'rgba(242,54,69,0.12)', stroke:null}};
+      }},
+    {name:'3mK线', type:'candlestick', data:[{value:[759.99,759.56,758.95,760.07],itemStyle:{borderColor:"#ffffff",borderWidth:1}}], xAxisIndex:0, yAxisIndex:0,
+      itemStyle:{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'},
+      markArea:{silent:true,data:[]}},
+    {name:'st慢版', type:'line', data:stUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#089981', width:2}, symbol:'none', showSymbol:false, z:5},
+    {name:'st慢版', type:'line', data:stDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#f23645', width:2}, symbol:'none', showSymbol:false, z:5},
+    {name:'st快版', type:'line', data:stFastUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#1e40af', width:2, opacity:0.5}, symbol:'none', showSymbol:false, z:5},
+    {name:'st快版', type:'line', data:stFastDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff4500', width:2, opacity:0.5}, symbol:'none', showSymbol:false, z:5},
+    {name:'st慢版', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:10, z:6, data:stFlips, label:{show:true, fontSize:12}},
+    {name:'st快版', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:8, z:6, data:stFastFlips, label:{show:true, fontSize:10}},
+    {name:'9mK线', type:'candlestick', data:[[NaN,NaN,NaN,NaN]], xAxisIndex:0, yAxisIndex:0,
+    itemStyle:THEME.k9.style,
+    barWidth:THEME.k9.barWidth},
+
+    {name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
+      lineStyle:{color:'#4da6ff', width:1.2, opacity:0.55}, symbol:'none', showSymbol:false,
+      markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
+    },
+    {name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
+      itemStyle:{opacity:0.75}, data:filldots,
+      tooltip:Object.assign({trigger:'item',formatter:function(p){return p.data&&p.data.tip?p.data.tip:'';}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
+    },
+    {name:'cumslope', type:'line', data:[null], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#20b2aa', width:1.5}, symbol:'none', showSymbol:false},
+    {name:'QQE', type:'bar', data: vals.map((v,i)=>({value:v, itemStyle:{color:THEME.qqe3[colors[i]]}})),
+      xAxisIndex:1, yAxisIndex:1,
+      markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
+    },
+    {name:'9m QQE', type:'bar', data:[null], xAxisIndex:2, yAxisIndex:1, barWidth:'260%', z:3},
+
+    {name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff9900', type:'dashed', width:3}, symbol:'none', showSymbol:false},
+    {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
+    {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
+    {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:11, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[]},
+    {name:'slope5', type:'line', data:[null], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'heat_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff9900', width:1.5, type:'solid'}, symbol:'none', showSymbol:false,z:10},
+    {name:'heat_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1.5, type:'solid'}, symbol:'none', showSymbol:false,z:10},
+    {name:'trig_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#FF6F00', width:1, type:'dashed'}, symbol:'none', showSymbol:false,z:10},
+    {name:'trig_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1, type:'dashed'}, symbol:'none', showSymbol:false,z:10},
+    {name:'heat_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false},
+    {name:'heat_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1.5}, symbol:'none', showSymbol:false},
+    {name:'段收益率', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0}, label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1}, data:[]},
+  ]
+});
+</script>
+<div id="tblWrap" style="max-width:1150px;margin:14px auto;padding:0 8px"><div style="font-size:14px;font-weight:bold;margin-bottom:6px">实盘信号单（实际成交 vs 信号预估）</div><div style="overflow-x:auto"><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap"><tr style="background:#f2f2f2"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style="background:#f2f2f2;font-weight:bold"><td colspan="9">合计</td><td>+$0</td><td></td><td>+$0</td><td></td></tr></table></div><div style="font-size:11px;color:#888;margin-top:4px">实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准),单笔floor -100%;ST单按30分钟切段复利,QQE单整单一段;开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div><div style="font-size:11px;color:#888;">Alpaca实际成交: 0笔</div></div>
+<script>
+function toggleSeries(name){
+  var c = window._waveChart;
+  if(!c) return;
+  c.dispatchAction({type:'legendToggleSelect', name:name});
+  var id = name==='3mK线'?'tg3mk':(name==='1m曲线'?'tg1m':(name==='9mK线'?'tg9mk':(name==='QQE'?'tg3mq':'tg9mq')));
+  var b = document.getElementById(id);
+  if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
+}
+// (5 series toggle buttons removed per user request 2026-10-24)
+</script>
+
+<div style="padding:0 46px;font-size:11px;color:#666;">
+<div>热度0-15</div>
+<div style="display:flex;height:14px;border-radius:4px;overflow:hidden;margin:4px 0 2px 0;">
+<div style="flex:1;background:#2196F3;"></div>
+<div style="flex:1;background:#03A9F4;"></div>
+<div style="flex:1;background:#FFC107;"></div>
+<div style="flex:1;background:#FF9800;"></div>
+<div style="flex:1;background:#F57C00;"></div>
+<div style="flex:1;background:#E65100;"></div>
+<div style="flex:1;background:#BF360C;"></div>
+<div style="flex:1;background:#B71C1C;"></div>
+</div><div style="display:flex;justify-content:space-between;"><span>0</span><span>15</span></div>
+</div>
+<script>
+const QQE_PINS = [];
+const QQE_SPINS = [];
+const QQE_SCAT = [];
+const QQE_MARKAREA = [];
+const QQE_ACTS = {"09:30": []};
+const VH_SCAT = [];
+const VH_SEG = [];
+const VH_MARKAREA = [];
+const VH_MARKLINE = [];
+const VH_ACTS = {};
+const CE_PINS = [];
+const CE_SPINS = [];
+const CE_SCAT = [];
+const CE_MARKAREA = [];
+const CE_ACTS = {};
+const CE_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">CE版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交</div>";
+const CE_BS = [];
+const ENVELOPE_PINS = [{"coord": ["09:30", 9.4], "value": "开C", "itemStyle": {"color": "#66cc66"}, "rs": "Envelope买入"}, {"coord": ["09:33", 5], "value": "平C", "itemStyle": {"color": "#b27a7a"}, "rs": "止损"}, {"coord": ["09:33", 5], "value": "开C", "itemStyle": {"color": "#66cc66"}, "rs": "Envelope买入"}];
+const ENVELOPE_SPINS = [{"coord": [0.6667, 759.56], "value": "开C", "itemStyle": {"color": "#66cc66"}, "rs": "Envelope买入", "symbolRotate": 180, "label": {"offset": [0, 5]}}, {"coord": [1.0, 758.99], "value": "平C", "itemStyle": {"color": "#b27a7a"}, "rs": "止损", "symbolRotate": 180, "label": {"offset": [0, 5]}}, {"coord": [1.3333, 758.13], "value": "开C", "itemStyle": {"color": "#66cc66"}, "rs": "Envelope买入", "symbolRotate": 180, "label": {"offset": [0, 5]}}];
+const ENVELOPE_SCAT_1M = [{"value": ["09:33", 760.1], "lbl": "(-2.1%)", "label": {"color": "#e5484d"}}];
+const ENVELOPE_MARKAREA_1M = [[{xAxis:'09:32',itemStyle:{color:THEME.pnlBgColor(-2.05)}},{xAxis:'09:33'}],[{xAxis:'09:34',itemStyle:{color:THEME.pnlBgColor(0.0)}},{xAxis:'09:34'}]];
+const ENVELOPE_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">Envelope版信号单（Gamma理论预估，-100口径）</div><div style=\"font-size:12px;color:#555;margin-bottom:6px\">V2参数 · 0.5止损 · 止损同向接点已合并 0 组（原 1 单）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:32</td><td>Envelope买入C</td><td>—</td><td>—</td><td>759.56</td><td>09:33</td><td>—</td><td>759.35</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#e5484d\">~-$2,054</td><td style=\"color:#e5484d\">~-2.1%</td></tr><tr><td>2</td><td>09:34</td><td>Envelope买入C</td><td>—</td><td>—</td><td>758.13</td><td>持仓中</td><td>—</td><td>758.13</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#1a9e54\">~+$0</td><td style=\"color:#1a9e54\">~+0.0%</td></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~-$2,054</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；信号按1m算，Envelope版 x 轴为 1m，标记按精确 1m 时间；非实际成交</div>";
+const ENVELOPE_ACTS = {"09:32": ["开C@759.56 Envelope买入"], "09:33": ["平C@759.3507145777568 止损"], "09:34": ["开C@758.13 Envelope买入"]};
+const ENVELOPE_TITLE = "2026-11-13 (Envelope版) | 不跳空 | 全天Envelope | -$2,054 (-2.1%)";
+const ENVELOPE_TITLEE = "2026-11-13 ({envelope|Envelope}版) | 不跳空 | 全天{envelope|Envelope} | {pnl_neg|-$2,054 (-2.1%)}";
+const ENVELOPE_TIMES1M = ["09:30", "09:31", "09:32", "09:33", "09:34", "09:35", "09:36", "09:37", "09:38", "09:39", "09:40", "09:41", "09:42", "09:43", "09:44", "09:45", "09:46", "09:47", "09:48", "09:49", "09:50", "09:51", "09:52", "09:53", "09:54", "09:55", "09:56", "09:57", "09:58", "09:59", "10:00", "10:01", "10:02", "10:03", "10:04", "10:05", "10:06", "10:07", "10:08", "10:09", "10:10", "10:11", "10:12", "10:13", "10:14", "10:15", "10:16", "10:17", "10:18", "10:19", "10:20", "10:21", "10:22", "10:23", "10:24", "10:25", "10:26", "10:27", "10:28", "10:29", "10:30", "10:31", "10:32", "10:33", "10:34", "10:35", "10:36", "10:37", "10:38", "10:39", "10:40", "10:41", "10:42", "10:43", "10:44", "10:45", "10:46", "10:47", "10:48", "10:49", "10:50", "10:51", "10:52", "10:53", "10:54", "10:55", "10:56", "10:57", "10:58", "10:59", "11:00", "11:01", "11:02", "11:03", "11:04", "11:05", "11:06", "11:07", "11:08", "11:09", "11:10", "11:11", "11:12", "11:13", "11:14", "11:15", "11:16", "11:17", "11:18", "11:19", "11:20", "11:21", "11:22", "11:23", "11:24", "11:25", "11:26", "11:27", "11:28", "11:29", "11:30", "11:31", "11:32", "11:33", "11:34", "11:35", "11:36", "11:37", "11:38", "11:39", "11:40", "11:41", "11:42", "11:43", "11:44", "11:45", "11:46", "11:47", "11:48", "11:49", "11:50", "11:51", "11:52", "11:53", "11:54", "11:55", "11:56", "11:57", "11:58", "11:59", "12:00", "12:01", "12:02", "12:03", "12:04", "12:05", "12:06", "12:07", "12:08", "12:09", "12:10", "12:11", "12:12", "12:13", "12:14", "12:15", "12:16", "12:17", "12:18", "12:19", "12:20", "12:21", "12:22", "12:23", "12:24", "12:25", "12:26", "12:27", "12:28", "12:29", "12:30", "12:31", "12:32", "12:33", "12:34", "12:35", "12:36", "12:37", "12:38", "12:39", "12:40", "12:41", "12:42", "12:43", "12:44", "12:45", "12:46", "12:47", "12:48", "12:49", "12:50", "12:51", "12:52", "12:53", "12:54", "12:55", "12:56", "12:57", "12:58", "12:59", "13:00", "13:01", "13:02", "13:03", "13:04", "13:05", "13:06", "13:07", "13:08", "13:09", "13:10", "13:11", "13:12", "13:13", "13:14", "13:15", "13:16", "13:17", "13:18", "13:19", "13:20", "13:21", "13:22", "13:23", "13:24", "13:25", "13:26", "13:27", "13:28", "13:29", "13:30", "13:31", "13:32", "13:33", "13:34", "13:35", "13:36", "13:37", "13:38", "13:39", "13:40", "13:41", "13:42", "13:43", "13:44", "13:45", "13:46", "13:47", "13:48", "13:49", "13:50", "13:51", "13:52", "13:53", "13:54", "13:55", "13:56", "13:57", "13:58", "13:59", "14:00", "14:01", "14:02", "14:03", "14:04", "14:05", "14:06", "14:07", "14:08", "14:09", "14:10", "14:11", "14:12", "14:13", "14:14", "14:15", "14:16", "14:17", "14:18", "14:19", "14:20", "14:21", "14:22", "14:23", "14:24", "14:25", "14:26", "14:27", "14:28", "14:29", "14:30", "14:31", "14:32", "14:33", "14:34", "14:35", "14:36", "14:37", "14:38", "14:39", "14:40", "14:41", "14:42", "14:43", "14:44", "14:45", "14:46", "14:47", "14:48", "14:49", "14:50", "14:51", "14:52", "14:53", "14:54", "14:55", "14:56", "14:57", "14:58", "14:59", "15:00", "15:01", "15:02", "15:03", "15:04", "15:05", "15:06", "15:07", "15:08", "15:09", "15:10", "15:11", "15:12", "15:13", "15:14", "15:15", "15:16", "15:17", "15:18", "15:19", "15:20", "15:21", "15:22", "15:23", "15:24", "15:25", "15:26", "15:27", "15:28", "15:29", "15:30", "15:31", "15:32", "15:33", "15:34", "15:35", "15:36", "15:37", "15:38", "15:39", "15:40", "15:41", "15:42", "15:43", "15:44", "15:45", "15:46", "15:47", "15:48", "15:49", "15:50", "15:51", "15:52", "15:53", "15:54", "15:55", "15:56", "15:57", "15:58", "15:59"];
+const ENVELOPE_UPPER_1M = [757.92, 758.62, 759.09, 759.41, 759.49];
+const ENVELOPE_LOWER_1M = [757.21, 757.78, 758.25, 758.49, 758.45];
+const ENVELOPE_CHANMID_1M = [757.56, 758.2, 758.67, 758.95, 758.97];
+const ENVELOPE_MID_1M = [757.39, 757.99, 758.46, 758.72, 758.71];
+const ENVELOPE_TIP = {"09:30": {"o": 759.99, "h": 760.07, "l": 759.27, "c": 759.27, "up": 757.92, "mid": 757.56, "lo": 757.21, "why": ""}, "09:31": {"o": 758.95, "h": 759.83, "l": 758.95, "c": 759.83, "up": 758.62, "mid": 758.2, "lo": 757.78, "why": ""}, "09:32": {"o": 759.83, "h": 759.92, "l": 759.52, "c": 759.56, "up": 759.09, "mid": 758.67, "lo": 758.25, "why": "<b style='color:#1a9e54'>收759.56 > 中轨758.67，<br/>低759.52 > 下区顶757.95 →<br/>开C@759.56</b>"}, "09:33": {"o": 759.41, "h": 759.41, "l": 758.82, "c": 758.99, "up": 759.41, "mid": 758.95, "lo": 758.49, "why": "<b style='color:#1a9e54'>平C@759.35 止损</b>"}, "09:34": {"o": 759.01, "h": 759.01, "l": 758.07, "c": 758.13, "up": 759.49, "mid": 758.97, "lo": 758.45, "why": "<b style='color:#1a9e54'>收758.13 < 中轨758.97，<br/>低758.07 ≤ 下区顶758.67 →<br/>开C@758.13</b>"}};
+const ENVELOPE_TREND_SEGS = [{"color": "#1e40af", "theme": "THEME.envelope.trendFlat", "data": [[0.0, 759.27], [0.3333, 759.83], [0.6667, 759.56]]}, {"color": "#14b8a6", "theme": "THEME.envelope.trendUp", "data": [[0.6667, 759.56], [1.0, 758.99], [1.3333, 758.13]]}];
+const ENVELOPE3M_PINS = [{"coord": ["09:33", 5], "value": "开P", "itemStyle": {"color": "#ff6666"}, "rs": "Envelope卖出"}];
+const ENVELOPE3M_SPINS = [{"coord": [1.0, 758.13], "value": "开P", "itemStyle": {"color": "#ff6666"}, "rs": "Envelope卖出"}];
+const ENVELOPE3M_SCAT = [];
+const ENVELOPE3M_MARKAREA = [[{xAxis:'09:33',itemStyle:{color:THEME.pnlBgColor(0.0)}},{xAxis:'09:33'}]];
+const ENVELOPE3M_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">Envelope 3m版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:33</td><td>Envelope卖出P</td><td>—</td><td>—</td><td>758.13</td><td>持仓中</td><td>—</td><td>758.13</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#1a9e54\">~+$0</td><td style=\"color:#1a9e54\">~+0.0%</td></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；信号按3m算，Envelope版 x 轴为 3m，标记按精确 3m 时间；非实际成交</div>";
+const ENVELOPE3M_ACTS = {"09:33": ["开P@758.13 Envelope卖出"]};
+const ENVELOPE3M_TITLE = "2026-11-13 (Envelope 3m版) | 不跳空 | 全天Envelope 3m | +$0 (+0.0%)";
+const ENVELOPE3M_TITLEE = "2026-11-13 ({envelope|Envelope 3m}版) | 不跳空 | 全天{envelope|Envelope 3m} | {pnl_pos|+$0 (+0.0%)}";
+const ENVELOPE3M_UPPER = [758.02, 758.34, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+const ENVELOPE3M_LOWER = [756.95, 757.1, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+const ENVELOPE3M_CHANMID = [757.48, 757.72, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+const ENVELOPE3M_MID = [757.4, 757.64, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+const ENVELOPE3M_TIP = {"09:30": {"o": 759.99, "h": 760.07, "l": 758.95, "c": 759.56, "up": 758.02, "mid": 757.48, "lo": 756.95, "why": ""}, "09:33": {"o": 759.41, "h": 759.41, "l": 758.07, "c": 758.13, "up": 758.34, "mid": 757.72, "lo": 757.1, "why": "<b style='color:#e5484d'>收758.13 > 中轨757.72，<br/>高759.41 ≥ 上区底757.81 →<br/>开P@758.13</b>"}};
+const ENVELOPE_WER = {"wer": [0.6208, 0.6802, 0.6799, 0.474, 0.2429], "eff": [0.575, 0.575, 0.575, 0.575, 0.575], "areas": [], "entries": [], "exits": []};
+const ENVELOPE3M_TREND_SEGS = [{"color": "#1e40af", "theme": "THEME.envelope.trendFlat", "data": [[0.0, 759.56], [1.0, 758.13]]}];
+(function(){
+if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
+var _origEnvTip = THEME.tooltipFormatter;
+THEME._envTipWrapped = true;
+THEME.tooltipFormatter = function(ps, barInfo) {
+try {
+if (typeof curVer3 !== 'undefined' && (curVer3 === 'envelope' || curVer3 === 'envelope3m') && typeof ENVELOPE_TIP !== 'undefined') {
+var t = ps[0].axisValue;
+var e = (curVer3 === 'envelope3m' ? ENVELOPE3M_TIP : ENVELOPE_TIP)[t];
+if (e) {
+var s = '<b>' + t + '</b><br/>开' + e.o + ' 收' + e.c;
+s += '<br/><span style=\'color:' + THEME.envelope.upper + '\'>上' + e.up + '</span> <span style=\'color:#b58900\'>中' + e.mid + '</span> <span style=\'color:' + THEME.envelope.lower + '\'>下' + e.lo + '</span>';
+if (e.why) s += '<br/>' + e.why;
+else s += '<br/><span style=\'color:#888\'>无Envelope动作</span>';
+return s;
+}
+}
+} catch (err) {}
+return _origEnvTip(ps, barInfo);
+};
+})();
+const TITLES3 = {live: "实盘dashboard 2026-11-13 | 今日 +$0 (+0.0%) | 持仓:实盘:空仓 | k3clean L25", vh: "2026-11-13 (ST版) | 不跳空 | 全天ST | +$0 (+0.0%)", qqe: "2026-11-13 (QQE版) | 不跳空 | 全天QQE | +$0 (+0.0%)", ce: "2026-11-13 (CE版) | 不跳空 | 全天CE | +$0 (+0.0%)", envelope: "2026-11-13 (Envelope版) | 不跳空 | 全天Envelope | -$2,054 (-2.1%)", envelope3m: "2026-11-13 (Envelope 3m版) | 不跳空 | 全天Envelope 3m | +$0 (+0.0%)"};
+const TITLES3E = {vh: "2026-11-13 ({st|ST}版) | 不跳空 | 全天{st|ST} | {pnl_pos|+$0 (+0.0%)}", qqe: "2026-11-13 ({qqe|QQE}版) | 不跳空 | 全天{qqe|QQE} | {pnl_pos|+$0 (+0.0%)}", ce: "2026-11-13 ({ce|CE}版) | 不跳空 | 全天{ce|CE} | {pnl_pos|+$0 (+0.0%)}", envelope: "2026-11-13 ({envelope|Envelope}版) | 不跳空 | 全天{envelope|Envelope} | {pnl_neg|-$2,054 (-2.1%)}", envelope3m: "2026-11-13 ({envelope|Envelope 3m}版) | 不跳空 | 全天{envelope|Envelope 3m} | {pnl_pos|+$0 (+0.0%)}"};
+const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};
+const VH_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">ST VH版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利；ST单按30分钟切段理论预估（段标签为理论切段预估，非实际成交），QQE单整单一段；非实际成交</div>";
+const QQE_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">QQE版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交</div>";
+var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();
+var curVer3 = 'live';
+window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };
+window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && curVer3 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });
+function switchVersion3(v){
+  curVer3 = v;
+  try { localStorage.setItem('waveVer3', v); } catch(e) {}
+  var isLive = (v === 'live');
+  var isVH = (v === 'vh');
+  var useVH = isLive || isVH;
+  var isCE = (v === 'ce');
+  var isENVELOPE = (v === 'envelope');
+  var isENV3M = (v === 'envelope3m');
+  var pinsData = isENV3M ? ENVELOPE3M_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (useVH ? pins : QQE_PINS)));
+  var spinsData = isENV3M ? ENVELOPE3M_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (useVH ? spins : QQE_SPINS)));
+  var scatData = isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (useVH ? VH_SCAT : QQE_SCAT)));
+  var scatFS = (isCE || useVH) ? 11 : 8;
+  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }
+  ch.setOption({
+    title: {text: isLive ? TITLES3.live : (isENV3M ? TITLES3E.envelope3m : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe)))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},
+    series: [
+      {name: '1m曲线', data: ((isENVELOPE && ENVELOPE_TREND_SEGS.length) || (isENV3M && ENVELOPE3M_TREND_SEGS.length)) ? [] : line1m, lineStyle: {color: (isENVELOPE || isENV3M) ? '#1e40af' : '#4da6ff', width: (isENVELOPE || isENV3M) ? 2 : 1.2, opacity: (isENVELOPE || isENV3M) ? 1 : 0.55}, markPoint: {data: spinsData}},
+      {id: 'env-trend-seg-0', name: '1m趋势段0', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[0].data : []},
+      {id: 'env-trend-seg-1', name: '1m趋势段1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[1].data : []},
+      {id: 'env3-trend-seg-0', name: '3m趋势段0', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[0].data : []},
+      {name: 'QQE', markPoint: {data: pinsData}},
+      {name: '每单盈亏', data: scatData, label: {show: (isENVELOPE || isENV3M) ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : (isENV3M ? ENVELOPE3M_MARKAREA : [])}},
+      {name: '3mK线', markArea: {silent: true, data: (isENVELOPE || isENV3M) ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},
+      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},
+      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},
+      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : (isENV3M ? ENVELOPE3M_UPPER : [])},
+      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : (isENV3M ? ENVELOPE3M_LOWER : [])},
+      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : (isENV3M ? ENVELOPE3M_CHANMID : [])},
+      {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : (isENV3M ? ENVELOPE3M_MID : [])},
+      {name: '成交点', data: (isENVELOPE || isENV3M) ? [] : filldots}
+    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? 757.13 : (isENV3M ? 757.13 : null), max: isENVELOPE ? 760.83 : (isENV3M ? 760.56 : 760.24)}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]
+  });
+  var _chHost = document.getElementById('c');
+  if (_chHost) { if (isENVELOPE || isENV3M) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }
+  var tw = document.getElementById('tblWrap');
+  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER)))); }
+  if (window._werSync) window._werSync(isENVELOPE);
+  var actsData = isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (useVH ? VH_ACTS : QQE_ACTS)));
+  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }
+  document.title = TITLES3[v];
+  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }
+}
+(function(){
+  var sel = document.getElementById('daypick');
+  if (!sel) return;
+  var wrap = document.createElement('span');
+  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['envelope3m','Envelope 3m版']].forEach(function(it){
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];
+    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';
+    b.style.borderRadius = '10px'; b.style.border = '1px solid #ccc'; b.style.background = '#fff';
+    b.style.color = '#333'; b.style.cursor = 'pointer';
+    b.onclick = function(){ switchVersion3(it[0]); };
+    wrap.appendChild(b);
+  });
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
+  window._verBtns3 = wrap.querySelectorAll('button');
+  if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
+})();
+(function(){
+  var host = document.getElementById('c');
+  if (!host || typeof ENVELOPE_WER === 'undefined' || !ENVELOPE_WER.wer.length) return;
+  var wrap = document.createElement('div');
+  wrap.id = 'werPanel';
+  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';
+  wrap.innerHTML = '<div style="font-size:13px;font-weight:bold;margin:6px 0 2px">WER · dose 0.10（水位降门槛 · 仅显示）</div><div id="werCh" style="width:100%;height:220px"></div>';
+  host.parentNode.insertBefore(wrap, host.nextSibling);
+  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;
+  var evIn = {}, evOut = {};
+  ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; });
+  ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; });
+  function werOpt(){
+    var areas = ENVELOPE_WER.areas.map(function(a){ return [{xAxis: ENVELOPE_TIMES1M[a[0]], itemStyle: {color: a[2] > 0 ? 'rgba(26,158,84,0.10)' : 'rgba(229,72,77,0.10)'}}, {xAxis: ENVELOPE_TIMES1M[a[1]]}]; });
+    var pts = ENVELOPE_WER.entries.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#7c3aed', borderColor: '#fff', borderWidth: 1.5}}; })
+      .concat(ENVELOPE_WER.exits.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#6b7280', borderColor: '#fff', borderWidth: 1.5}}; }));
+    return {animation: false,
+      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || ENVELOPE_WER.wer[idx] == null) return ''; var h = t + '<br/>WER = <b>' + Number(ENVELOPE_WER.wer[idx]).toFixed(4) + '</b><br/>有效门槛 eff_to = <b>' + Number(ENVELOPE_WER.eff[idx]).toFixed(3) + '</b>'; if (evIn[t]) h += '<br/><b style="color:#7c3aed">段入场</b>（' + (evIn[t] > 0 ? '上行' : '下行') + '）'; if (evOut[t]) h += '<br/><b style="color:#6b7280">段出场</b>'; return h; }},
+      grid: {left: 40, right: 12, top: 24, bottom: 24},
+      dataZoom: [{type: 'inside', xAxisIndex: 0}],
+      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},
+      yAxis: {type: 'value', min: 0, max: 1.25, name: 'WER', nameTextStyle: {fontSize: 11, color: '#7c3aed'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},
+      series: [
+        {name: 'WER', type: 'line', data: ENVELOPE_WER.wer, showSymbol: false, lineStyle: {width: 1.8, color: '#7c3aed'}, itemStyle: {color: '#7c3aed'}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 0.675, label: {formatter: '0.675'}}, {yAxis: 0.5, label: {formatter: '0.50'}}, {yAxis: 0.3, label: {formatter: '0.30'}}]}, markArea: {silent: true, data: areas}, markPoint: {symbol: 'circle', symbolSize: 8, label: {show: false}, data: pts}},
+        {name: '有效门槛', type: 'line', data: ENVELOPE_WER.eff, showSymbol: false, step: 'end', lineStyle: {width: 1.5, color: '#f97316', type: 'dashed'}, itemStyle: {color: '#f97316'}}
+      ]};
+  }
+  // 手动同步主图<->WER面板 (2026-11-11: 弃 echarts.connect —— 悬停 showTip 带 escapeConnect 设计上不转发,
+  // 且 connect 转发的 updateAxisPointer 靠源图样本 seriesIndex+dataIndex 在对侧反解, 主图 series0 仅130点, 索引>=130 必失效)
+  function werMain(){
+    try {
+      var m = (typeof ch !== 'undefined' && ch) ? ch : (window.ch || null);
+      if (!m || (m.isDisposed && m.isDisposed())) return null;
+      return m;
+    } catch(e) { return null; }
+  }
+  function werFindMainSIdx(){
+    var main = werMain();
+    werMainSIdx = -1;
+    if (!main) return;
+    try {
+      var ss = main.getOption().series || [];
+      var i;
+      for (i = 0; i < ss.length; i++) { if (ss[i].id === 'env-upper') { werMainSIdx = i; return; } }
+      for (i = 0; i < ss.length; i++) {
+        if (ss[i].type === 'line' && (ss[i].xAxisIndex || 0) === 0 && ss[i].data && ss[i].data.length === ENVELOPE_TIMES1M.length) { werMainSIdx = i; return; }
+      }
+    } catch(e) {}
+  }
+  function werTipIdx(ev, fromMain){
+    if (!ev) return -1;
+    if (ev.axesInfo) {
+      for (var i = 0; i < ev.axesInfo.length; i++) {
+        var ai = ev.axesInfo[i];
+        if (ai.axisDim === 'x' && ai.axisIndex === 0 && ai.value != null) {
+          var v = (typeof ai.value === 'number') ? ai.value : ENVELOPE_TIMES1M.indexOf(ai.value);
+          if (v >= 0 && v < ENVELOPE_TIMES1M.length) return v;
+        }
+      }
+    }
+    if (!fromMain && typeof ev.dataIndex === 'number' && ev.dataIndex >= 0 && ev.dataIndex < ENVELOPE_TIMES1M.length) return ev.dataIndex;
+    return -1;
+  }
+  function werShowTip(dst, sIdx, idx){
+    if (werTipLock || sIdx < 0) return;
+    werTipLock = true;
+    try { dst.dispatchAction({type: 'showTip', seriesIndex: sIdx, dataIndex: idx}); } catch(e) {}
+    werTipLock = false;
+  }
+  function werHideTip(dst){
+    if (werTipLock) return;
+    werTipLock = true;
+    try { dst.dispatchAction({type: 'updateAxisPointer', currTrigger: 'leave'}); } catch(e) {}
+    try { dst.dispatchAction({type: 'hideTip'}); } catch(e) {}
+    werTipLock = false;
+  }
+  function werZoomTo(dst, ev){
+    if (werZoomLock) return;
+    var z = (ev && ev.batch && ev.batch.length) ? ev.batch[0] : ev;
+    if (!z) return;
+    werZoomLock = true;
+    try {
+      if (z.start != null && z.end != null) dst.dispatchAction({type: 'dataZoom', start: z.start, end: z.end});
+      else if (z.startValue != null && z.endValue != null) dst.dispatchAction({type: 'dataZoom', startValue: z.startValue, endValue: z.endValue});
+    } catch(e) {}
+    werZoomLock = false;
+  }
+  function werBind(){
+    if (!werCh || typeof echarts === 'undefined') return;
+    var main = werMain();
+    if (!main) return;
+    werFindMainSIdx();
+    if (werBound && werBoundMain === main) return;
+    werBound = true;
+    werBoundMain = main;
+    main.on('datazoom', function(ev){ if (wrap.style.display !== 'none') werZoomTo(werCh, ev); });
+    werCh.on('datazoom', function(ev){ werZoomTo(main, ev); });
+    main.on('updateAxisPointer', function(ev){
+      if (wrap.style.display === 'none') return;
+      var idx = werTipIdx(ev, true);
+      if (idx >= 0) werShowTip(werCh, 0, idx); else werHideTip(werCh);
+    });
+    werCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) { if (werMainSIdx >= 0) werShowTip(main, werMainSIdx, idx); } else werHideTip(main);
+    });
+    main.on('globalout', function(){ werHideTip(werCh); });
+    werCh.on('globalout', function(){ werHideTip(main); });
+    main.on('mouseout', function(){ werHideTip(werCh); });
+    werCh.on('mouseout', function(){ werHideTip(main); });
+  }
+  function werSyncZoom(){
+    var main = werMain();
+    if (!main || !werCh) return;
+    try {
+      var dz = (main.getOption().dataZoom || [])[0];
+      if (dz && dz.start != null && dz.end != null && (dz.start > 0 || dz.end < 100)) {
+        werZoomLock = true;
+        werCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});
+        werZoomLock = false;
+      }
+    } catch(e) { werZoomLock = false; }
+  }
+  window._werSync = function(show){
+    wrap.style.display = show ? 'block' : 'none';
+    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); werSyncZoom(); }
+  };
+})();
+switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m'].indexOf(_v) >= 0 ? _v : 'live'; })());
+</script></body></html>
