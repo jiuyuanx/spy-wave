@@ -1039,17 +1039,17 @@ def main():
         qpins.append({"coord": [tstrs[bi], yq], "value": value,
                       "itemStyle": {"color": color}, "rs": rs_txt})
     # 方向颜色 (2026-10-12 用户): 做多(call)=绿色, 做空(put)=红色
-    # 颜色层级: 跟/翻/补深色, 持/开浅色
+    # 2026-11-15 规范色: 开仓类一律正绿/正红, 平仓一律灰 (同 theme.js pinSpec; 运行时以 theme 为准, 此处为烘焙兜底)
     def _dir_color(dr, act=None):
         is_call = (dr == "call")
         if act == "翻":
-            return "#005000" if is_call else "#a80000"  # 翻: 深(少一点黑)
+            return "#00cc00" if is_call else "#ff0000"  # 翻: 正绿/正红 (2026-11-15 规范色, 同 theme.js pinSpec)
         elif act == "跟":
-            return "#006600" if is_call else "#cc0000"  # 跟: 深
+            return "#00cc00" if is_call else "#ff0000"  # 跟: 正绿/正红
         elif act == "补":
-            return "#00a0a0" if is_call else "#ff4500"  # 补: C青色/P橘红
+            return "#00cc00" if is_call else "#ff0000"  # 补: 正绿/正红
         else:
-            return "#66cc66" if is_call else "#ff6666"  # 开: 浅
+            return "#00cc00" if is_call else "#ff0000"  # 开: 正绿/正红
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if bi not in today_idx:
             continue
@@ -1078,7 +1078,7 @@ def main():
         elif act == "平":
             # 止损单独标签 (2026-10-12 用户: 止损C/止损P要看得出来)
             # 平仓: 平C灰红 / 平P灰绿 (2026-10-12 用户)
-            _pc = "#b27a7a" if dr == "call" else "#7ab27a"
+            _pc = "#9ca3af"  # 平: 灰 (2026-11-15 规范色)
             if "止损" in rs:
                 v = "止损" + ("C" if dr == "call" else "P")
             else:
@@ -1148,7 +1148,7 @@ def main():
                              "itemStyle": {"color": _gdc}, "rs": rsc})
             _vh_qpins_add(bi, v, _gdc, rsc)
         elif act == "平":
-            _pc = "#b27a7a" if dr == "call" else "#7ab27a"
+            _pc = "#9ca3af"  # 平: 灰 (2026-11-15 规范色)
             if "止损" in rs:
                 v = "止损" + ("C" if dr == "call" else "P")
             else:
@@ -1878,10 +1878,10 @@ def main():
 
     def _ce_pin_color(kind, d):
         if kind == "flip":
-            return "#005000" if d == "call" else "#a80000"
+            return "#00cc00" if d == "call" else "#ff0000"
         if kind == "open":
-            return "#66cc66" if d == "call" else "#ff6666"
-        return "#b27a7a" if d == "call" else "#7ab27a"
+            return "#00cc00" if d == "call" else "#ff0000"
+        return "#9ca3af"  # 平: 灰 (2026-11-15 规范色)
 
     def _ce_yq(p):
         hv = vals[p] if p < len(vals) else None
@@ -2085,10 +2085,10 @@ def main():
 
     def _env_pin_color(kind, d):
         if kind == "flip":
-            return "#005000" if d == "call" else "#a80000"
+            return "#00cc00" if d == "call" else "#ff0000"
         if kind == "open":
-            return "#66cc66" if d == "call" else "#ff6666"
-        return "#b27a7a" if d == "call" else "#7ab27a"
+            return "#00cc00" if d == "call" else "#ff0000"
+        return "#9ca3af"  # 平: 灰 (2026-11-15 规范色)
 
     def _env_yq(slot):
         _hv = vals[slot] if slot < len(vals) else None
@@ -2580,10 +2580,10 @@ def main():
 
         def pin_color(kind, d):
             if kind == "flip":
-                return "#005000" if d == "call" else "#a80000"
+                return "#00cc00" if d == "call" else "#ff0000"
             if kind == "open":
-                return "#66cc66" if d == "call" else "#ff6666"
-            return "#b27a7a" if d == "call" else "#7ab27a"
+                return "#00cc00" if d == "call" else "#ff0000"
+            return "#9ca3af"  # 平: 灰 (2026-11-15 规范色)
 
         def yq(slot):
             hv = vals[slot] if slot < len(vals) else None
@@ -3336,6 +3336,67 @@ def main():
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
+    # ---- Envelope 整合版 (2026-11-15 user 令): Envelope 节改由真整合引擎计算 ----
+    # envint/ vendored 管线与 brk1112 逐字同源: 单日冷启动跑
+    # tv_v67_er_overlay_wcent2f3sr_slope 现行默认 (ER 整层关、slope bonus
+    # 定版、trend noentry、段首抢占), 常量构造与 build_daypage_env 同一副
+    # 面孔 (slope 天蓝染色线/圈天蓝边/平仓灰/连乘)。计算失败时回退上面的
+    # 旧展示口径并 WARN, 页面不挂 (与本文件各节一贯的降级方式一致)。
+    _env_int_ok = False
+    _env_int_consts = None
+    try:
+        if _env_df is not None and len(_env_df):
+            import sys as _sys
+            _envint_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "envint")
+            if _envint_dir not in _sys.path:
+                _sys.path.insert(0, _envint_dir)
+            import envint_recipe as _eir
+            import envint_page as _eip
+            _idf = _env_df.copy()
+            if getattr(_idf["t"].dt, "tz", None) is not None:
+                _idf["t"] = _idf["t"].dt.tz_convert(
+                    "America/New_York").dt.tz_localize(None)
+            _idf = _idf[_idf["t"].dt.strftime("%Y-%m-%d") == day_str]
+            _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
+            _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
+                "t").drop_duplicates("t", keep="last").reset_index(drop=True)
+            _payload, _perr = _eir.day_payload(
+                _idf[["t", "open", "high", "low", "close"]], day_str)
+            if _payload is None:
+                print(f"  WARN envelope-int 载荷失败: {_perr}", flush=True)
+            else:
+                _sday, _day = _payload["sday"], _payload["day"]
+                _runs = _eip.norm_runs(_sday, _day)
+                _itrades = _eip.build_trades(_sday, _runs)
+                _roi_sum = sum(t["roi"] for t in _itrades) * 100
+                _exp = _sday["total_slope"] + _sday["total_stack"]
+                assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
+                _tot, _tot_pct = _eip.settle(_itrades)
+                _env_int_consts, _ititle, _ititlee = _eip.build_consts(
+                    vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
+                    _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
+                _env_int_ok = True
+                print(f"  envelope-int: {len(_itrades)} 单, "
+                      f"tot=${_tot:,.0f} ({_tot_pct:+.1%})", flush=True)
+    except Exception as _ee:
+        print(f"  WARN envelope-int 计算失败, 回退旧展示口径: {_ee}", flush=True)
+        _env_int_ok = False
+    if _env_int_ok:
+        _C = _env_int_consts
+        env_pins = _C["ENVELOPE_PINS"]
+        env_spins = _C["ENVELOPE_SPINS"]
+        env_scat_js = json.dumps(_C["ENVELOPE_SCAT_1M"], ensure_ascii=False)
+        env_mark_area_js = _C["ENVELOPE_MARKAREA_1M"]
+        env_inner = _C["ENVELOPE_INNER"]
+        env_acts = _C["ENVELOPE_ACTS"]
+        env_title_txt = _C["ENVELOPE_TITLE"]
+        env_title_echart = _C["ENVELOPE_TITLEE"]
+        env_upper = _C["ENVELOPE_UPPER_1M"]
+        env_lower = _C["ENVELOPE_LOWER_1M"]
+        env_chanmid = _C["ENVELOPE_CHANMID_1M"]
+        env_mid = _C["ENVELOPE_MID_1M"]
+        env_tip = _C["ENVELOPE_TIP"]
+        wer_panel = _C["ENVELOPE_WER"]
     _qqe_acts = {t: (v.get("acts") or []) for t, v in bar_info.items()}
     _vh_acts = {tstrs[bi]: acts for bi, acts in vh_acts_by_bar.items()}
     _sw = []
@@ -3371,7 +3432,11 @@ def main():
     _sw.append("const ENVELOPE_CHANMID_1M = " + json.dumps(env_chanmid) + ";")
     _sw.append("const ENVELOPE_MID_1M = " + json.dumps(env_mid) + ";")
     _sw.append("const ENVELOPE_TIP = " + json.dumps(env_tip, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_TREND_SEGS = " + json.dumps(_env_trend_segs) + ";")
+    _sw.append("const ENVELOPE_TREND_SEGS = " + json.dumps(
+        _env_int_consts["ENVELOPE_TREND_SEGS"] if _env_int_ok else _env_trend_segs) + ";")
+    if _env_int_ok:
+        _sw.append("const ENVELOPE_SLOPE_DYE = " + json.dumps(
+            _env_int_consts["ENVELOPE_SLOPE_DYE"], ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE3M_PINS = " + json.dumps(env3_pins, ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE3M_SPINS = " + json.dumps(env3_spins, ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE3M_SCAT = " + env3_scat_js + ";")
@@ -3443,9 +3508,21 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  ch.setOption({")
     _sw.append("    title: {text: isLive ? TITLES3.live : (isENV3M ? TITLES3E.envelope3m : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe)))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
-    _sw.append("      {name: '1m曲线', data: ((isENVELOPE && ENVELOPE_TREND_SEGS.length) || (isENV3M && ENVELOPE3M_TREND_SEGS.length)) ? [] : line1m, lineStyle: {color: (isENVELOPE || isENV3M) ? '#1e40af' : '#4da6ff', width: (isENVELOPE || isENV3M) ? 2 : 1.2, opacity: (isENVELOPE || isENV3M) ? 1 : 0.55}, markPoint: {data: spinsData}},")
+    # 整合版: 1m 曲线在 envelope 下恢复显示 (slope 染色线叠加其上), 与
+    # build_daypage_env.splice 的结构改动同款; 非整合版保持原条件。
+    _env_1m_expr = ("(isENV3M && ENVELOPE3M_TREND_SEGS.length) ? [] : line1m"
+                    if _env_int_ok else
+                    "((isENVELOPE && ENVELOPE_TREND_SEGS.length) || (isENV3M && ENVELOPE3M_TREND_SEGS.length)) ? [] : line1m")
+    _sw.append("      {name: '1m曲线', data: " + _env_1m_expr + ", lineStyle: {color: (isENVELOPE || isENV3M) ? '#1e40af' : '#4da6ff', width: (isENVELOPE || isENV3M) ? 2 : 1.2, opacity: (isENVELOPE || isENV3M) ? 1 : 0.55}, markPoint: {data: spinsData}},")
+    if _env_int_ok and not _env_trend_segs:
+        _sw.append("      {id: 'env-trend-seg-0', name: 'slope段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
     for _si, _sg in enumerate(_env_trend_segs):
-        _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["theme"], _si))
+        if _env_int_ok and _si == 0:
+            _sw.append("      {id: 'env-trend-seg-0', name: 'slope段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
+        elif _env_int_ok:
+            _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: []}," % (_si, _si, _sg["theme"]))
+        else:
+            _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["theme"], _si))
     for _si3, _sg3 in enumerate(_env3_trend_segs):
         _sw.append("      {id: 'env3-trend-seg-%d', name: '3m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[%d].data : []}," % (_si3, _si3, _sg3["theme"], _si3))
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
@@ -3494,7 +3571,9 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var wrap = document.createElement('div');")
     _sw.append("  wrap.id = 'werPanel';")
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
-    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">WER · dose 0.10（水位降门槛 · 仅显示）</div><div id=\"werCh\" style=\"width:100%;height:220px\"></div>';")
+    _wer_title = ("WER · 终栈⑪（引擎口径）" if _env_int_ok
+                  else "WER · dose 0.10（水位降门槛 · 仅显示）")
+    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:220px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")
     _sw.append("  var evIn = {}, evOut = {};")
