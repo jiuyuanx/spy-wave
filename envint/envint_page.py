@@ -319,9 +319,9 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
 
     pct = f"{tot_pct:+.1%}"
     sign_tag = "pnl_pos" if tot >= 0 else "pnl_neg"
-    title = f"{date} (Envelope版) | {gap_txt} | 全天Envelope·整合版（无 ER） | {money(tot)} ({pct})"
+    title = f"{date} (Envelope版) | {gap_txt} | {money(tot)} ({pct})"
     titlee = (f"{date} ({{envelope|Envelope}}版) | {gap_rich} | "
-              f"全天{{envelope|Envelope}}·整合版（无 ER） | {{{sign_tag}|{money(tot)} ({pct})}}")
+              f"{{{sign_tag}|{money(tot)} ({pct})}}")
 
     return {
         "ENVELOPE_PINS": pins, "ENVELOPE_SPINS": spins,

@@ -48,8 +48,10 @@ def run_ce(M):
     hh = np.full(n, np.nan)          # 健康度 (按生效线状态符号)
     fl = []                          # 翻转根 (全局 idx)
     i0 = 12
-    while not (np.isfinite(atr[i0]) and atr[i0] > 0):
+    while i0 < n and not (np.isfinite(atr[i0]) and atr[i0] > 0):
         i0 += 1
+    if i0 >= n:
+        return st, line, hh, fl
     state = 1 if c[i0] - c[i0 - 12] >= 0 else -1
     ext = h[i0] if state > 0 else l[i0]
     st[i0] = state

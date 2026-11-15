@@ -114,8 +114,8 @@ def day_payload(df1, NEWDAY):
     hm = df1["t"].dt.strftime("%H:%M").values
     if hm[0] != "09:30":
         return None, f"first_bar {hm[0]}"
-    if N < 60:
-        return None, f"too_few_bars {N}"
+    # 无根数门槛 (2026-11-15 user 令): 开盘第一根起即出整合版;
+    # 短日靠 wer_series1 / run_ce 的未播种守卫兜底, 不回退旧口径。
     half = bool(hm[-1] != "15:59")
     gap = bool(300 <= N < 380 and not half)
     dates1 = np.array([NEWDAY] * N)
@@ -136,6 +136,8 @@ def day_payload(df1, NEWDAY):
 
     def wer_series1(nn, lam_num, lam_den):
         from numpy.lib.stride_tricks import sliding_window_view
+        if N < nn:
+            return np.full(N, np.nan)
         win = sliding_window_view(dc, nn)
         wn = lam_num ** np.arange(nn - 1, -1, -1, dtype=float)
         wd = lam_den ** np.arange(nn - 1, -1, -1, dtype=float)
