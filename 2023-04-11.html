@@ -5,6 +5,9 @@
 <script src="theme.js"></script>
 <style>body{margin:0;background:#fff;font-family:sans-serif}#c{width:100%;height:95vh}</style>
 </head><body>
+<!-- VT2023BTN:BEGIN -->
+<div id="vt2023bar" style="text-align:center;padding:6px 0 0;font-size:13px"><button type="button" id="vt2023btnQ" style="font-size:13px;padding:2px 8px;border-radius:10px;cursor:pointer;border:1px solid #2b7fff;background:#2b7fff;color:#fff">QQE版</button><button type="button" id="vt2023btnE" style="font-size:13px;padding:2px 8px;border-radius:10px;cursor:pointer;margin-left:8px;border:1px solid #ccc;background:#fff;color:#333">Envelope版</button></div>
+<!-- VT2023BTN:END -->
 <div style="text-align:center;padding:6px 0 0;font-size:13px">
 <select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
 <option value="">📅 选择日期…</option>
@@ -201,4 +204,50 @@ document.getElementById('envtable').innerHTML = ENVELOPE_INNER;
   window.addEventListener('resize', function(){ chEnv.resize(); });
 })();
 </script>
+<!-- VT2023BTN:BEGIN -->
+<script>
+(function () {
+  var btnQ = document.getElementById('vt2023btnQ');
+  var btnE = document.getElementById('vt2023btnE');
+  var cenv = document.getElementById('cenv');
+  var envWrap = cenv ? cenv.parentNode : null;
+  var envTable = document.getElementById('envtable');
+  if (!btnQ || !btnE || !envWrap || !envTable) { return; }
+  function paint(onEnv) {
+    btnQ.style.background = onEnv ? '#fff' : '#2b7fff';
+    btnQ.style.borderColor = onEnv ? '#ccc' : '#2b7fff';
+    btnQ.style.color = onEnv ? '#333' : '#fff';
+    btnE.style.background = onEnv ? '#2b7fff' : '#fff';
+    btnE.style.borderColor = onEnv ? '#2b7fff' : '#ccc';
+    btnE.style.color = onEnv ? '#fff' : '#333';
+  }
+  function show(onEnv) {
+    var kids = document.body.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') { continue; }
+      if (el.id === 'vt2023bar') { continue; }
+      var isEnv = (el === envWrap || el === envTable);
+      var wantShow = (onEnv === isEnv);
+      if (el.__vtStyle === undefined) { el.__vtStyle = el.getAttribute('style'); }
+      if (wantShow) {
+        if (el.__vtHidden) {
+          if (el.__vtStyle === null) { el.removeAttribute('style'); }
+          else { el.setAttribute('style', el.__vtStyle); }
+          el.__vtHidden = false;
+        }
+      } else if (!el.__vtHidden) {
+        el.style.display = 'none';
+        el.__vtHidden = true;
+      }
+    }
+    paint(onEnv);
+    window.dispatchEvent(new Event('resize'));
+  }
+  btnQ.onclick = function () { show(false); };
+  btnE.onclick = function () { show(true); };
+  show(false);
+})();
+</script>
+<!-- VT2023BTN:END -->
 </body></html>
