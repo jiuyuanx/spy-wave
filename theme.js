@@ -3,20 +3,37 @@
  * Change colors / sizes / tooltip here once -> every page updates.
  */
 var THEME = {
-  // semantic signal type -> hex color
+  // 信号圈规范色 (2026-11-15 user令, solve once for all):
+  // 开仓类(翻/跟/补/开)一律按方向取正绿/正红, 平仓/止损一律灰。
+  // 改这里 -> 所有日页运行时经 applyColors 即时生效; gen 的烘焙色只是兜底, 已同步同值。
+  pinSpec: {
+    openCall: '#00cc00',  // 正绿 (开 call 类信号圈)
+    openPut:  '#ff0000',  // 正红 (开 put 类信号圈)
+    close:    '#9ca3af'   // 灰 (平仓/止损圈)
+  },
+
+  // slope 规范色 (2026-11-15 登记; 与日页 Envelope 整合版 build_daypage_env.py 同值)
+  slope: {
+    sky:       '#38bdf8',  // slope 段曲线染色 + slope 单信号圈描边
+    dyeWidth:  3,          // 段内染色线宽
+    closeFill: '#9ca3af',  // slope 平仓圈填充 (灰, 同 pinSpec.close)
+    closeEdge: '#6b7280'   // 终栈平仓圈描边 (灰)
+  },
+
+  // semantic signal type -> hex color (值同 pinSpec, applyColors 按标签取这里)
   colors: {
-    flip_call:     '#005000',  // 翻C 深绿(少一点黑)
-    flip_put:      '#a80000',  // 翻P 深红(少一点黑)
-    follow_call:   '#006600',  // 跟C 深绿
-    follow_put:    '#cc0000',  // 跟P 深红
-    reenter_call:  '#00a0a0',  // 补C 青色
-    reenter_put:   '#ff4500',  // 补P 橘红
-    open_call:     '#66cc66',  // 开C 浅绿
-    open_put:      '#ff6666',  // 开P 浅红
-    close_call:    '#b27a7a',  // 平C 灰红
-    close_put:     '#7ab27a',  // 平P 灰绿
-    stoploss_call: '#b27a7a',  // 止损C 灰红
-    stoploss_put:  '#7ab27a'   // 止损P 灰绿
+    flip_call:     '#00cc00',  // 翻C 正绿
+    flip_put:      '#ff0000',  // 翻P 正红
+    follow_call:   '#00cc00',  // 跟C 正绿
+    follow_put:    '#ff0000',  // 跟P 正红
+    reenter_call:  '#00cc00',  // 补C 正绿
+    reenter_put:   '#ff0000',  // 补P 正红
+    open_call:     '#00cc00',  // 开C 正绿
+    open_put:      '#ff0000',  // 开P 正红
+    close_call:    '#9ca3af',  // 平C 灰
+    close_put:     '#9ca3af',  // 平P 灰
+    stoploss_call: '#9ca3af',  // 止损C 灰
+    stoploss_put:  '#9ca3af'   // 止损P 灰
   },
 
   heat: {
