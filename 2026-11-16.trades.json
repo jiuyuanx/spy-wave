@@ -1,1 +1,1 @@
-{"day": "2026-11-16", "equity": 143731.94, "realized": 0, "unrealized": 0, "api_pos": "空仓", "orders": []}
+{"day": "2026-11-16", "equity": 154606.26, "realized": 0.0, "unrealized": 10878.0, "api_pos": "put 147张@750", "orders": [{"o_t": "09:39", "c_t": null, "dir": "put", "op": "ST开盘开P", "qty": 147.0, "symbol": "SPY261118P00750000", "o_avg": 5.7, "c_avg": null, "pnl": 10878.0, "ret": 0.12982, "est_pnl": 13321.43, "est_ret": 0.15898585974999646}]}
