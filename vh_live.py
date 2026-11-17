@@ -943,6 +943,16 @@ def _run_all(warm, eod_1m, force_st=False):
         _ST_TOL_K = float(_os9.environ.get("ST_TOL_K", "0.15") or 0.0)
     except ValueError:
         _ST_TOL_K = 0.15
+    # ===== ST_RST_LAM 部分后退 λ (2026-11-17 user 定版 λ=0.70; 与研究 gen_prb.py PRB070 同口径) =====
+    # fu/fl 重置分支中, 前根收盘越最终带但未达翻转容差 (0 < margin <= K*atr[si-1]) 且重置目标为
+    # 后退方向时 (fu: bu > fu_prev; fl: bl < fl_prev), 新带只退 λ 比例:
+    #   fu = fu_prev + λ*(bu - fu_prev);  fl = fl_prev - λ*(fl_prev - bl)。
+    # 真翻转 (margin > K*atr[si-1]) 的重置全额; 棘轮收紧不动。
+    # env ST_RST_LAM 默认 0.70 (定版值); 设 1.0 = 全额后退 (与 k=0.15 定版逐条一致)。
+    try:
+        _ST_RST_LAM = float(_os9.environ.get("ST_RST_LAM", "") or "0.70")
+    except ValueError:
+        _ST_RST_LAM = 0.70
     # Supertrend趋势数组 (2026-11-01 ST-only实验, 与gen_wave_today.py一致: TradingView final-band版, 10/hl2/3, RMA ATR)
     # 在warm全部bar (warmup+本周) 上算, 主循环下标i直接对齐; _st_trend: 1=上涨Buy, -1=下跌Sell
     _st_h = np.asarray(high, dtype=float); _st_l = np.asarray(low, dtype=float); _st_c = np.asarray(close, dtype=float)
@@ -962,8 +972,24 @@ def _run_all(warm, eod_1m, force_st=False):
         for _si in range(10, len(_st_c)):
             if np.isnan(_st_atr[_si]):
                 _st_trend[_si] = _st_trend[_si-1]; continue
-            _st_fu[_si] = _st_bu[_si] if (_st_bu[_si] < _st_fu[_si-1] or _st_c[_si-1] > _st_fu[_si-1]) else _st_fu[_si-1]
-            _st_fl[_si] = _st_bl[_si] if (_st_bl[_si] > _st_fl[_si-1] or _st_c[_si-1] < _st_fl[_si-1]) else _st_fl[_si-1]
+            _tolp = _ST_TOL_K * _st_atr[_si-1]
+            _cup = _st_c[_si-1] - _st_fu[_si-1]; _cdn = _st_fl[_si-1] - _st_c[_si-1]
+            if _st_bu[_si] < _st_fu[_si-1] or _cup > _tolp:
+                _st_fu[_si] = _st_bu[_si]
+            elif _cup > 0 and _st_bu[_si] > _st_fu[_si-1]:
+                _st_fu[_si] = _st_fu[_si-1] + _ST_RST_LAM * (_st_bu[_si] - _st_fu[_si-1])
+            elif _cup > 0:
+                _st_fu[_si] = _st_bu[_si]
+            else:
+                _st_fu[_si] = _st_fu[_si-1]
+            if _st_bl[_si] > _st_fl[_si-1] or _cdn > _tolp:
+                _st_fl[_si] = _st_bl[_si]
+            elif _cdn > 0 and _st_bl[_si] < _st_fl[_si-1]:
+                _st_fl[_si] = _st_fl[_si-1] - _ST_RST_LAM * (_st_fl[_si-1] - _st_bl[_si])
+            elif _cdn > 0:
+                _st_fl[_si] = _st_bl[_si]
+            else:
+                _st_fl[_si] = _st_fl[_si-1]
             _tolb = _ST_TOL_K * _st_atr[_si]
             if _st_c[_si] > _st_fu[_si-1] + _tolb: _st_trend[_si] = 1
             elif _st_c[_si] < _st_fl[_si-1] - _tolb: _st_trend[_si] = -1

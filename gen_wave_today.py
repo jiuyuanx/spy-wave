@@ -3240,6 +3240,12 @@ def main():
         _ST_TOL_K = float(os.environ.get("ST_TOL_K", "0.15") or 0.0)
     except ValueError:
         _ST_TOL_K = 0.15
+    # ST_RST_LAM 部分后退 λ (2026-11-17 user 定版 λ=0.70; 与 vh_live.py 同口径同 env, 只加慢版):
+    # 前根收盘戳进容差区 (0 < margin <= K*atr[i-1]) 触发的后退重置只退 λ 比例, 真翻转全额。
+    try:
+        _ST_RST_LAM = float(os.environ.get("ST_RST_LAM", "") or "0.70")
+    except ValueError:
+        _ST_RST_LAM = 0.70
     _sth = sig["high"].values.astype(float); _stl = sig["low"].values.astype(float); _stc = sig["close"].values.astype(float)
     _sthl2 = (_sth + _stl) / 2
     _sttr = np.empty(len(sig)); _sttr[0] = _sth[0] - _stl[0]
@@ -3255,8 +3261,24 @@ def main():
     _stfu[9]=_stbu[9]; _stfl[9]=_stbl[9]; _sttrd[9]=1
     for _i in range(10, len(sig)):
         if np.isnan(_statr[_i]): continue
-        _stfu[_i] = _stbu[_i] if (_stbu[_i] < _stfu[_i-1] or _stc[_i-1] > _stfu[_i-1]) else _stfu[_i-1]
-        _stfl[_i] = _stbl[_i] if (_stbl[_i] > _stfl[_i-1] or _stc[_i-1] < _stfl[_i-1]) else _stfl[_i-1]
+        _tolp = _ST_TOL_K * _statr[_i-1]
+        _cup = _stc[_i-1] - _stfu[_i-1]; _cdn = _stfl[_i-1] - _stc[_i-1]
+        if _stbu[_i] < _stfu[_i-1] or _cup > _tolp:
+            _stfu[_i] = _stbu[_i]
+        elif _cup > 0 and _stbu[_i] > _stfu[_i-1]:
+            _stfu[_i] = _stfu[_i-1] + _ST_RST_LAM * (_stbu[_i] - _stfu[_i-1])
+        elif _cup > 0:
+            _stfu[_i] = _stbu[_i]
+        else:
+            _stfu[_i] = _stfu[_i-1]
+        if _stbl[_i] > _stfl[_i-1] or _cdn > _tolp:
+            _stfl[_i] = _stbl[_i]
+        elif _cdn > 0 and _stbl[_i] < _stfl[_i-1]:
+            _stfl[_i] = _stfl[_i-1] - _ST_RST_LAM * (_stfl[_i-1] - _stbl[_i])
+        elif _cdn > 0:
+            _stfl[_i] = _stbl[_i]
+        else:
+            _stfl[_i] = _stfl[_i-1]
         _tolb = _ST_TOL_K * _statr[_i]
         if _stc[_i] > _stfu[_i-1] + _tolb: _sttrd[_i]=1
         elif _stc[_i] < _stfl[_i-1] - _tolb: _sttrd[_i]=-1
