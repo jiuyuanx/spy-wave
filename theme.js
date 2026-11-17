@@ -3,20 +3,53 @@
  * Change colors / sizes / tooltip here once -> every page updates.
  */
 var THEME = {
-  // semantic signal type -> hex color
+  // 信号圈规范色 (2026-11-15 user令, solve once for all):
+  // 开仓类(翻/跟/补/开)一律按方向取正绿/正红, 平仓/止损一律灰。
+  // 改这里 -> 所有日页运行时经 applyColors 即时生效; gen 的烘焙色只是兜底, 已同步同值。
+  pinSpec: {
+    openCall: '#00cc00',  // 正绿 (开 call 类信号圈)
+    openPut:  '#ff0000',  // 正红 (开 put 类信号圈)
+    close:    '#9ca3af'   // 灰 (平仓/止损圈)
+  },
+
+  // slope 规范色 (2026-11-15 登记; 与日页 Envelope 整合版 build_daypage_env.py 同值)
+  slope: {
+    sky:       '#38bdf8',  // slope 段曲线染色 + slope 单信号圈描边
+    dyeWidth:  3,          // 段内染色线宽
+    closeFill: '#9ca3af',  // slope 平仓圈填充 (灰, 同 pinSpec.close)
+    closeEdge: '#6b7280'   // 终栈平仓圈描边 (灰)
+  },
+
+  // slope/dev 阈值面板样式 (2026-11-17 user令: 面板样式常量统一进 theme,
+  // gen 生成的 slpOpt 只引用 THEME.slpdev、不落字面值; 改这里全站生效)
+  slpdev: {
+    colSlope: '#38bdf8',   // slope 过阈值背景染色 (同 slope.sky / WER 段染色)
+    colDev:   '#ff6700',   // dev 过阈值背景染色, 兼 dev 曲线/阈值线色
+    colBoth:  '#c026d3',   // slope+dev 同段双过背景染色
+    areaAlpha: 0.12,       // 背景染色透明度
+    yMax: 0.35,            // 纵轴固定 ±yMax (写死, 不随数据变)
+    thUp: 0.050,           // slope 上阈值 (显示+过阈判定; 与 ENVELOPE_SLPDEV.th 同值)
+    thDn: 0.070,           // slope 下阈值 (绝对值)
+    thDev: 0.079,          // dev ±阈值
+    slopeLine: '#2563eb', slopeLineWidth: 2, slopeLineType: 'dashed',  // slope 曲线 + 其阈值虚线
+    devLineWidth: 1.5, devLineType: 'dotted',                          // dev 曲线宽 + 阈值线点线 (与 slope 虚线纹理分开, 防重合看不见)
+    zeroLine: '#d1d5db'    // 0 线
+  },
+
+  // semantic signal type -> hex color (值同 pinSpec, applyColors 按标签取这里)
   colors: {
-    flip_call:     '#005000',  // 翻C 深绿(少一点黑)
-    flip_put:      '#a80000',  // 翻P 深红(少一点黑)
-    follow_call:   '#006600',  // 跟C 深绿
-    follow_put:    '#cc0000',  // 跟P 深红
-    reenter_call:  '#00a0a0',  // 补C 青色
-    reenter_put:   '#ff4500',  // 补P 橘红
-    open_call:     '#66cc66',  // 开C 浅绿
-    open_put:      '#ff6666',  // 开P 浅红
-    close_call:    '#b27a7a',  // 平C 灰红
-    close_put:     '#7ab27a',  // 平P 灰绿
-    stoploss_call: '#b27a7a',  // 止损C 灰红
-    stoploss_put:  '#7ab27a'   // 止损P 灰绿
+    flip_call:     '#00cc00',  // 翻C 正绿
+    flip_put:      '#ff0000',  // 翻P 正红
+    follow_call:   '#00cc00',  // 跟C 正绿
+    follow_put:    '#ff0000',  // 跟P 正红
+    reenter_call:  '#00cc00',  // 补C 正绿
+    reenter_put:   '#ff0000',  // 补P 正红
+    open_call:     '#00cc00',  // 开C 正绿
+    open_put:      '#ff0000',  // 开P 正红
+    close_call:    '#9ca3af',  // 平C 灰
+    close_put:     '#9ca3af',  // 平P 灰
+    stoploss_call: '#9ca3af',  // 止损C 灰
+    stoploss_put:  '#9ca3af'   // 止损P 灰
   },
 
   heat: {
@@ -62,6 +95,18 @@ var THEME = {
       borderColor: 'rgba(229,72,77,0.7)', borderWidth: 1,
       shadowColor: 'rgba(255,255,255,0.5)', shadowBlur: 8
     }
+  },
+
+  // Envelope 轨道线 (2026-11-05 user's: 下轨改橘红, 统一进theme; solve once for all)
+  envelope: {
+    upper:   '#1a9e54',  // 上轨 绿
+    lower:   '#f97316',  // 下轨 橙色
+    chanmid: '#eab308',  // 中轨 黄
+    mid:     '#888888',  // 均线 灰
+    trendUp:   '#14b8a6',  // 趋势强涨 亮青色
+    trendDown: '#b91c1c',  // 趋势强跌 红
+    trendFlat: '#1e40af',  // 趋势中性 深蓝
+    trendWidth: 4          // 趋势段线宽 (加粗)
   },
 
   // Chinese label (e.g. '翻C') -> semantic key
@@ -110,6 +155,29 @@ var THEME = {
     return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
   },
 
+  // ST版标签 (2026-11-01 theme令, ST专用; QQE标签/带子一律不动, 不调这里)
+  segLabel: {pos: '#66bb6a', neg: '#ef5350', fontSize: 8},
+  tradeLabel: {pos: '#1a9e54', neg: '#e5484d', fontSize: 11},
+  segLabelColor: function(pct) {
+    return pct >= 0 ? this.segLabel.pos : this.segLabel.neg;
+  },
+  tradeLabelColor: function(pct) {
+    return pct >= 0 ? this.tradeLabel.pos : this.tradeLabel.neg;
+  },
+
+  // ST版带子alpha (2026-11-01 theme令): |pct|<=10时 alpha=|pct|*0.024
+  // (0%->0.000, 1%->0.024, 5%->0.120, 10%->0.240与原公式在10%处衔接);
+  // 10%以上与原pnlAlpha一字不差 (20%->0.40, 35%->0.50, 50%->0.60, 65%+封顶0.70)
+  pnlAlphaST: function(pct) {
+    var a = Math.abs(pct);
+    if (a <= 10) return a * 0.024;
+    return this.pnlAlpha(pct);
+  },
+  pnlBgColorST: function(pct) {
+    var a = this.pnlAlphaST(pct).toFixed(3);
+    return pct >= 0 ? 'rgba(0,170,0,' + a + ')' : 'rgba(230,0,0,' + a + ')';
+  },
+
   // tooltip style (2026-10-18 user's: 背景透明度统一在theme改)
   tooltip: {
     backgroundColor: 'rgba(255,255,255,0.6)',
@@ -119,12 +187,20 @@ var THEME = {
   },
 
   // tooltip: only open / close / QQE (no high/low)
+  // 2026-10-24: 加 7 区上下缘 + 在区内的 heat 值（backfill 做T版用，barInfo 需含 zu/zl/heat）
   tooltipFormatter: function(ps, barInfo) {
     var t = ps[0].axisValue;
     var b = barInfo[t];
     if (!b) return t;
     var s = '<b>' + t + '</b><br/>开' + b.o + ' 收' + b.c +
             '<br/>QQE ' + b.qqe + '(' + b.col + ')';
+    if (b.zu != null && b.zl != null) {
+      s += '<br/><span style="color:#ff9900">上缘 ' + Number(b.zu).toFixed(1) + '</span>' +
+           ' <span style="color:#0277BD">下缘 ' + Number(b.zl).toFixed(1) + '</span>';
+    }
+    if (b.heat != null) {
+      s += '<br/><span style="color:' + (b.heat >= 7 ? 'red' : 'black') + '">heat ' + Number(b.heat).toFixed(1) + '</span>';
+    }
     for (var i = 0; i < ps.length; i++) {
       if (ps[i].seriesName === 'cumslope' && ps[i].value !== null && ps[i].value !== 'null') {
         s += '<br/><span style="color:#20b2aa">cumslope ' + ps[i].value + '</span>';
