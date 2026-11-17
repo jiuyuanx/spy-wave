@@ -186,7 +186,7 @@ def prep_frame(warm, eod_1m, test_days, env0):
                 skip_bar=skip_bar, trend=trend, atr=atr, bar_in_day=bar_in_day,
                 ee_day_bar=ee_day_bar, skip_day_bar=skip_day_bar, opskip_day=opskip_day,
                 start_idx=start_idx, end_idx=end_idx, dates=dates, hm_str=hm_str,
-                fu=fu, fl=fl)
+                fu=fu, fl=fl, bu=bu, bl=bl)
 
 
 def trade_actions(P, env):
@@ -260,7 +260,14 @@ def day_payload(df1, day_str, day_complete=True):
     trades: [{ot, ct, dir, opx, cpx, orsn, crsn, roi, roi_pen, closed, obi, cbi}]
             (obi/cbi = 目标日日间 bar 序号; 未平仓 closed=False, ct=None,
              cpx = 当日最后一根收盘, 仅作浮动标记不入连乘)。
-    bands: [(hm, fu, fl)] 目标日每根的最终带 (压带后, 与内核同源)。
+    bands: [(hm, fu, fl)] 目标日每根的最终带 (压带后, 与内核同源) = 辅助轨。
+    bands_main: [(hm, up, dn)] 主轨 (本体未压带最终带, 同次内核运行 bu/bl
+            按内核棘轮公式推) 的活动带按本体趋势拆段 (up/dn 互斥, 另一侧 None);
+    main_fill: [[hm, val, close, hm_next, val_next, close_next, trend]]
+            主轨填充四边形数据 (与日页 VH 节 stFill 同格式)。
+    main_flips: [(hm, val, trend)] 主轨 buy/sell 标记点 (与 VH 节 stFlips
+            同款取点: 首根开盘状态 + 本体趋势翻转根; trend 1=Buy / -1=Sell,
+            val = 该根活动带)。注意与 VX 自身单子 (走压带趋势) 是两套标记。
     盘中 (day_complete=False) 时帧尾 rsn=1 强平是帧尾伪平, 还原为持仓中
     (与实盘 stvx 引擎 2026-11-16 修法同义: <15:55 帧尾平不算真平)。"""
     from datetime import datetime as _dt, timedelta as _td
@@ -331,6 +338,54 @@ def day_payload(df1, day_str, day_complete=True):
         bands.append((str(P["hm_str"][j]),
                       None if np.isnan(fu) else round(float(fu), 2),
                       None if np.isnan(fl) else round(float(fl), 2)))
+    # 主轨 (本体未压带最终带): 同一次内核运行的 bu/bl (未压原始带) 按内核
+    # 自身棘轮公式 (stvx_kernel 内 fu/fl 同式, bu_e=bu/bl_e=bl) 在整帧上推;
+    # 本体趋势按同式判定 (收盘 vs 前根最终带), 与日页 VH 节 ST 慢版画法同款。
+    _bu = P["bu"]; _bl = P["bl"]; _cf = P["c"]; _nf = len(_cf)
+    _mfu = np.full(_nf, np.nan); _mfl = np.full(_nf, np.nan)
+    _mtr = np.zeros(_nf, dtype=np.int64)
+    if _nf > 9:
+        _mfu[9] = _bu[9]; _mfl[9] = _bl[9]; _mtr[9] = 1
+        for _i in range(10, _nf):
+            if np.isnan(_bu[_i]) or np.isnan(_bl[_i]):
+                _mtr[_i] = _mtr[_i - 1]
+                continue
+            if np.isnan(_mfu[_i - 1]):
+                _mfu[_i] = _bu[_i]; _mfl[_i] = _bl[_i]
+                _mtr[_i] = _mtr[_i - 1] if _mtr[_i - 1] != 0 else 1
+                continue
+            _mfu[_i] = _bu[_i] if (_bu[_i] < _mfu[_i - 1] or _cf[_i - 1] > _mfu[_i - 1]) else _mfu[_i - 1]
+            _mfl[_i] = _bl[_i] if (_bl[_i] > _mfl[_i - 1] or _cf[_i - 1] < _mfl[_i - 1]) else _mfl[_i - 1]
+            if _cf[_i] > _mfu[_i - 1]:
+                _mtr[_i] = 1
+            elif _cf[_i] < _mfl[_i - 1]:
+                _mtr[_i] = -1
+            else:
+                _mtr[_i] = _mtr[_i - 1]
+    _day_rows = []
+    for j in idx_day:
+        _tr = int(_mtr[j])
+        _val = _mfl[j] if _tr == 1 else _mfu[j]
+        _day_rows.append((str(P["hm_str"][j]),
+                          None if np.isnan(_val) else round(float(_val), 2),
+                          _tr, round(float(_cf[j]), 2)))
+    bands_main = [(_hm, _val if _tr == 1 else None, _val if _tr == -1 else None)
+                  for (_hm, _val, _tr, _cc) in _day_rows]
+    main_fill = []
+    for _k, (_hm, _val, _tr, _cc) in enumerate(_day_rows):
+        _nk = _k + 1 if _k + 1 < len(_day_rows) else _k
+        _nhm, _nval, _ntr, _ncc = _day_rows[_nk]
+        main_fill.append([_hm, _val, _cc, _nhm, _nval, _ncc, _tr])
+    # 主轨 buy/sell 翻转标记 (与 VH 节 stFlips 同款取点): 当日首根按开盘本体
+    # 趋势状态标一个, 其后本体趋势翻转的每根各标一个; val = 该根活动带。
+    main_flips = []
+    for _k, (_hm, _val, _tr, _cc) in enumerate(_day_rows):
+        if _val is None or _tr == 0:
+            continue
+        if _k == 0 or _tr != _day_rows[_k - 1][2]:
+            main_flips.append((_hm, _val, _tr))
     return dict(actions=[(a[0], a[1], a[2], a[3], a[4]) for a in day_acts],
                 trades=trades, pen_pct=(pen - 1.0) * 100.0,
-                bands=bands, am=am_info.get(day_str), day_hms=day_hms), None
+                bands=bands, bands_main=bands_main, main_fill=main_fill,
+                main_flips=main_flips,
+                am=am_info.get(day_str), day_hms=day_hms), None
