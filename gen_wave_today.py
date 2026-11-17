@@ -3880,11 +3880,11 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  }")
     _sw.append("  function slpOpt(){")
     _sw.append("    var S = ENVELOPE_SLPDEV, TH = S.th || {up: 0.05, dn: 0.07, dev: 0.079};")
-    _sw.append("    var absAll = [];")
-    _sw.append("    [S.slope, S.dev].forEach(function(a){ (a || []).forEach(function(v){ if (v != null) absAll.push(Math.abs(v)); }); });")
-    _sw.append("    absAll.sort(function(a, b){ return a - b; });")
-    _sw.append("    var mx = 0.105;")
-    _sw.append("    if (absAll.length) { var q = absAll[Math.min(absAll.length - 1, Math.floor(absAll.length * 0.995))]; mx = Math.max(0.105, Math.ceil(q * 1.15 * 100) / 100); }")
+    # 纵轴固定 ±0.35 (user 2026-11-17 17:22 令): 原按 |slope/dev| 的
+    # 99.5 分位算 mx, 开盘 slope 冲 −0.76 (2026-11-16) 时 mx 被撑到
+    # 0.76、全图压扁看不清; 写死后不再随数据变, 超界的线/点由
+    # ECharts 按 yAxis min/max 在边界裁切。
+    _sw.append("    var mx = 0.35;")
     _sw.append("    function s3(v){ return v == null ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(3); }")
     _sw.append("    function relTxt(v, thPos, thNeg){")
     _sw.append("      if (v == null) return '';")
