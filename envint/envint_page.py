@@ -134,12 +134,26 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         return dtimes[idx]
 
     def sx(idx):
-        # 圈的 x 直接取页面 1m 曲线该根自身的 x (各代页面 x 约定不一:
-        # 起点式 j/3 与中点式 (j+0.5)/3 并存), y = 该根收盘,
-        # 圈必落在曲线该根点上。
         if idx < len(line1m):
             return line1m[idx][0]
         return round(_mo(idx) / 3, 4)
+
+    # 曲线点按分钟查表: 各代页面 x 约定不一 (起点式 j/3 / 中点式
+    # (j+0.5)/3 / 截断网格), 且个别页曲线与配方帧不同 feed (根数或
+    # 个别收盘差几分), 按下标取点会错位; 按信号根的真实分钟取曲线
+    # 自身的点 (x, y), 圈必落在曲线该分钟的收盘点上。
+    _lpts = {}
+    if line1m:
+        _x1 = next((p[0] for p in line1m if p[0] > 0), 0.3333)
+        _mid = abs(_x1 * 3 - round(_x1 * 3)) > 0.25
+        for _x, _y in line1m:
+            _lpts[int(round(_x * 3 - (0.5 if _mid else 0.0)))] = (_x, _y)
+
+    def spt(idx):
+        p = _lpts.get(_mo(idx))
+        if p is not None:
+            return p
+        return sx(idx), round(close[idx], 2)
 
     def pin_color(kind, d):
         if kind in ("flip", "open"):
@@ -202,11 +216,13 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         is_call = t["dir"] > 0
         kind = "flip" if t["flip_entry"] else "open"
         lab = ("翻" if t["flip_entry"] else "开") + ("C" if is_call else "P")
-        spins.append(spin_item(sx(t["obi"]), round(close[t["obi"]], 2),
+        _ox, _oy = spt(t["obi"])
+        spins.append(spin_item(_ox, _oy,
                                lab, pin_color(kind, t["dir"]), t["entry_rs"],
                                is_call, t["src"] == "slope"))
         if not (t["flip_close"] and t["i"] != last_i):
-            spins.append(spin_item(sx(t["cbi"]), round(close[t["cbi"]], 2),
+            _cx, _cy = spt(t["cbi"])
+            spins.append(spin_item(_cx, _cy,
                                    "平" + ("C" if is_call else "P"),
                                    pin_color("close", t["dir"]), t["close_rs"],
                                    is_call, t["src"] == "slope", is_close=True))
