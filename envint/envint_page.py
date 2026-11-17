@@ -120,8 +120,26 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
             return 5
         return round(v * 1.15 + (0.5 if v > 0 else -0.5), 1)
 
+    # 锚点口径 (2026-11-17 user 令修复): 时间一律取当日真实时间轴
+    # day["times"], 不用位置序号推时间——源帧缺分钟 (如 2026-11-16 缺
+    # 12:21) 时位置序号与真实分钟错位, 此后全部标记偏一根、落不到
+    # 1m 收盘线上 (实测 11-16 午后 51 个圈 y 恰等于曲线下一根收盘)。
+    dtimes = day["times"]
+
+    def _mo(idx):
+        _t = dtimes[idx]
+        return int(_t[:2]) * 60 + int(_t[3:]) - 570
+
     def hm(idx):
-        return times1m[idx]
+        return dtimes[idx]
+
+    def sx(idx):
+        # 圈的 x 直接取页面 1m 曲线该根自身的 x (各代页面 x 约定不一:
+        # 起点式 j/3 与中点式 (j+0.5)/3 并存), y = 该根收盘,
+        # 圈必落在曲线该根点上。
+        if idx < len(line1m):
+            return line1m[idx][0]
+        return round(_mo(idx) / 3, 4)
 
     def pin_color(kind, d):
         if kind in ("flip", "open"):
@@ -184,11 +202,11 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         is_call = t["dir"] > 0
         kind = "flip" if t["flip_entry"] else "open"
         lab = ("翻" if t["flip_entry"] else "开") + ("C" if is_call else "P")
-        spins.append(spin_item(round(t["obi"] / 3, 4), round(close[t["obi"]], 2),
+        spins.append(spin_item(sx(t["obi"]), round(close[t["obi"]], 2),
                                lab, pin_color(kind, t["dir"]), t["entry_rs"],
                                is_call, t["src"] == "slope"))
         if not (t["flip_close"] and t["i"] != last_i):
-            spins.append(spin_item(round(t["cbi"] / 3, 4), round(close[t["cbi"]], 2),
+            spins.append(spin_item(sx(t["cbi"]), round(close[t["cbi"]], 2),
                                    "平" + ("C" if is_call else "P"),
                                    pin_color("close", t["dir"]), t["close_rs"],
                                    is_call, t["src"] == "slope", is_close=True))
@@ -203,7 +221,7 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
     rng = (hi_c - lo_c) or 1.0
     placed, scat = [], []
     for t in sorted(trades, key=lambda z: z["cbi"]):
-        mnt = 570 + t["cbi"]
+        mnt = 570 + _mo(t["cbi"])
         row = 0
         while any(abs(mnt - om) < 30 and orow == row for om, orow in placed):
             row += 1
@@ -296,7 +314,18 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
                       "lo": b2(day["lo"][i]), "why": "<br/>".join(why)}
 
     def band(key):
-        return [round(x, 2) if x is not None else None for x in day[key]]
+        # 按真实分钟槽位铺 (缺分钟留 None), 与类目轴时间标签对齐;
+        # 完整日与旧位置式逐项一致。
+        out = [None] * (_mo(n - 1) + 1) if n else []
+        for i, x in enumerate(day[key]):
+            out[_mo(i)] = round(x, 2) if x is not None else None
+        return out
+
+    def _remap(arr, nd):
+        out = [None] * (_mo(n - 1) + 1) if n else []
+        for i, x in enumerate(arr):
+            out[_mo(i)] = round(x, nd) if x is not None else None
+        return out
 
     # ---- slope 染色线 (单系列, 段外 null 断开; 段首前一根接入); 无背景带 ----
     dye = []
@@ -308,12 +337,12 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
     segs = sday["stack_dd"]["segs"]
     wer = day["werchamp"]
     wer_const = {
-        "wer": [round(x, 4) if x is not None else None for x in wer],
-        "eff": [round(x, 3) if x is not None else None for x in day["effstack"]],
-        "areas": [[s, e, d] for s, e, d, *_ in segs],
-        "entries": [[s, round(wer[s], 4) if wer[s] is not None else None, d]
+        "wer": _remap(wer, 4),
+        "eff": _remap(day["effstack"], 3),
+        "areas": [[_mo(s), _mo(e), d] for s, e, d, *_ in segs],
+        "entries": [[_mo(s), round(wer[s], 4) if wer[s] is not None else None, d]
                     for s, e, d, *_ in segs],
-        "exits": [[e, round(wer[e], 4) if wer[e] is not None else None]
+        "exits": [[_mo(e), round(wer[e], 4) if wer[e] is not None else None]
                   for s, e, d, *_ in segs if e < n - 1],
     }
 
