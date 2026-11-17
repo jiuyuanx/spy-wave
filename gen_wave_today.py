@@ -3234,6 +3234,12 @@ def main():
     slope5_js = "[" + ",".join(slope5_parts) + "]"
     # Supertrend (TradingView final-band版, 10/hl2/3, RMA ATR; 与build_supertrend_html.py一致)
     # 对sig全部3m bar (warmup+当日) 算, 再取当日部分; ST线按趋势拆两条, 填充用custom四边形
+    # ST_TOL 翻转容差 (2026-11-17 user 定版 k=0.15; 与 vh_live.py 的 ST_TOL_K 同判据同 env, 只加慢版):
+    # 展示慢版翻转须 close 越前根最终带 >= K*当根ATR, 与出单引擎同判据 (此前展示版漏加, 轨道标记与单子对不上); 快版是另一条参数线, 不加
+    try:
+        _ST_TOL_K = float(os.environ.get("ST_TOL_K", "0.15") or 0.0)
+    except ValueError:
+        _ST_TOL_K = 0.15
     _sth = sig["high"].values.astype(float); _stl = sig["low"].values.astype(float); _stc = sig["close"].values.astype(float)
     _sthl2 = (_sth + _stl) / 2
     _sttr = np.empty(len(sig)); _sttr[0] = _sth[0] - _stl[0]
@@ -3251,8 +3257,9 @@ def main():
         if np.isnan(_statr[_i]): continue
         _stfu[_i] = _stbu[_i] if (_stbu[_i] < _stfu[_i-1] or _stc[_i-1] > _stfu[_i-1]) else _stfu[_i-1]
         _stfl[_i] = _stbl[_i] if (_stbl[_i] > _stfl[_i-1] or _stc[_i-1] < _stfl[_i-1]) else _stfl[_i-1]
-        if _stc[_i] > _stfu[_i-1]: _sttrd[_i]=1
-        elif _stc[_i] < _stfl[_i-1]: _sttrd[_i]=-1
+        _tolb = _ST_TOL_K * _statr[_i]
+        if _stc[_i] > _stfu[_i-1] + _tolb: _sttrd[_i]=1
+        elif _stc[_i] < _stfl[_i-1] - _tolb: _sttrd[_i]=-1
         else: _sttrd[_i]=_sttrd[_i-1]
     _stval = np.where(_sttrd==1, _stfl, _stfu)
     _stup_parts, _stdn_parts, _stfill_parts = [], [], []
