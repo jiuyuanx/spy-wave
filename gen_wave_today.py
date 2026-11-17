@@ -3522,9 +3522,15 @@ def main():
     # ---- Envelope 版 = WER 终栈⑪ 冠军版 (2026-11-17 user 令) ----
     # envwer/ vendored 管线与 brk1112 compute_2weeks.run_day 冠军臂逐字
     # 同源: fork tv_v67_er_overlay_wcent2f3sr + er_cfg 终栈⑪ (CHAMP_CFG
-    # + RAMP_OVER + CE RF/F2/F3/shield), SL_K=0.7875, 冷启动单日跑。
-    # 已过复现闸 (2026-11-17): 2026-11-02..13 共 10 天与研究正本
-    # data_2weeks.json 的 trades/segs/flips/fills/total/n 逐项全等。
+    # + RAMP_OVER + CE RF/F2/F3/shield), SL_K=0.7875。
+    # 喂帧 = 暖帧 (2026-11-17 16:14 user 令改, 对齐定版整帧连续口径):
+    # _env_df 本含目标日前 10 日历日 + 当日 (回放=缓存/API 同款), 整帧
+    # 喂 day_payload_warm (指标/WER/CE 全帧算、simulate 整帧演化、逐笔
+    # 只取当日)。冷版单日跑曾因 ADX 前 31 根 NaN 被 ind_ok 门放大成
+    # 10:01 前全场封锁、且整上午指标偏离定版 —— 已弃用 (冷版函数保留
+    # 在 envwer_recipe 作对照)。暖版复现闸 (2026-11-17): 2026-11-13 /
+    # 11-16 两天逐笔与定版整帧 run (merge4b 原班机器扩窗复跑, 其
+    # <=11-10 段与 merge4b.csv 73,150 笔逐笔全等) 逐项全等。
     # 呈现沿用整合版面孔: WER 段内 1m 曲线天蓝染色 (无背景带)、圈锚
     # 信号根收盘、平仓圈灰、日收益连乘、WER 面板与主图同段同源。
     # 此前两条产出路径 (envint 整合版调用 / 内置旧引擎) 不再产出该节:
@@ -3553,9 +3559,8 @@ def main():
         _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
         _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
             "t").drop_duplicates("t", keep="last").reset_index(drop=True)
-        _tdf = _idf[_idf["t"].dt.strftime("%Y-%m-%d") == day_str]
-        _payload, _perr = _ewr.day_payload(
-            _tdf[["t", "open", "high", "low", "close"]], day_str)
+        _payload, _perr = _ewr.day_payload_warm(
+            _idf[["t", "open", "high", "low", "close"]], day_str)
         if _payload is None:
             raise RuntimeError(f"载荷失败: {_perr}")
         _sday, _day = _payload["sday"], _payload["day"]
@@ -3569,8 +3574,9 @@ def main():
             vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
             _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
         _env_int_ok = True
-        print(f"  envelope-wer(终栈⑪): {len(_itrades)} 单, "
-              f"tot=${_tot:,.0f} ({_tot_pct:+.1%})", flush=True)
+        print(f"  envelope-wer(终栈⑪,暖帧{_payload.get('warm_days', 0)}日): "
+              f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
+              flush=True)
     except Exception as _ee:
         _env_wer_failed = True
         _env_wer_err = f"{type(_ee).__name__}: {_ee}"

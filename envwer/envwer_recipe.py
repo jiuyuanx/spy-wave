@@ -4,8 +4,10 @@
 配方与 research/er_leg_backtest_20261110/brk1112/compute_2weeks.py 的
 run_day 冠军臂逐字同源: fork = tv_v67_er_overlay_wcent2f3sr (无 slope
 层), er_cfg = CHAMP_CFG + RAMP_OVER + CE RF/F2/F3/shield (终栈⑪),
-SL_K = 0.7875, 冷启动单日跑 (指标/WER/CE/simulate 全在当日帧内, 与
-data_2weeks.json 口径一致)。骨架 (入参/校验/half-gap 标记/装配/产出
+SL_K = 0.7875。day_payload = 冷启动单日跑 (指标/WER/CE/simulate 全
+在当日帧内, 与 data_2weeks.json 口径一致); day_payload_warm = 暖机版
+(2026-11-17 起 gen 改用: 前序交易日 + 目标日连续帧, 对齐定版整帧
+口径, 冷版保留作对照)。骨架 (入参/校验/half-gap 标记/装配/产出
 schema) 与 envint/envint_recipe.py 的 day_payload 同形, 以便 gen 与
 页面构造层 (envwer_page) 沿用整合版接口。
 
@@ -253,3 +255,172 @@ def _day_payload(df1, NEWDAY):
         slope=r4(np.where(np.isfinite(slope), slope, np.nan)))
     return dict(date=NEWDAY, sday=sday, day=day, n_bars=N, half=half,
                 gap=gap)
+
+
+def day_payload_warm(dff, NEWDAY):
+    """暖机版 day_payload (2026-11-17 user 令: 对齐定版整帧连续口径)。
+
+    dff = 连续帧 1m (t/open/high/low/close, RTH 已过滤、排序、去重):
+    若干前序交易日 + NEWDAY, NEWDAY 必须是帧的最后一个交易日。
+    与冷版 day_payload 的差别只有帧语义 (配方本体/参数/断言逐字同源):
+      - compute_indicators / WER / eff / CE 全部在整帧上算 (跨日连续,
+        ADX/ER 的 RMA 播种头落在暖机段, 不再封锁目标日开盘段);
+      - DAYCTX 含帧内全部日期 (loc = 全局->日局部), CHART_DAYS 只目标日;
+      - simulate 记录窗 = [帧首日, NEWDAY] (状态机整帧演化, 与定版
+        全帧 run 同构), 逐笔随后按 ed == NEWDAY 过滤;
+      - day 展示序列切目标日段。
+    返回结构与冷版一致, 另加 warm_days = 帧内目标日前的交易日数。
+    失败返回 (None, 错误信息), 与冷版 wrapper 同款。"""
+    try:
+        return _day_payload_warm(dff, NEWDAY), None
+    except Exception as e:  # noqa: BLE001 - gen 侧据此标注该节失败
+        import traceback
+        traceback.print_exc()
+        return None, f"{type(e).__name__}: {e}"
+
+
+def _day_payload_warm(dff, NEWDAY):
+    dff = dff.reset_index(drop=True)
+    NF = len(dff)
+    if NF == 0:
+        raise ValueError("no_data")
+    dates_f = dff["t"].dt.strftime("%Y-%m-%d").values
+    gidx = np.where(dates_f == NEWDAY)[0]
+    if len(gidx) == 0:
+        raise ValueError("target_day_missing")
+    g0, g1 = int(gidx[0]), int(gidx[-1])
+    if g1 != NF - 1 or len(gidx) != g1 - g0 + 1:
+        raise ValueError("target_day_not_last_or_split")
+    df1 = dff.iloc[g0:g1 + 1].reset_index(drop=True)
+    N = len(df1)
+    hm = df1["t"].dt.strftime("%H:%M").values
+    if hm[0] != "09:30":
+        raise ValueError(f"first_bar {hm[0]}")
+    half = bool(hm[-1] != "15:59")
+    gap = bool(300 <= N < 380 and not half)
+    frame_days = list(dict.fromkeys(dates_f.tolist()))
+    warm_days = len(frame_days) - 1
+
+    _set_params_sl()
+    saved1 = {g: getattr(sl, g) for g in SL_GLOBALS}
+    for k, v in SL_OVER.items():
+        setattr(sl, k, v)
+    try:
+        ind1 = sl.compute_indicators(dff)
+    finally:
+        for k, v in saved1.items():
+            setattr(sl, k, v)
+    c1 = np.asarray(ind1["close"], dtype=float)
+    o1 = dff["open"].to_numpy(dtype=float)
+    dc = np.diff(c1, prepend=c1[0])
+    dc[0] = 0.0
+
+    def wer_series1(nn, lam_num, lam_den):
+        from numpy.lib.stride_tricks import sliding_window_view
+        if NF < nn:
+            return np.full(NF, np.nan)
+        win = sliding_window_view(dc, nn)
+        wn = lam_num ** np.arange(nn - 1, -1, -1, dtype=float)
+        wd = lam_den ** np.arange(nn - 1, -1, -1, dtype=float)
+        num = np.abs(win @ wn)
+        den = np.abs(win) @ wd
+        vals = np.where(den > 0, num / np.where(den > 0, den, 1.0), 0.0)
+        out = np.full(NF, np.nan)
+        out[nn:] = vals[1:]
+        return out
+
+    WERAS1 = wer_series1(12, 0.98, 0.96)
+    EFF1, DOSE1, RAMP1 = eff_parts(WERAS1)
+
+    defs.set_ce_ctx(NF, np.asarray(ind1["atr"], dtype=float), c1,
+                    np.asarray(ind1["high"], dtype=float),
+                    np.asarray(ind1["low"], dtype=float))
+    CE375_1 = defs.run_ce(3.75)
+
+    defs.set_cef_ctx(o1, c1)
+    DAYCTX1 = {}
+    for _d in frame_days:
+        _gi = np.where(dates_f == _d)[0]
+        DAYCTX1[_d] = (_gi, {int(g): int(j) for j, g in enumerate(_gi)})
+    defs.set_f3_ctx(DAYCTX1, [NEWDAY], dates_f)
+    assemble_all1 = defs.assemble_all
+    classify_fills1 = defs.classify_fills
+
+    forkW.ER_ARRAYS = {12: WERAS1}
+    forkW.ASYM_SHIFT = 1.35
+    forkW.START_DATE, forkW.END_DATE = frame_days[0], NEWDAY
+    forkW.SL_K = 0.7875
+    forkW.CE_STATE = CE375_1[0]
+    forkW.CE_CST = None
+    tr = forkW.simulate(dff, ind1, 1, trend_entry=True, use_uturn=False,
+                        use_bo=False, er_cfg=CFG)
+    modes = copy.deepcopy(forkW.V67_STATS["entry_modes"])
+    segs = copy.deepcopy(forkW.ER_INFO.get("segments", []))
+    trig = copy.deepcopy(forkW.ER_INFO.get("ramp_trig", []))
+    bad = sum(1 for i, dstr, dd_, rd_, wer_i, _f in trig
+              if abs(DOSE1[i] - dd_) > 1e-6 or abs(RAMP1[i] - rd_) > 1e-6)
+    assert bad == 0, f"{NEWDAY} ramp_trig mismatches {bad}/{len(trig)}"
+    cross = [s0 for s0, s1, _ in [(s[0], s[1], s[2]) for s in segs]
+             if not (WERAS1[s0] >= EFF1[s0] - 1e-12
+                     and (s0 == 0 or WERAS1[s0 - 1] < EFF1[s0]))]
+    assert not cross, f"{NEWDAY} seg crossing FAIL {cross[:5]}"
+    recs_all = W.to_recs(tr, modes, dates_f)
+    recs = [t for t in recs_all if t["ed"] == NEWDAY]
+
+    fills_by_day, cnt = classify_fills1(recs, segs, "stack", "375")
+    defs_, flips = assemble_all1(recs, segs, extra_by_day=fills_by_day,
+                                 extra_key="fills")
+    dd = defs_[NEWDAY]
+    assert dd["total"] == round(sum(r["r"] for r in recs), 1), \
+        f"{NEWDAY} dd total 对不上"
+    assert dd["n"] == len(recs), f"{NEWDAY} dd n 对不上"
+
+    slp = [t for t in recs if t["mode"] == "slope"]
+    tot_slp = round(sum(float(t["r"]) for t in slp), 1)
+    tot_stack = round(sum(float(t["r"]) for t in recs
+                          if t["mode"] != "slope"), 1)
+    strades = [t for t in dd["trades"] if t[3] != "slope"]
+    n_slope_in_dd = sum(1 for t in dd["trades"] if t[3] == "slope")
+    assert n_slope_in_dd == len(slp), \
+        f"{NEWDAY} dd slope {n_slope_in_dd} != recs {len(slp)}"
+    skeys = {f"{t[0]}:{t[2]}" for t in strades}
+    stack_dd = dict(
+        trades=strades,
+        flips=[k for k in dd.get("flips", []) if k in skeys],
+        fills=[k for k in dd.get("fills", []) if k in skeys],
+        segs=dd["segs"],
+        n=len(strades),
+        n_er=sum(1 for t in strades if t[4] == 1),
+        total=dd["total"])
+    assert abs(stack_dd["total"] - tot_stack) < 1.0, \
+        f"{NEWDAY} stack total 对不上"
+    sday = dict(date=NEWDAY, runs=[], counts={}, trades=[],
+                stack_dd=stack_dd, n_slope=len(slp),
+                n_flips=sum(1 for t in slp if t["rsn"] == "FLIP"),
+                total_slope=tot_slp, total_stack=tot_stack,
+                total_all=round(tot_slp + tot_stack, 1))
+
+    def r2(arr):
+        return [None if not np.isfinite(v) else round(float(v), 2)
+                for v in arr]
+
+    def r4(arr):
+        return [None if not np.isfinite(v) else round(float(v), 4)
+                for v in arr]
+
+    def r3(arr):
+        return [None if not np.isfinite(v) else round(float(v), 3)
+                for v in arr]
+
+    slc = slice(g0, g1 + 1)
+    slope = np.asarray(ind1["slope"], dtype=float)
+    day = dict(
+        times=[str(x) for x in hm],
+        close=r2(c1[slc]), up=r2(np.asarray(ind1["upper"], dtype=float)[slc]),
+        lo=r2(np.asarray(ind1["lower"], dtype=float)[slc]),
+        chan=r2(np.asarray(ind1["chan_mid"], dtype=float)[slc]),
+        mid=r2(np.asarray(ind1["mid"], dtype=float)[slc]), open=r2(o1[slc]),
+        werchamp=r4(WERAS1[slc]), effstack=r3(EFF1[slc]),
+        slope=r4(np.where(np.isfinite(slope), slope, np.nan)[slc]))
+    return dict(date=NEWDAY, sday=sday, day=day, n_bars=N, half=half,
+                gap=gap, warm_days=warm_days)
