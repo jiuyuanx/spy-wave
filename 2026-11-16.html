@@ -344,11 +344,7 @@ function switchVersion3(v){
   }
   function slpOpt(){
     var S = ENVELOPE_SLPDEV, TH = S.th || {up: 0.05, dn: 0.07, dev: 0.079};
-    var absAll = [];
-    [S.slope, S.dev].forEach(function(a){ (a || []).forEach(function(v){ if (v != null) absAll.push(Math.abs(v)); }); });
-    absAll.sort(function(a, b){ return a - b; });
-    var mx = 0.105;
-    if (absAll.length) { var q = absAll[Math.min(absAll.length - 1, Math.floor(absAll.length * 0.995))]; mx = Math.max(0.105, Math.ceil(q * 1.15 * 100) / 100); }
+    var mx = 0.35;
     function s3(v){ return v == null ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(3); }
     function relTxt(v, thPos, thNeg){
       if (v == null) return '';
