@@ -3891,6 +3891,18 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      if (v >= 0) return v >= thPos ? ' ≥ +' + thPos.toFixed(3) + ' 已达标' : ' < +' + thPos.toFixed(3) + ' 未达';")
     _sw.append("      return v <= thNeg ? ' ≤ ' + thNeg.toFixed(3) + ' 已达标' : ' > ' + thNeg.toFixed(3) + ' 未达';")
     _sw.append("    }")
+    _sw.append("    // 过阈值画点 (user 2026-11-17 17:01 令): slope 过 +up/−dn、dev 过")
+    _sw.append("    // ±dev 的根, 在各自曲线上打点; 样式照突破页 panelOptSlp 段起点点")
+    _sw.append("    // (实心圆 9、白边 1.5): slope 点天蓝 #38bdf8、dev 点 #ff6700、")
+    _sw.append("    // 同根双过两点都紫红 #c026d3。")
+    _sw.append("    var ptsS = [], ptsD = [];")
+    _sw.append("    for (var i = 0; i < S.slope.length; i++) {")
+    _sw.append("      var sv2 = S.slope[i], dv2 = S.dev[i];")
+    _sw.append("      var sHit = sv2 != null && (sv2 >= TH.up || sv2 <= -TH.dn);")
+    _sw.append("      var dHit = dv2 != null && (dv2 >= TH.dev || dv2 <= -TH.dev);")
+    _sw.append("      if (sHit) ptsS.push({coord: [ENVELOPE_TIMES1M[i], sv2], itemStyle: {color: dHit ? '#c026d3' : '#38bdf8', borderColor: '#fff', borderWidth: 1.5}});")
+    _sw.append("      if (dHit) ptsD.push({coord: [ENVELOPE_TIMES1M[i], dv2], itemStyle: {color: sHit ? '#c026d3' : '#ff6700', borderColor: '#fff', borderWidth: 1.5}});")
+    _sw.append("    }")
     _sw.append("    return {animation: false,")
     _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0) return ''; var sv = S.slope[idx], dv = S.dev[idx]; if (sv == null && dv == null) return ''; return t + '<br/><span style=\"color:#2563eb\">slope7 = <b>' + s3(sv) + '</b>' + relTxt(sv, TH.up, -TH.dn) + '</span><br/><span style=\"color:#ff6700\">dev = <b>' + s3(dv) + '</b>' + relTxt(dv, TH.dev, -TH.dev) + '</span>'; }},")
     _sw.append("      grid: {left: 40, right: 12, top: 24, bottom: 24},")
@@ -3898,8 +3910,13 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
     _sw.append("      yAxis: {type: 'value', min: -mx, max: mx, name: 'slope / dev', nameTextStyle: {fontSize: 11, color: '#374151'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
     _sw.append("      series: [")
-    _sw.append("        {name: 'slope7', type: 'line', data: S.slope, showSymbol: false, lineStyle: {width: 2, color: '#2563eb'}, itemStyle: {color: '#2563eb'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.up, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope +' + TH.up.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dn, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope −' + TH.dn.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid', width: 1}, label: {show: false}}]}},")
-    _sw.append("        {name: 'dev', type: 'line', data: S.dev, showSymbol: false, lineStyle: {width: 1.5, color: '#ff6700'}, itemStyle: {color: '#ff6700'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.dev, lineStyle: {color: '#ff6700', type: 'dashed', width: 1}, label: {formatter: 'dev +' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dev, lineStyle: {color: '#ff6700', type: 'dashed', width: 1}, label: {formatter: 'dev −' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideEndTop'}}]}}")
+    # 负阈值线可见性 (user 2026-11-17 17:01 指出 slope −0.070 看不到):
+    # slope −dn 与 dev −dev 只差 0.009, 今天 mx=0.71 时像素距仅 0.65px,
+    # 两线实际重合且同端 (右) 标签互盖、后画的 dev 线盖住 slope 线。
+    # 修法: dev 阈值线改点线 (dotted, 与 slope 的 dashed 纹理分开) +
+    # dev 两标签移到左端 insideStartTop, 与 slope 的右端标签分开。
+    _sw.append("        {name: 'slope7', type: 'line', data: S.slope, showSymbol: false, lineStyle: {width: 2, color: '#2563eb'}, itemStyle: {color: '#2563eb'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.up, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope +' + TH.up.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dn, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope −' + TH.dn.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid', width: 1}, label: {show: false}}]}, markPoint: {silent: true, symbol: 'circle', symbolSize: 9, label: {show: false}, data: ptsS}},")
+    _sw.append("        {name: 'dev', type: 'line', data: S.dev, showSymbol: false, lineStyle: {width: 1.5, color: '#ff6700'}, itemStyle: {color: '#ff6700'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.dev, lineStyle: {color: '#ff6700', type: 'dotted', width: 1}, label: {formatter: 'dev +' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideStartTop'}}, {yAxis: -TH.dev, lineStyle: {color: '#ff6700', type: 'dotted', width: 1}, label: {formatter: 'dev −' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideStartTop'}}]}, markPoint: {silent: true, symbol: 'circle', symbolSize: 9, label: {show: false}, data: ptsD}}")
     _sw.append("      ]};")
     _sw.append("  }")
     _sw.append("  // 手动同步主图<->WER面板 (2026-11-11: 弃 echarts.connect —— 悬停 showTip 带 escapeConnect 设计上不转发,")
