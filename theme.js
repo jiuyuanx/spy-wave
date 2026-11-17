@@ -20,6 +20,22 @@ var THEME = {
     closeEdge: '#6b7280'   // 终栈平仓圈描边 (灰)
   },
 
+  // slope/dev 阈值面板样式 (2026-11-17 user令: 面板样式常量统一进 theme,
+  // gen 生成的 slpOpt 只引用 THEME.slpdev、不落字面值; 改这里全站生效)
+  slpdev: {
+    colSlope: '#38bdf8',   // slope 过阈值背景染色 (同 slope.sky / WER 段染色)
+    colDev:   '#ff6700',   // dev 过阈值背景染色, 兼 dev 曲线/阈值线色
+    colBoth:  '#c026d3',   // slope+dev 同段双过背景染色
+    areaAlpha: 0.12,       // 背景染色透明度
+    yMax: 0.35,            // 纵轴固定 ±yMax (写死, 不随数据变)
+    thUp: 0.050,           // slope 上阈值 (显示+过阈判定; 与 ENVELOPE_SLPDEV.th 同值)
+    thDn: 0.070,           // slope 下阈值 (绝对值)
+    thDev: 0.079,          // dev ±阈值
+    slopeLine: '#2563eb', slopeLineWidth: 2, slopeLineType: 'dashed',  // slope 曲线 + 其阈值虚线
+    devLineWidth: 1.5, devLineType: 'dotted',                          // dev 曲线宽 + 阈值线点线 (与 slope 虚线纹理分开, 防重合看不见)
+    zeroLine: '#d1d5db'    // 0 线
+  },
+
   // semantic signal type -> hex color (值同 pinSpec, applyColors 按标签取这里)
   colors: {
     flip_call:     '#00cc00',  // 翻C 正绿

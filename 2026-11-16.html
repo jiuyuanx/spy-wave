@@ -343,35 +343,48 @@ function switchVersion3(v){
       ]};
   }
   function slpOpt(){
-    var S = ENVELOPE_SLPDEV, TH = S.th || {up: 0.05, dn: 0.07, dev: 0.079};
-    var mx = 0.35;
+    var S = ENVELOPE_SLPDEV;
+    var TD = (typeof THEME !== 'undefined' && THEME.slpdev) ? THEME.slpdev : {colSlope: '#38bdf8', colDev: '#ff6700', colBoth: '#c026d3', areaAlpha: 0.12, yMax: 0.35, thUp: 0.05, thDn: 0.07, thDev: 0.079, slopeLine: '#2563eb', slopeLineWidth: 2, slopeLineType: 'dashed', devLineWidth: 1.5, devLineType: 'dotted', zeroLine: '#d1d5db'};
+    var TH = {up: TD.thUp, dn: TD.thDn, dev: TD.thDev};
+    var mx = TD.yMax;
     function s3(v){ return v == null ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(3); }
     function relTxt(v, thPos, thNeg){
       if (v == null) return '';
       if (v >= 0) return v >= thPos ? ' ≥ +' + thPos.toFixed(3) + ' 已达标' : ' < +' + thPos.toFixed(3) + ' 未达';
       return v <= thNeg ? ' ≤ ' + thNeg.toFixed(3) + ' 已达标' : ' > ' + thNeg.toFixed(3) + ' 未达';
     }
-    // 过阈值画点 (user 2026-11-17 17:01 令): slope 过 +up/−dn、dev 过
-    // ±dev 的根, 在各自曲线上打点; 样式照突破页 panelOptSlp 段起点点
-    // (实心圆 9、白边 1.5): slope 点天蓝 #38bdf8、dev 点 #ff6700、
-    // 同根双过两点都紫红 #c026d3。
-    var ptsS = [], ptsD = [];
+    function rgba(hex, a){ var n = parseInt(hex.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+    // 过阈值区间背景染色 (user 2026-11-17 17:32 令, 取代 17:01 的打点):
+    // 每根按 slope 过阈 / dev 过阈分类 (1=slope、2=dev、3=双过), 连续
+    // 同类根合并成一段 markArea, 背景染对应 theme 色 (TD.col*) +
+    // TD.areaAlpha 低透明; 单根段向后延一根保宽度 (末根向前延),
+    // 免零宽看不见。
+    var AREA_COL = {1: rgba(TD.colSlope, TD.areaAlpha), 2: rgba(TD.colDev, TD.areaAlpha), 3: rgba(TD.colBoth, TD.areaAlpha)};
+    var areas = [], cls = [];
     for (var i = 0; i < S.slope.length; i++) {
       var sv2 = S.slope[i], dv2 = S.dev[i];
       var sHit = sv2 != null && (sv2 >= TH.up || sv2 <= -TH.dn);
       var dHit = dv2 != null && (dv2 >= TH.dev || dv2 <= -TH.dev);
-      if (sHit) ptsS.push({coord: [ENVELOPE_TIMES1M[i], sv2], itemStyle: {color: dHit ? '#c026d3' : '#38bdf8', borderColor: '#fff', borderWidth: 1.5}});
-      if (dHit) ptsD.push({coord: [ENVELOPE_TIMES1M[i], dv2], itemStyle: {color: sHit ? '#c026d3' : '#ff6700', borderColor: '#fff', borderWidth: 1.5}});
+      cls.push(sHit ? (dHit ? 3 : 1) : (dHit ? 2 : 0));
+    }
+    for (var j = 0; j < cls.length; j++) {
+      if (!cls[j]) continue;
+      var k = j;
+      while (k + 1 < cls.length && cls[k + 1] === cls[j]) k++;
+      var s2 = j, e2 = k;
+      if (k === j) { if (k + 1 < cls.length) e2 = k + 1; else if (j > 0) s2 = j - 1; }
+      areas.push([{xAxis: ENVELOPE_TIMES1M[s2], itemStyle: {color: AREA_COL[cls[j]]}}, {xAxis: ENVELOPE_TIMES1M[e2]}]);
+      j = k;
     }
     return {animation: false,
-      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0) return ''; var sv = S.slope[idx], dv = S.dev[idx]; if (sv == null && dv == null) return ''; return t + '<br/><span style="color:#2563eb">slope7 = <b>' + s3(sv) + '</b>' + relTxt(sv, TH.up, -TH.dn) + '</span><br/><span style="color:#ff6700">dev = <b>' + s3(dv) + '</b>' + relTxt(dv, TH.dev, -TH.dev) + '</span>'; }},
+      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0) return ''; var sv = S.slope[idx], dv = S.dev[idx]; if (sv == null && dv == null) return ''; return t + '<br/><span style="color:' + TD.slopeLine + '">slope7 = <b>' + s3(sv) + '</b>' + relTxt(sv, TH.up, -TH.dn) + '</span><br/><span style="color:' + TD.colDev + '">dev = <b>' + s3(dv) + '</b>' + relTxt(dv, TH.dev, -TH.dev) + '</span>'; }},
       grid: {left: 40, right: 12, top: 24, bottom: 24},
       dataZoom: [{type: 'inside', xAxisIndex: 0}],
       xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},
       yAxis: {type: 'value', min: -mx, max: mx, name: 'slope / dev', nameTextStyle: {fontSize: 11, color: '#374151'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},
       series: [
-        {name: 'slope7', type: 'line', data: S.slope, showSymbol: false, lineStyle: {width: 2, color: '#2563eb'}, itemStyle: {color: '#2563eb'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.up, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope +' + TH.up.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dn, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope −' + TH.dn.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid', width: 1}, label: {show: false}}]}, markPoint: {silent: true, symbol: 'circle', symbolSize: 9, label: {show: false}, data: ptsS}},
-        {name: 'dev', type: 'line', data: S.dev, showSymbol: false, lineStyle: {width: 1.5, color: '#ff6700'}, itemStyle: {color: '#ff6700'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.dev, lineStyle: {color: '#ff6700', type: 'dotted', width: 1}, label: {formatter: 'dev +' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideStartTop'}}, {yAxis: -TH.dev, lineStyle: {color: '#ff6700', type: 'dotted', width: 1}, label: {formatter: 'dev −' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideStartTop'}}]}, markPoint: {silent: true, symbol: 'circle', symbolSize: 9, label: {show: false}, data: ptsD}}
+        {name: 'slope7', type: 'line', data: S.slope, showSymbol: false, lineStyle: {width: TD.slopeLineWidth, color: TD.slopeLine}, itemStyle: {color: TD.slopeLine}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.up, lineStyle: {color: TD.slopeLine, type: TD.slopeLineType, width: 1}, label: {formatter: 'slope +' + TH.up.toFixed(3), color: TD.slopeLine, fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dn, lineStyle: {color: TD.slopeLine, type: TD.slopeLineType, width: 1}, label: {formatter: 'slope −' + TH.dn.toFixed(3), color: TD.slopeLine, fontSize: 10, position: 'insideEndTop'}}, {yAxis: 0, lineStyle: {color: TD.zeroLine, type: 'solid', width: 1}, label: {show: false}}]}, markArea: {silent: true, label: {show: false}, data: areas}},
+        {name: 'dev', type: 'line', data: S.dev, showSymbol: false, lineStyle: {width: TD.devLineWidth, color: TD.colDev}, itemStyle: {color: TD.colDev}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.dev, lineStyle: {color: TD.colDev, type: TD.devLineType, width: 1}, label: {formatter: 'dev +' + TH.dev.toFixed(3), color: TD.colDev, fontSize: 10, position: 'insideStartTop'}}, {yAxis: -TH.dev, lineStyle: {color: TD.colDev, type: TD.devLineType, width: 1}, label: {formatter: 'dev −' + TH.dev.toFixed(3), color: TD.colDev, fontSize: 10, position: 'insideStartTop'}}]}}
       ]};
   }
   // 手动同步主图<->WER面板 (2026-11-11: 弃 echarts.connect —— 悬停 showTip 带 escapeConnect 设计上不转发,
