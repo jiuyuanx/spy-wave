@@ -1763,6 +1763,161 @@ def main():
     vh_title_echart = day_str + " ({st|ST}版) | " + gap_e + " | " + _strat_e(st_strat) + " | " + vh_pnl_e
     qqe_title_echart = day_str + " ({qqe|QQE}版) | " + gap_e + " | 全天{qqe|QQE} | " + qqe_pnl_e
 
+    # ---- ST VX版 (2026-11-17 user 令): vendored 双侧门控内核 (stvx/ 子包),
+    # 与 summary ST VX 行/两周图 VX 轨同口径 (esFSW3GF + 双侧上午门控)。
+    # 暖机 = 目标周周一前 45 天起的 1m 聚合 3m 连续帧 (与研究 load_week_frame
+    # 同窗; ST 带/趋势/年龄跨日接续、GF 用昨收), 只取当日单子。
+    # 计算失败回退空节 + WARN, 页面不挂 (与本文件各节一贯的降级方式一致)。
+    stvx_pins, stvx_spins = [], []
+    stvx_scat_js = "[]"
+    stvx_mark_area_js = "[]"
+    stvx_acts = {}
+    stvx_upper, stvx_lower = [], []
+    stvx_inner, stvx_tot, stvx_tot_pct = _est_table_inner(
+        [], "ST VX版信号单（Gamma理论预估，v2罚后口径）",
+        "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(窗3根)+大跳空GF+双侧上午门控；非实际成交")
+    try:
+        import sys as _sys3
+        _stvx_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stvx")
+        if _stvx_dir not in _sys3.path:
+            _sys3.path.insert(0, _stvx_dir)
+        import stvx_day as _svx
+        _day_c = datetime.strptime(day_str, "%Y-%m-%d").date()
+        _monday_c = _day_c - timedelta(days=_day_c.weekday())
+        _fstart = _monday_c - timedelta(days=45)
+        _df1 = None
+        if WAVE_DATE:
+            _df1 = _env_load_cache_1m(_fstart, _day_c)
+        if _df1 is None:
+            _chunks = []
+            _cs = _fstart
+            while _cs <= _day_c:
+                _ce = min(_cs + timedelta(days=6), _day_c)
+                _cdf = _fetch_1m_range(_cs, _ce)
+                _cdf = _cdf.rename(columns={"o": "open", "h": "high",
+                                            "l": "low", "c": "close"})
+                _cdf["t"] = _cdf["t"].dt.tz_localize(None)
+                _chunks.append(_cdf[["t", "open", "high", "low", "close"]])
+                _cs = _ce + timedelta(days=1)
+            _df1 = (pd.concat(_chunks).sort_values("t")
+                    .drop_duplicates("t", keep="last").reset_index(drop=True))
+        _last_hm = tstrs[today_idx[-1]] if today_idx else ""
+        _stvx_complete = bool(WAVE_DATE) or _last_hm in ("15:57", "12:57")
+        _pl, _perr = _svx.day_payload(_df1, day_str, day_complete=_stvx_complete)
+        if _pl is None:
+            print(f"  WARN stvx 载荷失败: {_perr}", flush=True)
+        else:
+            _hm2bi = {tstrs[bi]: bi for bi in today_idx}
+            _pos_of = {bi: k for k, bi in enumerate(today_idx)}
+            stvx_rts = []
+            for _t in _pl["trades"]:
+                _obi = _hm2bi.get(_t["ot"])
+                _cbi = (_hm2bi.get(_t["ct"]) if _t["closed"]
+                        else (today_idx[-1] if today_idx else None))
+                if _obi is None or _cbi is None:
+                    continue
+                stvx_rts.append({"obi": _obi, "odr": _t["dir"], "opx": _t["opx"],
+                                 "ors": _t["orsn"], "cbi": _cbi, "cpx": _t["cpx"],
+                                 "crs": _t["crsn"], "closed": _t["closed"],
+                                 "roi_pen": _t["roi_pen"]})
+            stvx_inner, stvx_tot, stvx_tot_pct = _est_table_inner(
+                [{**rt, "est_roi": rt["roi_pen"] / 100.0} for rt in stvx_rts],
+                "ST VX版信号单（Gamma理论预估，v2罚后口径）",
+                "预估=Gamma公式ROI(v2逆势put罚后)×$100k日内sequential复利；"
+                "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(窗3根)+大跳空日10:00前不开仓"
+                "+双侧上午门控(≥55%/≤-30%→13:30-15:00只平不开、15:00状态恢复)；非实际成交")
+            for (hm, act, dr, px, rs) in _pl["actions"]:
+                _bi = _hm2bi.get(hm)
+                if _bi is not None:
+                    stvx_acts.setdefault(tstrs[_bi], []).append(
+                        f"{act}{dr or ''}@{px} {rs}".replace("'", ""))
+            _by_hm = {}
+            for (hm, act, dr, px, rs) in _pl["actions"]:
+                _by_hm.setdefault(hm, []).append((act, dr, rs))
+            _flip_hms = {hm for hm, lst in _by_hm.items()
+                         if any(a == "平" for a, _, _ in lst)
+                         and any(a == "开" for a, _, _ in lst)}
+
+            def _stvx_qpins_add(bi, value, color, rs_txt=""):
+                h = float(hist[bi])
+                yq = round(h * 1.15 + (0.5 if h > 0 else -0.5), 1) if not np.isnan(h) else 5
+                stvx_pins.append({"coord": [tstrs[bi], yq], "value": value,
+                                  "itemStyle": {"color": color}, "rs": rs_txt})
+            for (hm, act, dr, px, rs) in _pl["actions"]:
+                _bi = _hm2bi.get(hm)
+                if _bi is None or hm in _flip_hms:
+                    continue
+                _xp = round(_pos_of[_bi] + 2.5 / 3, 4)
+                _yp = round(float(sig["close"].iloc[_bi]), 2)
+                _rsc = rs.replace("'", "")
+                if act == "开":
+                    _v = "开" + ("C" if dr == "call" else "P")
+                    _c = _dir_color(dr, "开")
+                    stvx_spins.append({"coord": [_xp, _yp], "value": _v,
+                                       "itemStyle": {"color": _c}, "rs": _rsc})
+                    _stvx_qpins_add(_bi, _v, _c, _rsc)
+                elif act == "平":
+                    _v = ("止损" if "止损" in rs else "平") + ("C" if dr == "call" else "P")
+                    _c = "#9ca3af"  # 平: 灰 (2026-11-15 规范色)
+                    stvx_spins.append({"coord": [_xp, _yp], "value": _v,
+                                       "itemStyle": {"color": _c}, "rs": _rsc})
+                    _stvx_qpins_add(_bi, _v, _c, _rsc)
+            for hm in sorted(_flip_hms):
+                _bi = _hm2bi.get(hm)
+                if _bi is None:
+                    continue
+                _ndr = next((dr for a, dr, _ in _by_hm[hm] if a == "开"), None)
+                _nrs = next((rs for a, dr, rs in _by_hm[hm] if a == "开"), "")
+                _xp = round(_pos_of[_bi] + 2.5 / 3, 4)
+                _yp = round(float(sig["close"].iloc[_bi]), 2)
+                _v = "翻" + ("C" if _ndr == "call" else "P")
+                _c = _dir_color(_ndr, "翻")
+                _rsc = _nrs.replace("'", "")
+                stvx_spins.append({"coord": [_xp, _yp], "value": _v,
+                                   "itemStyle": {"color": _c}, "rs": _rsc})
+                _stvx_qpins_add(_bi, _v, _c, _rsc)
+            _sx_placed, _sx_data = [], []
+            _sx_max_row = 0
+            for rt in stvx_rts:
+                if not rt["closed"]:
+                    continue
+                _cbi = rt["cbi"]
+                _row = 0
+                while any(abs(_cbi - _oc) < 15 and _or == _row
+                          for (_oc, _or) in _sx_placed):
+                    _row += 1
+                _sx_placed.append((_cbi, _row))
+                _sx_max_row = max(_sx_max_row, _row)
+                _yy = round(_base + _row * _row_h, 2)
+                _vp = rt["roi_pen"]
+                _sx_data.append(
+                    '{"value":["%s",%.2f],"lbl":"%s","label":{"color":THEME.tradeLabelColor(%s)}}'
+                    % (tstrs[_cbi], _yy, f"{_vp:+.1f}%", repr(float(_vp))))
+            stvx_scat_js = "[" + ",".join(_sx_data) + "]"
+            if _sx_data:
+                y_max_js = max(y_max_js, round(
+                    _base + (_sx_max_row + 1) * _row_h + _rng * 0.05, 2))
+            stvx_mark_area_js = "[" + ",".join(
+                "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColorST(%s)}},{xAxis:'%s'}]" % (
+                    tstrs[rt["obi"]], round(rt["roi_pen"], 2), tstrs[rt["cbi"]])
+                for rt in stvx_rts) + "]"
+            _bd = {hm: (fu, fl) for (hm, fu, fl) in _pl["bands"]}
+            for _bi in today_idx:
+                _fu, _fl = _bd.get(tstrs[_bi], (None, None))
+                stvx_upper.append(_fu)
+                stvx_lower.append(_fl)
+            print(f"  stvx: {len(stvx_rts)} 单, 罚后连乘 {stvx_tot_pct:+.1%}, "
+                  f"am={_pl['am']}", flush=True)
+    except Exception as _se:
+        print(f"  WARN stvx 计算失败, 本节为空: {_se}", flush=True)
+    stvx_title_txt = (f"{day_str} (ST VX版) | {gap_txt} | 全天ST VX | "
+                      f"{'+' if stvx_tot >= 0 else '-'}${abs(stvx_tot):,.0f} "
+                      f"({stvx_tot_pct:+.1%})")
+    stvx_pnl_e = (("{pnl_pos|+" if stvx_tot >= 0 else "{pnl_neg|-")
+                  + f"${abs(stvx_tot):,.0f} ({stvx_tot_pct:+.1%})" + "}")
+    stvx_title_echart = (day_str + " ({stvx|ST VX}版) | " + gap_e
+                         + " | 全天{stvx|ST VX} | " + stvx_pnl_e)
+
     # ---- CE版 (Chandelier Exit, ATR1x1.85 Heikin Ashi): 与研究 ce_backtest.py 同算法。
     # 方向在全 sig (warmup+当日) 上连续算, 不按日重置; 当日交易按日页口径
     # (-100口径Gamma, 日内$100k sequential, 信号bar记时间、下根开盘结算)。
@@ -3337,7 +3492,13 @@ def main():
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
     # ---- Envelope 整合版 (2026-11-15 user 令): Envelope 节改由真整合引擎计算 ----
-    # envint/ vendored 管线与 brk1112 逐字同源: 单日冷启动跑
+    # envint/ vendored 管线与 brk1112 逐字同源: 暖机帧跑 (前 5 个交易日
+    # + 当日连续帧, 指标跨日连续、单子只记当日; 2026-11-15 user 令
+    # 「暖机对齐是常识」——冷启动时 ADX 第 31 根才有效, 页面开盘段与
+    # 研究全帧口径系统性差约 29 分钟, 取证见 brk1112/open_flat_report)。
+    # 已验 (2026-11-15, brk1112/gen_warm_{ref,gen,cmp}.py): 5 个样本日
+    # (2024-06-14/2025-04-07/2025-07-07/2025-11-05/2026-11-13) 与研究
+    # 全帧运行逐笔全等 (slope 逐笔 + stack 逐笔 + 装配价 + 合计全等)。
     # tv_v67_er_overlay_wcent2f3sr_slope 现行默认 (ER 整层关、slope bonus
     # 定版、trend noentry、段首抢占), 常量构造与 build_daypage_env 同一副
     # 面孔 (slope 天蓝染色线/圈天蓝边/平仓灰/连乘)。计算失败时回退上面的
@@ -3356,12 +3517,28 @@ def main():
             if getattr(_idf["t"].dt, "tz", None) is not None:
                 _idf["t"] = _idf["t"].dt.tz_convert(
                     "America/New_York").dt.tz_localize(None)
-            _idf = _idf[_idf["t"].dt.strftime("%Y-%m-%d") == day_str]
             _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
             _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
                 "t").drop_duplicates("t", keep="last").reset_index(drop=True)
-            _payload, _perr = _eir.day_payload(
-                _idf[["t", "open", "high", "low", "close"]], day_str)
+            # 暖机帧: 目标日 + 之前 5 个交易日 (帧内实际存在的日期)。
+            # 长度依据: 配方最长有限回望 = 高斯中线 30 根 + slope 7 根
+            # = 37 根 (ADX 首次有效 31 根 = DI_LEN 16 + ADX_SMOOTH 16;
+            # WER 窗 12 + dose 窗 10; CE 播种回望 12 根) —— 5 个交易日
+            # = 1950 根, 是其 50 倍有余; 且 ADX/ATR 是 Wilder 递推平滑
+            # (形式上无限记忆、几何衰减), 种子残余权重约 (15/16)^1950
+            # ≈ 1e-55, 远低于 float64 分辨率, 指标与研究全帧逐值一致;
+            # CE 状态机靠翻转重播种, 5 日足够覆盖。_env_df 本就带回
+            # 10 个日历日 (旧 Envelope 节 warmup 用), 无需额外拉数。
+            _ENVINT_WARM_DAYS = 5
+            _fdays = sorted(set(_idf["t"].dt.strftime("%Y-%m-%d")))
+            _fdays = [d for d in _fdays if d <= day_str]
+            if day_str not in _fdays:
+                _payload, _perr = None, "target_day_missing"
+            else:
+                _fdays = _fdays[-(_ENVINT_WARM_DAYS + 1):]
+                _fdf = _idf[_idf["t"].dt.strftime("%Y-%m-%d").isin(_fdays)]
+                _payload, _perr = _eir.day_payload_warm(
+                    _fdf[["t", "open", "high", "low", "close"]], day_str)
             if _payload is None:
                 print(f"  WARN envelope-int 载荷失败: {_perr}", flush=True)
             else:
@@ -3377,7 +3554,8 @@ def main():
                     _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
                 _env_int_ok = True
                 print(f"  envelope-int: {len(_itrades)} 单, "
-                      f"tot=${_tot:,.0f} ({_tot_pct:+.1%})", flush=True)
+                      f"tot=${_tot:,.0f} ({_tot_pct:+.1%}), "
+                      f"warm={_payload.get('warm_days')}d", flush=True)
     except Exception as _ee:
         print(f"  WARN envelope-int 计算失败, 回退旧展示口径: {_ee}", flush=True)
         _env_int_ok = False
@@ -3450,6 +3628,14 @@ def main():
     _sw.append("const ENVELOPE3M_CHANMID = " + json.dumps(env3_chanmid) + ";")
     _sw.append("const ENVELOPE3M_MID = " + json.dumps(env3_mid) + ";")
     _sw.append("const ENVELOPE3M_TIP = " + json.dumps(env3_tip, ensure_ascii=False) + ";")
+    _sw.append("const STVX_PINS = " + json.dumps(stvx_pins, ensure_ascii=False) + ";")
+    _sw.append("const STVX_SPINS = " + json.dumps(stvx_spins, ensure_ascii=False) + ";")
+    _sw.append("const STVX_SCAT = " + stvx_scat_js + ";")
+    _sw.append("const STVX_MARKAREA = " + stvx_mark_area_js + ";")
+    _sw.append("const STVX_INNER = " + json.dumps(stvx_inner, ensure_ascii=False) + ";")
+    _sw.append("const STVX_ACTS = " + json.dumps(stvx_acts, ensure_ascii=False) + ";")
+    _sw.append("const STVX_UPPER = " + json.dumps(stvx_upper) + ";")
+    _sw.append("const STVX_LOWER = " + json.dumps(stvx_lower) + ";")
     _sw.append("const ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
     _sw.append("const ENVELOPE3M_TREND_SEGS = " + json.dumps(_env3_trend_segs) + ";")
     _sw.append("""(function(){
@@ -3478,13 +3664,15 @@ return _origEnvTip(ps, barInfo);
                + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False)
                + ", ce: " + json.dumps(ce_title_txt, ensure_ascii=False)
                + ", envelope: " + json.dumps(env_title_txt, ensure_ascii=False)
-               + ", envelope3m: " + json.dumps(env3_title_txt, ensure_ascii=False) + "};")
+               + ", envelope3m: " + json.dumps(env3_title_txt, ensure_ascii=False)
+               + ", stvx: " + json.dumps(stvx_title_txt, ensure_ascii=False) + "};")
     _sw.append("const TITLES3E = {vh: " + json.dumps(vh_title_echart, ensure_ascii=False)
                + ", qqe: " + json.dumps(qqe_title_echart, ensure_ascii=False)
                + ", ce: " + json.dumps(ce_title_echart, ensure_ascii=False)
                + ", envelope: " + json.dumps(env_title_echart, ensure_ascii=False)
-               + ", envelope3m: " + json.dumps(env3_title_echart, ensure_ascii=False) + "};")
-    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
+               + ", envelope3m: " + json.dumps(env3_title_echart, ensure_ascii=False)
+               + ", stvx: " + json.dumps(stvx_title_echart, ensure_ascii=False) + "};")
+    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},stvx:{color:'#00a0a0',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
     _sw.append("const VH_INNER = " + json.dumps(vh_inner, ensure_ascii=False) + ";")
     _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
     _sw.append("var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();")
@@ -3500,13 +3688,14 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var isCE = (v === 'ce');")
     _sw.append("  var isENVELOPE = (v === 'envelope');")
     _sw.append("  var isENV3M = (v === 'envelope3m');")
-    _sw.append("  var pinsData = isENV3M ? ENVELOPE3M_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (useVH ? pins : QQE_PINS)));")
-    _sw.append("  var spinsData = isENV3M ? ENVELOPE3M_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (useVH ? spins : QQE_SPINS)));")
-    _sw.append("  var scatData = isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (useVH ? VH_SCAT : QQE_SCAT)));")
+    _sw.append("  var isSTVX = (v === 'stvx');")
+    _sw.append("  var pinsData = isENV3M ? ENVELOPE3M_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isSTVX ? STVX_PINS : (useVH ? pins : QQE_PINS))));")
+    _sw.append("  var spinsData = isENV3M ? ENVELOPE3M_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isSTVX ? STVX_SPINS : (useVH ? spins : QQE_SPINS))));")
+    _sw.append("  var scatData = isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (useVH ? VH_SCAT : QQE_SCAT))));")
     _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
     _sw.append("  ch.setOption({")
-    _sw.append("    title: {text: isLive ? TITLES3.live : (isENV3M ? TITLES3E.envelope3m : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isVH ? TITLES3E.vh : TITLES3E.qqe)))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
+    _sw.append("    title: {text: isLive ? TITLES3.live : (isENV3M ? TITLES3E.envelope3m : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isSTVX ? TITLES3E.stvx : (isVH ? TITLES3E.vh : TITLES3E.qqe))))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
     # 整合版: 1m 曲线在 envelope 下恢复显示 (slope 染色线叠加其上), 与
     # build_daypage_env.splice 的结构改动同款; 非整合版保持原条件。
@@ -3527,22 +3716,24 @@ return _origEnvTip(ps, barInfo);
         _sw.append("      {id: 'env3-trend-seg-%d', name: '3m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[%d].data : []}," % (_si3, _si3, _sg3["theme"], _si3))
     _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
     _sw.append("      {name: '每单盈亏', data: scatData, label: {show: (isENVELOPE || isENV3M) ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : (isENV3M ? ENVELOPE3M_MARKAREA : [])}},")
-    _sw.append("      {name: '3mK线', markArea: {silent: true, data: (isENVELOPE || isENV3M) ? [] : (isCE ? CE_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
+    _sw.append("      {name: '3mK线', markArea: {silent: true, data: (isENVELOPE || isENV3M) ? [] : (isCE ? CE_MARKAREA : (isSTVX ? STVX_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
     _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},")
     _sw.append("      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},")
     _sw.append("      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : (isENV3M ? ENVELOPE3M_UPPER : [])},")
     _sw.append("      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : (isENV3M ? ENVELOPE3M_LOWER : [])},")
     _sw.append("      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : (isENV3M ? ENVELOPE3M_CHANMID : [])},")
     _sw.append("      {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : (isENV3M ? ENVELOPE3M_MID : [])},")
-    _sw.append("      {name: '成交点', data: (isENVELOPE || isENV3M) ? [] : filldots}")
-    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : (isENV3M ? " + env3_min_js + " : null), max: isENVELOPE ? " + env_max_js + " : (isENV3M ? " + env3_max_js + " : " + str(y_max_js) + ")}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]")
+    _sw.append("      {id: 'stvx-upper', name: 'ST VX上带', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#00a0a0', width: 1.5}, data: isSTVX ? STVX_UPPER : []},")
+    _sw.append("      {id: 'stvx-lower', name: 'ST VX下带', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#00a0a0', width: 1.5}, data: isSTVX ? STVX_LOWER : []},")
+    _sw.append("      {name: '成交点', data: (isENVELOPE || isENV3M || isSTVX) ? [] : filldots}")
+    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M || isSTVX) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : (isENV3M ? " + env3_min_js + " : null), max: isENVELOPE ? " + env_max_js + " : (isENV3M ? " + env3_max_js + " : " + str(y_max_js) + ")}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]")
     _sw.append("  });")
     _sw.append("  var _chHost = document.getElementById('c');")
     _sw.append("  if (_chHost) { if (isENVELOPE || isENV3M) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }")
     _sw.append("  var tw = document.getElementById('tblWrap');")
-    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isVH ? VH_INNER : QQE_INNER)))); }")
+    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isSTVX ? STVX_INNER : (isVH ? VH_INNER : QQE_INNER))))); }")
     _sw.append("  if (window._werSync) window._werSync(isENVELOPE);")
-    _sw.append("  var actsData = isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (useVH ? VH_ACTS : QQE_ACTS)));")
+    _sw.append("  var actsData = isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (isSTVX ? STVX_ACTS : (useVH ? VH_ACTS : QQE_ACTS))));")
     _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
     _sw.append("  document.title = TITLES3[v];")
     _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
@@ -3551,7 +3742,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var sel = document.getElementById('daypick');")
     _sw.append("  if (!sel) return;")
     _sw.append("  var wrap = document.createElement('span');")
-    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['envelope3m','Envelope 3m版']].forEach(function(it){")
+    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['envelope3m','Envelope 3m版'],['stvx','ST VX版']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
@@ -3695,7 +3886,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); werSyncZoom(); }")
     _sw.append("  };")
     _sw.append("})();")
-    _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m'].indexOf(_v) >= 0 ? _v : 'live'; })());")
+    _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());")
     _sw.append("</script>")
     html = html.replace("</body>", "\n".join(_sw) + "</body>", 1)
 
