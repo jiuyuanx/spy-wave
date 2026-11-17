@@ -959,6 +959,96 @@ def _run_all(warm, eod_1m, force_st=False):
             if _st_c[_si] > _st_fu[_si-1]: _st_trend[_si] = 1
             elif _st_c[_si] < _st_fl[_si-1]: _st_trend[_si] = -1
             else: _st_trend[_si] = _st_trend[_si-1]
+    # ===== AM_GATE 上午门控 (2026-11-16 用户定版; 与研究 gen_pmcut.py 的 AM_GATE 同写法同口径, 机制进引擎本体) =====
+    # 上午收益 (9:30-13:00 真值口径, 跟踪器跟随策略自身持仓): 13:00 前逐根收盘查刷单腿 (gamma>=+10% 平腿+同价重开连乘),
+    # 窗口内整单平仓时末腿乘入 (put 按整单 Δ 扣 v2 罚), 13:00 仍持仓按 13:00 bar 开盘价标记 (未平不计罚);
+    # 13:00 封存评估: 上午收益 >= 阈值 -> 当天 13:30-15:00 只平不开 (翻仓降只平、窗口出来ST开也挡);
+    # 15:00 首根 bar: ST 腿空仓且 ST 趋势有定义 -> 按当时趋势恢复开仓 (状态触发, 文案「窗口恢复开X」); 持仓未平不动。
+    # 门控只挡 ST 腿开仓, QQE 腿不管 (本展示版 force_st 全天 ST, 窗口内新开全挡; hybrid 路径下 QQE 段不受影响)。
+    # env: AM_GATE_PCT 默认 55 (用户定版), 设 0/空 = 关 (关时跟踪器不运行, 行为与加机制前逐条一致);
+    #      AM_GATE_START 默认 "13:30"; AM_GATE_END 默认 "15:00"。
+    _AM_GATE_RAW = _os9.environ.get("AM_GATE_PCT", "55")
+    try:
+        _AM_GATE_VAL = float(_AM_GATE_RAW) if _AM_GATE_RAW != "" else 0.0
+    except ValueError:
+        _AM_GATE_VAL = 0.0
+    _AM_GATE_ON = _AM_GATE_VAL > 0
+    _AM_GATE_START = _os9.environ.get("AM_GATE_START", "13:30") or "13:30"
+    _AM_GATE_END = _os9.environ.get("AM_GATE_END", "15:00")
+    _AM = {"factor": 1.0, "trk": None, "sealed": True, "closeonly": False, "scan": 0, "prev_i": None, "resume_done": False}
+
+    def _am_closeonly_now(hm):
+        # 已触发 且 START <= hm < END (END 空 = 只看 >= START)
+        return _AM_GATE_ON and _AM["closeonly"] and hm >= _AM_GATE_START and (not _AM_GATE_END or hm < _AM_GATE_END)
+
+    def _am_gamma(dr, d):
+        # settle_unified.gamma_pct 同式 (逆向钳制<=0, 不含下限; 下限 -100 由调用方 max 施加)
+        if dr == "call":
+            r = 9.88 * d + 0.311 * d * d
+            if d < 0:
+                r = min(r, 0.0)
+        else:
+            r = -9.88 * d + 0.311 * d * d
+            if d > 0:
+                r = min(r, 0.0)
+        return r
+
+    def _am_pen(d):
+        # settle_unified.penalty_pp 同式 (v2 put 罚, d 为整单 ΔSPY)
+        return min(2.3 * max(0.0, d - 1.0), 20.0)
+
+    def _am_on_bar_start(i):
+        # 在 bar i 的信号处理之前调用 (loop 顶, 不受正文 continue 影响):
+        # 1) 结算上一根已处理 bar (prev_i) 新追加的 开/平 动作, 并做该 bar 的刷单检查;
+        # 2) 跨日时先给未评估日补一行 PMGATE (无 13:00 bar 的日子), 再重置当日状态;
+        # 3) bar i 为当天首根 >=13:00 的 bar 时做门控评估 (标记未平腿 -> 判定 -> 打印 PMGATE)。
+        st = _AM
+        pi = st["prev_i"]
+        if pi is not None:
+            pt = warm["t"].iloc[pi]
+            pday = pt.strftime("%Y-%m-%d")
+            phm = pt.strftime("%H:%M")
+            for _a in actions[st["scan"]:]:
+                if _a[2] == "开":
+                    st["trk"] = {"dir": _a[3], "open_px": _a[4], "leg_px": _a[4], "exec_i": pi + 1}
+                elif _a[2] == "平":
+                    _trk = st["trk"]
+                    if _trk is not None and not st["sealed"]:
+                        _r = max(_am_gamma(_trk["dir"], _a[4] - _trk["leg_px"]), -100.0)
+                        if _trk["dir"] == "put":
+                            _r -= _am_pen(_a[4] - _trk["open_px"])
+                        st["factor"] *= (1 + _r / 100.0)
+                    st["trk"] = None
+            st["scan"] = len(actions)
+            _trk = st["trk"]
+            if _trk is not None and not st["sealed"] and phm < "13:00" and pi >= _trk["exec_i"]:
+                _g = _am_gamma(_trk["dir"], float(close[pi]) - _trk["leg_px"])
+                if _g >= 10.0:
+                    st["factor"] *= (1 + max(_g, -100.0) / 100.0)
+                    _trk["leg_px"] = float(close[pi])
+            _t = warm["t"].iloc[i]
+            if _t.strftime("%Y-%m-%d") != pday:
+                if not st["sealed"]:
+                    print(f"PMGATE {pday} am_ret={(st['factor'] - 1.0) * 100.0:+.4f}% gate={_AM_GATE_VAL:g} triggered=0 (no1300)", flush=True)
+                st["factor"] = 1.0
+                st["trk"] = None
+                st["sealed"] = False
+                st["closeonly"] = False
+                st["resume_done"] = False
+        else:
+            st["sealed"] = False
+        _t = warm["t"].iloc[i]
+        if not st["sealed"] and _t.strftime("%H:%M") >= "13:00":
+            _trk = st["trk"]
+            if _trk is not None:
+                _r = max(_am_gamma(_trk["dir"], float(_openv[i]) - _trk["leg_px"]), -100.0)
+                st["factor"] *= (1 + _r / 100.0)
+            _ret = (st["factor"] - 1.0) * 100.0
+            st["closeonly"] = _ret >= _AM_GATE_VAL
+            st["sealed"] = True
+            print(f"PMGATE {_t.strftime('%Y-%m-%d')} am_ret={_ret:+.4f}% gate={_AM_GATE_VAL:g} triggered={1 if st['closeonly'] else 0}", flush=True)
+        st["prev_i"] = i
+
     for i in range(start_idx, end_idx):
         _n_acts_before = len(actions)  # 2026-10-21 HUIBU_S9: bar末扫描本bar平/开
         t = warm["t"].iloc[i]
@@ -966,6 +1056,8 @@ def _run_all(warm, eod_1m, force_st=False):
             continue
         day = t.strftime("%m-%d")
         hm = t.strftime("%H:%M")
+        if _AM_GATE_ON:
+            _am_on_bar_start(i)
         if day != _prev_day:
             _day_start = i
             _prev_day = day
@@ -1046,6 +1138,7 @@ def _run_all(warm, eod_1m, force_st=False):
         # 2026-10-19 fix: 跨天时用本根收盘价（不读下个交易日的开盘价）
         _next_same_day = (i+1 < len(_openv)) and (warm["t"].iloc[i+1].strftime("%m-%d") == day)
         px_exec = float(_openv[i+1]) if _next_same_day else px
+        _pm_closeonly = _am_closeonly_now(hm)  # AM_GATE: 门控日 13:30-15:00 只平不开 (ST腿)
         # Hybrid精确版 (2026-11-01 用户, 非拼接): 跳空日早上腿+11:00强制ST切换, >=10早上空仓
         # 死规则: 11:00无条件强制切换 (不管QQE止损/止盈/冷冻/等待, 一律截止不带到下午; 切换块放EOD/止损/大K之前, 故切换绝不被拖延);
         # 11:00按ST趋势强制开ST仓 (信号=11:00 bar ST趋势, 执行=下一根开盘, 与回测执行口径一致; ST趋势为0则不开, 空仓等下午翻转);
@@ -1151,7 +1244,7 @@ def _run_all(warm, eod_1m, force_st=False):
                     _close_hist = abs(hist[i]) if not np.isnan(hist[i]) else 0
                     _stop_win = None
                     _stop_triggered = True
-                    if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0:
+                    if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0 and not _pm_closeonly:
                         _wa_new = "call" if _st_trend[i] == 1 else "put"
                         actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
                         pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
@@ -1174,7 +1267,7 @@ def _run_all(warm, eod_1m, force_st=False):
                         _close_hist = abs(hist[i]) if not np.isnan(hist[i]) else 0
                         _stop_win = None
                         _stop_triggered = True
-                        if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0:
+                        if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0 and not _pm_closeonly:
                             _wa_new = "call" if _st_trend[i] == 1 else "put"
                             actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
                             pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
@@ -1193,7 +1286,7 @@ def _run_all(warm, eod_1m, force_st=False):
                     _close_hist = abs(hist[i]) if not np.isnan(hist[i]) else 0
                     _stop_win = None
                     _stop_triggered = True
-                    if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0:
+                    if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0 and not _pm_closeonly:
                         _wa_new = "call" if _st_trend[i] == 1 else "put"
                         actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
                         pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
@@ -1409,6 +1502,11 @@ def _run_all(warm, eod_1m, force_st=False):
         if (_ST_ONLY and not _HYBRID) or _hyb_run_st:
             _st_is_flip = (_st_trend[i] != _st_trend[i-1])
             _st_is_dayopen = (pos is None and i == _day_start + _ign_n_wk and _st_trend[i] != 0)
+            # AM_GATE窗口恢复 (2026-11-16 用户定版): 门控日窗口结束首根bar只查一次; 空仓+ST趋势有定义 -> 状态触发直接开
+            _st_is_resume = False
+            if _AM_GATE_ON and _AM_GATE_END and _AM["closeonly"] and not _AM["resume_done"] and _AM_GATE_END <= hm < "15:55" and _next_same_day:
+                _AM["resume_done"] = True
+                _st_is_resume = (pos is None and _st_trend[i] != 0)
             # FLIPCHECK (2026-11-01 用户纠正): ST仓位止损只在翻转bar检查, 不每根bar复查;
             # ST仓只存在于ST阶段 (_hyb_run_st), 11:00切换先强制平仓故阶段内仓位即ST仓。
             # 翻转bar: 开仓收盘价->_stop_entry_px 到当前收盘价的累计Gamma <=-20% -> 进窗口 (本根不翻仓);
@@ -1435,16 +1533,26 @@ def _run_all(warm, eod_1m, force_st=False):
                         actions.append((i, f"{day}T{hm}", "持", pos, px_exec, f"止损窗口开始(Gamma{_fc_roi:.1f}%,回{int(_STOP_WIN_RECOV*100)}%价{_fc_thr:.2f})"))
                         _stop_triggered = True
                         continue
-            if _st_is_flip or _st_is_dayopen:
+            if _st_is_flip or _st_is_dayopen or _st_is_resume:
                 _st_new = ("put" if _st_trend[i] == 1 else "call") if _hyb_inv else ("call" if _st_trend[i] == 1 else "put")
-                _st_lbl = ("ST反向翻转" if _st_is_flip else "ST反向开盘") if _hyb_inv else ("ST翻转" if _st_is_flip else "ST开盘")
+                if _st_is_flip:
+                    _st_lbl = "ST反向翻转" if _hyb_inv else "ST翻转"
+                elif _st_is_resume:
+                    _st_lbl = "窗口恢复"
+                else:
+                    _st_lbl = "ST反向开盘" if _hyb_inv else "ST开盘"
+                _pmc = _pm_closeonly
                 if pos is not None and pos != _st_new:
                     actions.append((i, f"{day}T{hm}", "平", pos, px_exec, f"{_st_lbl}平{pos}"))
-                    actions.append((i, f"{day}T{hm}", "开", _st_new, px_exec, f"{_st_lbl}开{_st_new}"))
-                    pos = _st_new; _init_stop_vars(_st_new, px, i); last_action_bar = i
+                    if _pmc:
+                        pos = None; _stop_entry_dir = None; last_action_bar = i
+                    else:
+                        actions.append((i, f"{day}T{hm}", "开", _st_new, px_exec, f"{_st_lbl}开{_st_new}"))
+                        pos = _st_new; _init_stop_vars(_st_new, px, i); last_action_bar = i
                 elif pos is None:
-                    actions.append((i, f"{day}T{hm}", "开", _st_new, px_exec, f"{_st_lbl}开{_st_new}"))
-                    pos = _st_new; _init_stop_vars(_st_new, px, i); last_action_bar = i
+                    if not _pmc:
+                        actions.append((i, f"{day}T{hm}", "开", _st_new, px_exec, f"{_st_lbl}开{_st_new}"))
+                        pos = _st_new; _init_stop_vars(_st_new, px, i); last_action_bar = i
             continue
         # 从当前开仓开始数操作 (2026-10-03 用户反馈: 技术波浪起点太远)
         def _count_ops_from_open(_pk_idx):
@@ -3117,7 +3225,7 @@ def _run_all(warm, eod_1m, force_st=False):
             _close_hist = abs(hist[i]) if not np.isnan(hist[i]) else 0
             _stop_win = None
             _stop_triggered = True
-            if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0:
+            if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0 and not _pm_closeonly:
                 _wa_new = "call" if _st_trend[i] == 1 else "put"
                 actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
                 pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
