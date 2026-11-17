@@ -3748,23 +3748,24 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : (isENV3M ? ENVELOPE3M_LOWER : [])},")
     _sw.append("      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : (isENV3M ? ENVELOPE3M_CHANMID : [])},")
     _sw.append("      {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : (isENV3M ? ENVELOPE3M_MID : [])},")
-    _sw.append("      {id: 'stvx-upper', name: '辅助轨（压带）', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_UPPER : []},")
-    _sw.append("      {id: 'stvx-lower', name: '辅助轨（压带）', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_LOWER : []},")
+    _sw.append("      {id: 'stvx-upper', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_UPPER : []},")
+    _sw.append("      {id: 'stvx-lower', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_LOWER : []},")
     _sw.append("      {name: '成交点', data: (isENVELOPE || isENV3M || isSTVX) ? [] : filldots},")
-    # ST VX 主轨 (2026-11-17 user 令): 美术照 ST VH 节 st慢版——活动带按本体趋势
-    # 拆涨/跌两段 (#089981/#f23645, 宽2, z5) + 价格与活动带间半透明填充
+    # ST VX 主轨 (2026-11-17 user 令): 美术照 ST VH 节 st慢版——本体未压带
+    # 最终带的上下两条轨线都画全成实线轨道 (上轨 #f23645 / 下轨 #089981,
+    # 宽2, z5; 不再只画活动侧) + 价格与活动带间半透明填充
     # (custom 四边形, 同色 0.12 alpha, z1, renderItem 与 VH 模板逐字同款)
     # + 本体翻转 buy/sell 标记 (scatter 圆点10/z6, 标签同 VH stFlips 规格;
     # 与 VX 自身单子圈是两套标记, 单子走压带趋势、此标记只作本体参考);
-    # 辅助轨 (压带 fu/fl) = 紫罗兰 #9333ea 1.2px 虚线无填充 (上方两条, z4)。
+    # 影子主轨 (压带 fu/fl) = 紫罗兰 #9333ea 1.2px 虚线无填充 (上方两条, z4)。
     _sw.append("      {id: 'stvx-mainfill', name: '主轨', type: 'custom', silent: true, z: 1, xAxisIndex: 0, yAxisIndex: 0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type: 'polygon', shape: {points: [p1,p2,p3,p4]}, style: {fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke: null}}; }, data: isSTVX ? STVX_MAINFILL : []},")
-    _sw.append("      {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []},")
-    _sw.append("      {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []},")
+    _sw.append("      {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []},")
+    _sw.append("      {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []},")
     _sw.append("      {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []},")
     _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M || isSTVX) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : (isENV3M ? " + env3_min_js + " : null), max: isENVELOPE ? " + env_max_js + " : (isENV3M ? " + env3_max_js + " : " + str(y_max_js) + ")}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]")
     _sw.append("  });")
-    # ST VX 主轨/辅助轨图例 (2026-11-17): 模板 legend.data 固定, 这里把两项
-    # 幂等追加进去 (主轨=绿/红双段图标同 st慢版, 辅助轨=紫虚线图标)。
+    # ST VX 主轨/影子主轨图例 (2026-11-17): 模板 legend.data 固定, 这里把两项
+    # 幂等追加进去 (主轨=绿/红双段图标同 st慢版, 影子主轨=紫虚线图标)。
     _sw.append("  try {")
     _sw.append("    var _lo2 = ch.getOption();")
     _sw.append("    var _ld2 = (_lo2 && _lo2.legend && _lo2.legend[0] && _lo2.legend[0].data) ? _lo2.legend[0].data.slice() : null;")
@@ -3772,7 +3773,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      var _hasL2 = function(n){ for (var i=0;i<_ld2.length;i++){ var d=_ld2[i]; if ((typeof d==='string' ? d : d.name)===n) return true; } return false; };")
     _sw.append("      var _chgL2 = false;")
     _sw.append("      if (!_hasL2('主轨')) { _ld2.push({name: '主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
-    _sw.append("      if (!_hasL2('辅助轨（压带）')) { _ld2.push({name: '辅助轨（压带）', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%239333ea%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}); _chgL2 = true; }")
+    _sw.append("      if (!_hasL2('影子主轨')) { _ld2.push({name: '影子主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%239333ea%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}); _chgL2 = true; }")
     _sw.append("      if (_chgL2) ch.setOption({legend: {data: _ld2}});")
     _sw.append("    }")
     _sw.append("  } catch(e) {}")

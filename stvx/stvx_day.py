@@ -260,9 +260,10 @@ def day_payload(df1, day_str, day_complete=True):
     trades: [{ot, ct, dir, opx, cpx, orsn, crsn, roi, roi_pen, closed, obi, cbi}]
             (obi/cbi = 目标日日间 bar 序号; 未平仓 closed=False, ct=None,
              cpx = 当日最后一根收盘, 仅作浮动标记不入连乘)。
-    bands: [(hm, fu, fl)] 目标日每根的最终带 (压带后, 与内核同源) = 辅助轨。
-    bands_main: [(hm, up, dn)] 主轨 (本体未压带最终带, 同次内核运行 bu/bl
-            按内核棘轮公式推) 的活动带按本体趋势拆段 (up/dn 互斥, 另一侧 None);
+    bands: [(hm, fu, fl)] 目标日每根的最终带 (压带后, 与内核同源) = 影子主轨。
+    bands_main: [(hm, fu, fl)] 主轨 (本体未压带最终带, 同次内核运行 bu/bl
+            按内核棘轮公式推) 的上下两条最终带全程值 (2026-11-17 user 令:
+            不再按活动侧拆段, 上下轨都画全成一条完整实线轨道);
     main_fill: [[hm, val, close, hm_next, val_next, close_next, trend]]
             主轨填充四边形数据 (与日页 VH 节 stFill 同格式)。
     main_flips: [(hm, val, trend)] 主轨 buy/sell 标记点 (与 VH 节 stFlips
@@ -369,8 +370,10 @@ def day_payload(df1, day_str, day_complete=True):
         _day_rows.append((str(P["hm_str"][j]),
                           None if np.isnan(_val) else round(float(_val), 2),
                           _tr, round(float(_cf[j]), 2)))
-    bands_main = [(_hm, _val if _tr == 1 else None, _val if _tr == -1 else None)
-                  for (_hm, _val, _tr, _cc) in _day_rows]
+    bands_main = [(str(P["hm_str"][j]),
+                   None if np.isnan(_mfu[j]) else round(float(_mfu[j]), 2),
+                   None if np.isnan(_mfl[j]) else round(float(_mfl[j]), 2))
+                  for j in idx_day]
     main_fill = []
     for _k, (_hm, _val, _tr, _cc) in enumerate(_day_rows):
         _nk = _k + 1 if _k + 1 < len(_day_rows) else _k
