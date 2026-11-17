@@ -114,6 +114,21 @@ def eff_parts(arr):
     return ER_TO - np.maximum(dose, ramp), dose, ramp
 
 
+def _dev_series(slope_day):
+    """dev = slope - 前 20 根 slope 均值 (不含当根), 与引擎
+    tv_v67_er_overlay_wcent2f3sr_slope._slope_segments 同式
+    (SLOPE_BASE_W=20, 按日组内算, 窗内任一非有限则该根 NaN)。
+    入参 = 目标日当日的 slope 切片 (日局部下标)。"""
+    sl = np.asarray(slope_day, dtype=float)
+    m = len(sl)
+    base = np.full(m, np.nan)
+    for j in range(20, m):
+        w = sl[j - 20:j]
+        if np.all(np.isfinite(w)):
+            base[j] = float(np.mean(w))
+    return sl - base
+
+
 def day_payload(df1, NEWDAY):
     """df1 = 当日 1m (t/open/high/low/close, 已按时段过滤并排序)。
     返回 (payload, None) 或 (None, err)。"""
@@ -252,7 +267,8 @@ def _day_payload(df1, NEWDAY):
         chan=r2(np.asarray(ind1["chan_mid"], dtype=float)),
         mid=r2(np.asarray(ind1["mid"], dtype=float)), open=r2(o1),
         werchamp=r4(WERAS1), effstack=r3(EFF1),
-        slope=r4(np.where(np.isfinite(slope), slope, np.nan)))
+        slope=r4(np.where(np.isfinite(slope), slope, np.nan)),
+        dev=r4(_dev_series(slope)))
     return dict(date=NEWDAY, sday=sday, day=day, n_bars=N, half=half,
                 gap=gap)
 
@@ -421,6 +437,7 @@ def _day_payload_warm(dff, NEWDAY):
         chan=r2(np.asarray(ind1["chan_mid"], dtype=float)[slc]),
         mid=r2(np.asarray(ind1["mid"], dtype=float)[slc]), open=r2(o1[slc]),
         werchamp=r4(WERAS1[slc]), effstack=r3(EFF1[slc]),
-        slope=r4(np.where(np.isfinite(slope), slope, np.nan)[slc]))
+        slope=r4(np.where(np.isfinite(slope), slope, np.nan)[slc]),
+        dev=r4(_dev_series(slope[slc])))
     return dict(date=NEWDAY, sday=sday, day=day, n_bars=N, half=half,
                 gap=gap, warm_days=warm_days)

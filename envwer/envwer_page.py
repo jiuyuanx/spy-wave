@@ -367,6 +367,17 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
                   for s, e, d, *_ in segs if e < n - 1],
     }
 
+    # ---- slope/dev 面板 (2026-11-17 user 令): slope7 = 引擎 ind slope
+    # (SLOPE_LEN=7), dev = slope - 前 20 根 slope 均值 (引擎
+    # _slope_segments 同式, recipe 已算); 阈值 = 引擎常量
+    # SLOPE_TH_UP 0.050 / SLOPE_TH_DN 0.070 / SLOPE_DEV_TH 0.079
+    # (tv_v67_er_overlay_wcent2f3sr_slope.py 定格值, 构建侧注入) ----
+    slpdev_const = {
+        "slope": _remap(day["slope"], 4),
+        "dev": _remap(day["dev"], 4),
+        "th": {"up": 0.05, "dn": 0.07, "dev": 0.079},
+    }
+
     pct = f"{tot_pct:+.1%}"
     sign_tag = "pnl_pos" if tot >= 0 else "pnl_neg"
     title = f"{date} (Envelope版) | {gap_txt} | {money(tot)} ({pct})"
@@ -382,5 +393,6 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         "ENVELOPE_CHANMID_1M": band("chan"), "ENVELOPE_MID_1M": band("mid"),
         "ENVELOPE_TIP": tip, "ENVELOPE_TREND_SEGS": [],
         "ENVELOPE_WER": wer_const,
+        "ENVELOPE_SLPDEV": slpdev_const,
         "ENVELOPE_SLOPE_DYE": dye,
     }, title, titlee

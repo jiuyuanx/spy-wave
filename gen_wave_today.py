@@ -3543,6 +3543,8 @@ def main():
     _env_int_consts = None
     _env_wer_failed = False
     _env_wer_err = ""
+    slpdev_panel = {"slope": [], "dev": [],
+                    "th": {"up": 0.05, "dn": 0.07, "dev": 0.079}}
     import sys as _sys
     try:
         if _env_df is None or not len(_env_df):
@@ -3601,6 +3603,7 @@ def main():
         env_mid = _C["ENVELOPE_MID_1M"]
         env_tip = _C["ENVELOPE_TIP"]
         wer_panel = _C["ENVELOPE_WER"]
+        slpdev_panel = _C["ENVELOPE_SLPDEV"]
     elif _env_wer_failed:
         import html as _html_mod
         _err_txt = _html_mod.escape(_env_wer_err)
@@ -3690,6 +3693,7 @@ def main():
     _sw.append("const STVX_MAINFILL = " + stvx_main_fill_js + ";")
     _sw.append("const STVX_MAINFLIPS = " + stvx_main_flips_js + ";")
     _sw.append("const ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
+    _sw.append("const ENVELOPE_SLPDEV = " + json.dumps(slpdev_panel) + ";")
     _sw.append("const ENVELOPE3M_TREND_SEGS = " + json.dumps(_env3_trend_segs) + ";")
     _sw.append("""(function(){
 if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
@@ -3841,9 +3845,21 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
     _wer_title = ("WER · 终栈⑪（引擎口径）" if _env_int_ok
                   else "WER · 终栈⑪（计算失败）")
-    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:220px\"></div>';")
+    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")
+    # ---- slope/dev 面板 (2026-11-17 user 令): WER 图下方, 样式照突破页
+    # slope/dev 阈值面板 (线 + 带标签阈值虚线); 数据 ENVELOPE_SLPDEV
+    # (envwer_page 构建, slope7=引擎 ind slope, dev=引擎 _slope_segments
+    # 同式, 阈值构建侧注入)。联动与 WER 面板同套手动同步 (见 werBindSlp)。
+    _sw.append("  var slpCh = null, slpBound = false, slpBoundMain = null, swrap = null;")
+    _sw.append("  if (typeof ENVELOPE_SLPDEV !== 'undefined' && ENVELOPE_SLPDEV.slope && ENVELOPE_SLPDEV.slope.length) {")
+    _sw.append("    swrap = document.createElement('div');")
+    _sw.append("    swrap.id = 'slpPanel';")
+    _sw.append("    swrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
+    _sw.append("    swrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">slope / dev · 阈值（引擎口径）</div><div id=\"slpCh\" style=\"width:100%;height:150px\"></div>';")
+    _sw.append("    wrap.parentNode.insertBefore(swrap, wrap.nextSibling);")
+    _sw.append("  }")
     _sw.append("  var evIn = {}, evOut = {};")
     _sw.append("  ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; });")
     _sw.append("  ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; });")
@@ -3860,6 +3876,30 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      series: [")
     _sw.append("        {name: 'WER', type: 'line', data: ENVELOPE_WER.wer, showSymbol: false, lineStyle: {width: 1.8, color: '#7c3aed'}, itemStyle: {color: '#7c3aed'}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 0.675, label: {formatter: '0.675'}}, {yAxis: 0.5, label: {formatter: '0.50'}}, {yAxis: 0.3, label: {formatter: '0.30'}}]}, markArea: {silent: true, data: areas}, markPoint: {symbol: 'circle', symbolSize: 8, label: {show: false}, data: pts}},")
     _sw.append("        {name: '有效门槛', type: 'line', data: ENVELOPE_WER.eff, showSymbol: false, step: 'end', lineStyle: {width: 1.5, color: '#f97316', type: 'dashed'}, itemStyle: {color: '#f97316'}}")
+    _sw.append("      ]};")
+    _sw.append("  }")
+    _sw.append("  function slpOpt(){")
+    _sw.append("    var S = ENVELOPE_SLPDEV, TH = S.th || {up: 0.05, dn: 0.07, dev: 0.079};")
+    _sw.append("    var absAll = [];")
+    _sw.append("    [S.slope, S.dev].forEach(function(a){ (a || []).forEach(function(v){ if (v != null) absAll.push(Math.abs(v)); }); });")
+    _sw.append("    absAll.sort(function(a, b){ return a - b; });")
+    _sw.append("    var mx = 0.105;")
+    _sw.append("    if (absAll.length) { var q = absAll[Math.min(absAll.length - 1, Math.floor(absAll.length * 0.995))]; mx = Math.max(0.105, Math.ceil(q * 1.15 * 100) / 100); }")
+    _sw.append("    function s3(v){ return v == null ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(3); }")
+    _sw.append("    function relTxt(v, thPos, thNeg){")
+    _sw.append("      if (v == null) return '';")
+    _sw.append("      if (v >= 0) return v >= thPos ? ' ≥ +' + thPos.toFixed(3) + ' 已达标' : ' < +' + thPos.toFixed(3) + ' 未达';")
+    _sw.append("      return v <= thNeg ? ' ≤ ' + thNeg.toFixed(3) + ' 已达标' : ' > ' + thNeg.toFixed(3) + ' 未达';")
+    _sw.append("    }")
+    _sw.append("    return {animation: false,")
+    _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0) return ''; var sv = S.slope[idx], dv = S.dev[idx]; if (sv == null && dv == null) return ''; return t + '<br/><span style=\"color:#2563eb\">slope7 = <b>' + s3(sv) + '</b>' + relTxt(sv, TH.up, -TH.dn) + '</span><br/><span style=\"color:#ff6700\">dev = <b>' + s3(dv) + '</b>' + relTxt(dv, TH.dev, -TH.dev) + '</span>'; }},")
+    _sw.append("      grid: {left: 40, right: 12, top: 24, bottom: 24},")
+    _sw.append("      dataZoom: [{type: 'inside', xAxisIndex: 0}],")
+    _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
+    _sw.append("      yAxis: {type: 'value', min: -mx, max: mx, name: 'slope / dev', nameTextStyle: {fontSize: 11, color: '#374151'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
+    _sw.append("      series: [")
+    _sw.append("        {name: 'slope7', type: 'line', data: S.slope, showSymbol: false, lineStyle: {width: 2, color: '#2563eb'}, itemStyle: {color: '#2563eb'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.up, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope +' + TH.up.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dn, lineStyle: {color: '#2563eb', type: 'dashed', width: 1}, label: {formatter: 'slope −' + TH.dn.toFixed(3), color: '#2563eb', fontSize: 10, position: 'insideEndTop'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid', width: 1}, label: {show: false}}]}},")
+    _sw.append("        {name: 'dev', type: 'line', data: S.dev, showSymbol: false, lineStyle: {width: 1.5, color: '#ff6700'}, itemStyle: {color: '#ff6700'}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.dev, lineStyle: {color: '#ff6700', type: 'dashed', width: 1}, label: {formatter: 'dev +' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dev, lineStyle: {color: '#ff6700', type: 'dashed', width: 1}, label: {formatter: 'dev −' + TH.dev.toFixed(3), color: '#ff6700', fontSize: 10, position: 'insideEndTop'}}]}}")
     _sw.append("      ]};")
     _sw.append("  }")
     _sw.append("  // 手动同步主图<->WER面板 (2026-11-11: 弃 echarts.connect —— 悬停 showTip 带 escapeConnect 设计上不转发,")
@@ -3948,19 +3988,54 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  }")
     _sw.append("  function werSyncZoom(){")
     _sw.append("    var main = werMain();")
-    _sw.append("    if (!main || !werCh) return;")
+    _sw.append("    if (!main) return;")
     _sw.append("    try {")
     _sw.append("      var dz = (main.getOption().dataZoom || [])[0];")
     _sw.append("      if (dz && dz.start != null && dz.end != null && (dz.start > 0 || dz.end < 100)) {")
     _sw.append("        werZoomLock = true;")
-    _sw.append("        werCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});")
+    _sw.append("        if (werCh) werCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});")
+    _sw.append("        if (slpCh) slpCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});")
     _sw.append("        werZoomLock = false;")
     _sw.append("      }")
     _sw.append("    } catch(e) { werZoomLock = false; }")
     _sw.append("  }")
+    _sw.append("  // slope/dev 图与主图/WER 图三方联动: 与 werBind 同套手动同步")
+    _sw.append("  // (datazoom 转发 + updateAxisPointer->showTip, 共用防环锁)。")
+    _sw.append("  function werBindSlp(){")
+    _sw.append("    if (!slpCh || typeof echarts === 'undefined') return;")
+    _sw.append("    var main = werMain();")
+    _sw.append("    if (!main) return;")
+    _sw.append("    if (werMainSIdx < 0) werFindMainSIdx();")
+    _sw.append("    if (slpBound && slpBoundMain === main) return;")
+    _sw.append("    slpBound = true;")
+    _sw.append("    slpBoundMain = main;")
+    _sw.append("    main.on('datazoom', function(ev){ if (swrap.style.display !== 'none') werZoomTo(slpCh, ev); });")
+    _sw.append("    slpCh.on('datazoom', function(ev){ werZoomTo(main, ev); if (werCh) werZoomTo(werCh, ev); });")
+    _sw.append("    if (werCh) werCh.on('datazoom', function(ev){ werZoomTo(slpCh, ev); });")
+    _sw.append("    main.on('updateAxisPointer', function(ev){")
+    _sw.append("      if (swrap.style.display === 'none') return;")
+    _sw.append("      var idx = werTipIdx(ev, true);")
+    _sw.append("      if (idx >= 0) werShowTip(slpCh, 0, idx); else werHideTip(slpCh);")
+    _sw.append("    });")
+    _sw.append("    slpCh.on('updateAxisPointer', function(ev){")
+    _sw.append("      var idx = werTipIdx(ev, false);")
+    _sw.append("      if (idx >= 0) { if (werMainSIdx >= 0) werShowTip(main, werMainSIdx, idx); if (werCh) werShowTip(werCh, 0, idx); } else { werHideTip(main); if (werCh) werHideTip(werCh); }")
+    _sw.append("    });")
+    _sw.append("    if (werCh) werCh.on('updateAxisPointer', function(ev){")
+    _sw.append("      var idx = werTipIdx(ev, false);")
+    _sw.append("      if (idx >= 0) werShowTip(slpCh, 0, idx); else werHideTip(slpCh);")
+    _sw.append("    });")
+    _sw.append("    main.on('globalout', function(){ werHideTip(slpCh); });")
+    _sw.append("    slpCh.on('globalout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); });")
+    _sw.append("    main.on('mouseout', function(){ werHideTip(slpCh); });")
+    _sw.append("    slpCh.on('mouseout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); });")
+    _sw.append("    if (werCh) werCh.on('globalout', function(){ werHideTip(slpCh); });")
+    _sw.append("    if (werCh) werCh.on('mouseout', function(){ werHideTip(slpCh); });")
+    _sw.append("  }")
     _sw.append("  window._werSync = function(show){")
     _sw.append("    wrap.style.display = show ? 'block' : 'none';")
-    _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); werSyncZoom(); }")
+    _sw.append("    if (swrap) swrap.style.display = show ? 'block' : 'none';")
+    _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } werSyncZoom(); }")
     _sw.append("  };")
     _sw.append("})();")
     _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());")
