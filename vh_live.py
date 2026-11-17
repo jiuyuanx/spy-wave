@@ -935,6 +935,14 @@ def _run_all(warm, eod_1m, force_st=False):
         _stop_entry_dir = _pos
         _stop_entry_px = _entry_px
         _stop_entry_bar = _bar_i
+    # ===== ST_TOL 翻转容差 (2026-11-17 user 定版 k=0.15; 与研究 gen_tol.py 同判据, 只加 st_vh) =====
+    # 翻转判据: close > 前根最终上带 + K*当根ATR 才翻上 (下行对称); 只改 _st_trend 状态机本体,
+    # 带子 fu/fl 不依赖 trend、构造不动; 下游开盘开/翻仓/flipcheck 全部继承。
+    # env ST_TOL_K 默认 0.15 (定版值); 设 0 = 关 (与旧判据逐条一致)。
+    try:
+        _ST_TOL_K = float(_os9.environ.get("ST_TOL_K", "0.15") or 0.0)
+    except ValueError:
+        _ST_TOL_K = 0.15
     # Supertrend趋势数组 (2026-11-01 ST-only实验, 与gen_wave_today.py一致: TradingView final-band版, 10/hl2/3, RMA ATR)
     # 在warm全部bar (warmup+本周) 上算, 主循环下标i直接对齐; _st_trend: 1=上涨Buy, -1=下跌Sell
     _st_h = np.asarray(high, dtype=float); _st_l = np.asarray(low, dtype=float); _st_c = np.asarray(close, dtype=float)
@@ -956,8 +964,9 @@ def _run_all(warm, eod_1m, force_st=False):
                 _st_trend[_si] = _st_trend[_si-1]; continue
             _st_fu[_si] = _st_bu[_si] if (_st_bu[_si] < _st_fu[_si-1] or _st_c[_si-1] > _st_fu[_si-1]) else _st_fu[_si-1]
             _st_fl[_si] = _st_bl[_si] if (_st_bl[_si] > _st_fl[_si-1] or _st_c[_si-1] < _st_fl[_si-1]) else _st_fl[_si-1]
-            if _st_c[_si] > _st_fu[_si-1]: _st_trend[_si] = 1
-            elif _st_c[_si] < _st_fl[_si-1]: _st_trend[_si] = -1
+            _tolb = _ST_TOL_K * _st_atr[_si]
+            if _st_c[_si] > _st_fu[_si-1] + _tolb: _st_trend[_si] = 1
+            elif _st_c[_si] < _st_fl[_si-1] - _tolb: _st_trend[_si] = -1
             else: _st_trend[_si] = _st_trend[_si-1]
     # ===== AM_GATE 上午门控 (2026-11-16 用户定版; 与研究 gen_pmcut.py 的 AM_GATE 同写法同口径, 机制进引擎本体) =====
     # 上午收益 (9:30-13:00 真值口径, 跟踪器跟随策略自身持仓): 13:00 前逐根收盘查刷单腿 (gamma>=+10% 平腿+同价重开连乘),
