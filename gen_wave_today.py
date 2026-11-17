@@ -3519,74 +3519,66 @@ def main():
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
-    # ---- Envelope 整合版 (2026-11-15 user 令): Envelope 节改由真整合引擎计算 ----
-    # envint/ vendored 管线与 brk1112 逐字同源: 暖机帧跑 (前 5 个交易日
-    # + 当日连续帧, 指标跨日连续、单子只记当日; 2026-11-15 user 令
-    # 「暖机对齐是常识」——冷启动时 ADX 第 31 根才有效, 页面开盘段与
-    # 研究全帧口径系统性差约 29 分钟, 取证见 brk1112/open_flat_report)。
-    # 已验 (2026-11-15, brk1112/gen_warm_{ref,gen,cmp}.py): 5 个样本日
-    # (2024-06-14/2025-04-07/2025-07-07/2025-11-05/2026-11-13) 与研究
-    # 全帧运行逐笔全等 (slope 逐笔 + stack 逐笔 + 装配价 + 合计全等)。
-    # tv_v67_er_overlay_wcent2f3sr_slope 现行默认 (ER 整层关、slope bonus
-    # 定版、trend noentry、段首抢占), 常量构造与 build_daypage_env 同一副
-    # 面孔 (slope 天蓝染色线/圈天蓝边/平仓灰/连乘)。计算失败时回退上面的
-    # 旧展示口径并 WARN, 页面不挂 (与本文件各节一贯的降级方式一致)。
+    # ---- Envelope 版 = WER 终栈⑪ 冠军版 (2026-11-17 user 令) ----
+    # envwer/ vendored 管线与 brk1112 compute_2weeks.run_day 冠军臂逐字
+    # 同源: fork tv_v67_er_overlay_wcent2f3sr + er_cfg 终栈⑪ (CHAMP_CFG
+    # + RAMP_OVER + CE RF/F2/F3/shield), SL_K=0.7875, 冷启动单日跑。
+    # 已过复现闸 (2026-11-17): 2026-11-02..13 共 10 天与研究正本
+    # data_2weeks.json 的 trades/segs/flips/fills/total/n 逐项全等。
+    # 呈现沿用整合版面孔: WER 段内 1m 曲线天蓝染色 (无背景带)、圈锚
+    # 信号根收盘、平仓圈灰、日收益连乘、WER 面板与主图同段同源。
+    # 此前两条产出路径 (envint 整合版调用 / 内置旧引擎) 不再产出该节:
+    # 计算失败时不回退旧口径 —— 该节直接标注计算失败 (标题 + 单子表
+    # 红字) 并在构建日志打 ERROR。缘起: 2026-11-17 上午 envint warm
+    # 调用混入 main 致页面静默回退 2026-11-09 老引擎一整天。
+    # (上方旧引擎块保留: 仍供 _env_df/_env_trend_segs/env_min/max 等
+    # 页面脚手架, 其单子不再进 Envelope 节。)
     _env_int_ok = False
     _env_int_consts = None
+    _env_wer_failed = False
+    _env_wer_err = ""
+    import sys as _sys
     try:
-        if _env_df is not None and len(_env_df):
-            import sys as _sys
-            _envint_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "envint")
-            if _envint_dir not in _sys.path:
-                _sys.path.insert(0, _envint_dir)
-            import envint_recipe as _eir
-            import envint_page as _eip
-            _idf = _env_df.copy()
-            if getattr(_idf["t"].dt, "tz", None) is not None:
-                _idf["t"] = _idf["t"].dt.tz_convert(
-                    "America/New_York").dt.tz_localize(None)
-            _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
-            _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
-                "t").drop_duplicates("t", keep="last").reset_index(drop=True)
-            # 暖机帧: 目标日 + 之前 5 个交易日 (帧内实际存在的日期)。
-            # 长度依据: 配方最长有限回望 = 高斯中线 30 根 + slope 7 根
-            # = 37 根 (ADX 首次有效 31 根 = DI_LEN 16 + ADX_SMOOTH 16;
-            # WER 窗 12 + dose 窗 10; CE 播种回望 12 根) —— 5 个交易日
-            # = 1950 根, 是其 50 倍有余; 且 ADX/ATR 是 Wilder 递推平滑
-            # (形式上无限记忆、几何衰减), 种子残余权重约 (15/16)^1950
-            # ≈ 1e-55, 远低于 float64 分辨率, 指标与研究全帧逐值一致;
-            # CE 状态机靠翻转重播种, 5 日足够覆盖。_env_df 本就带回
-            # 10 个日历日 (旧 Envelope 节 warmup 用), 无需额外拉数。
-            _ENVINT_WARM_DAYS = 5
-            _fdays = sorted(set(_idf["t"].dt.strftime("%Y-%m-%d")))
-            _fdays = [d for d in _fdays if d <= day_str]
-            if day_str not in _fdays:
-                _payload, _perr = None, "target_day_missing"
-            else:
-                _fdays = _fdays[-(_ENVINT_WARM_DAYS + 1):]
-                _fdf = _idf[_idf["t"].dt.strftime("%Y-%m-%d").isin(_fdays)]
-                _payload, _perr = _eir.day_payload_warm(
-                    _fdf[["t", "open", "high", "low", "close"]], day_str)
-            if _payload is None:
-                print(f"  WARN envelope-int 载荷失败: {_perr}", flush=True)
-            else:
-                _sday, _day = _payload["sday"], _payload["day"]
-                _runs = _eip.norm_runs(_sday, _day)
-                _itrades = _eip.build_trades(_sday, _runs)
-                _roi_sum = sum(t["roi"] for t in _itrades) * 100
-                _exp = _sday["total_slope"] + _sday["total_stack"]
-                assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
-                _tot, _tot_pct = _eip.settle(_itrades)
-                _env_int_consts, _ititle, _ititlee = _eip.build_consts(
-                    vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
-                    _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
-                _env_int_ok = True
-                print(f"  envelope-int: {len(_itrades)} 单, "
-                      f"tot=${_tot:,.0f} ({_tot_pct:+.1%}), "
-                      f"warm={_payload.get('warm_days')}d", flush=True)
+        if _env_df is None or not len(_env_df):
+            raise RuntimeError("envelope 1m 数据为空 (_env_df 空)")
+        _envwer_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "envwer")
+        if _envwer_dir not in _sys.path:
+            _sys.path.insert(0, _envwer_dir)
+        import envwer_recipe as _ewr
+        import envwer_page as _ewp
+        _idf = _env_df.copy()
+        if getattr(_idf["t"].dt, "tz", None) is not None:
+            _idf["t"] = _idf["t"].dt.tz_convert(
+                "America/New_York").dt.tz_localize(None)
+        _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
+        _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
+            "t").drop_duplicates("t", keep="last").reset_index(drop=True)
+        _tdf = _idf[_idf["t"].dt.strftime("%Y-%m-%d") == day_str]
+        _payload, _perr = _ewr.day_payload(
+            _tdf[["t", "open", "high", "low", "close"]], day_str)
+        if _payload is None:
+            raise RuntimeError(f"载荷失败: {_perr}")
+        _sday, _day = _payload["sday"], _payload["day"]
+        _runs = _ewp.norm_runs(_sday, _day)
+        _itrades = _ewp.build_trades(_sday, _runs)
+        _roi_sum = sum(t["roi"] for t in _itrades) * 100
+        _exp = _sday["total_slope"] + _sday["total_stack"]
+        assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
+        _tot, _tot_pct = _ewp.settle(_itrades)
+        _env_int_consts, _ititle, _ititlee = _ewp.build_consts(
+            vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
+            _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
+        _env_int_ok = True
+        print(f"  envelope-wer(终栈⑪): {len(_itrades)} 单, "
+              f"tot=${_tot:,.0f} ({_tot_pct:+.1%})", flush=True)
     except Exception as _ee:
-        print(f"  WARN envelope-int 计算失败, 回退旧展示口径: {_ee}", flush=True)
-        _env_int_ok = False
+        _env_wer_failed = True
+        _env_wer_err = f"{type(_ee).__name__}: {_ee}"
+        print(f"  ERROR envelope-wer 计算失败, 该节标注错误 (不回退旧口径): "
+              f"{_env_wer_err}", flush=True)
+        print(f"  ERROR envelope-wer 计算失败: {_env_wer_err}",
+              file=_sys.stderr, flush=True)
+
     if _env_int_ok:
         _C = _env_int_consts
         env_pins = _C["ENVELOPE_PINS"]
@@ -3603,6 +3595,26 @@ def main():
         env_mid = _C["ENVELOPE_MID_1M"]
         env_tip = _C["ENVELOPE_TIP"]
         wer_panel = _C["ENVELOPE_WER"]
+    elif _env_wer_failed:
+        import html as _html_mod
+        _err_txt = _html_mod.escape(_env_wer_err)
+        env_pins = []
+        env_spins = []
+        env_scat_js = "[]"
+        env_mark_area_js = "[]"
+        env_inner = (
+            "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+            "Envelope版信号单（WER终栈⑪ · Gamma理论预估，-100口径）</div>"
+            "<div style=\"font-size:13px;color:#e5484d;font-weight:bold\">"
+            f"⚠ Envelope版计算失败（WER终栈⑪）：{_err_txt}<br/>"
+            "本节暂无数据（未回退旧口径），请看构建日志 ERROR 行。</div>")
+        env_acts = {}
+        env_title_txt = f"{day_str} (Envelope版) | 计算失败（WER终栈⑪）"
+        env_title_echart = f"{day_str} ({{envelope|Envelope}}版) | 计算失败"
+        env_upper = env_lower = env_chanmid = env_mid = []
+        env_tip = {}
+        wer_panel = {"wer": [], "eff": [], "areas": [],
+                     "entries": [], "exits": []}
     _qqe_acts = {t: (v.get("acts") or []) for t, v in bar_info.items()}
     _vh_acts = {tstrs[bi]: acts for bi, acts in vh_acts_by_bar.items()}
     _sw = []
@@ -3639,7 +3651,10 @@ def main():
     _sw.append("const ENVELOPE_MID_1M = " + json.dumps(env_mid) + ";")
     _sw.append("const ENVELOPE_TIP = " + json.dumps(env_tip, ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE_TREND_SEGS = " + json.dumps(
-        _env_int_consts["ENVELOPE_TREND_SEGS"] if _env_int_ok else _env_trend_segs) + ";")
+        _env_int_consts["ENVELOPE_TREND_SEGS"] if _env_int_ok else (
+            [{"color": _sg.get("color"), "theme": _sg.get("theme"),
+              "data": []} for _sg in _env_trend_segs]
+            if _env_wer_failed else _env_trend_segs)) + ";")
     if _env_int_ok:
         _sw.append("const ENVELOPE_SLOPE_DYE = " + json.dumps(
             _env_int_consts["ENVELOPE_SLOPE_DYE"], ensure_ascii=False) + ";")
@@ -3729,17 +3744,17 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  ch.setOption({")
     _sw.append("    title: {text: isLive ? TITLES3.live : (isENV3M ? TITLES3E.envelope3m : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isSTVX ? TITLES3E.stvx : (isVH ? TITLES3E.vh : TITLES3E.qqe))))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
-    # 整合版: 1m 曲线在 envelope 下恢复显示 (slope 染色线叠加其上), 与
-    # build_daypage_env.splice 的结构改动同款; 非整合版保持原条件。
+    # 冠军版 (envwer 成功时): 1m 曲线在 envelope 下恢复显示 (WER 段
+    # 染色线叠加其上); 失败时保持原条件 (染色段数据已置空)。
     _env_1m_expr = ("(isENV3M && ENVELOPE3M_TREND_SEGS.length) ? [] : line1m"
                     if _env_int_ok else
                     "((isENVELOPE && ENVELOPE_TREND_SEGS.length) || (isENV3M && ENVELOPE3M_TREND_SEGS.length)) ? [] : line1m")
     _sw.append("      {name: '1m曲线', data: " + _env_1m_expr + ", lineStyle: {color: (isENVELOPE || isENV3M) ? '#1e40af' : '#4da6ff', width: (isENVELOPE || isENV3M) ? 2 : 1.2, opacity: (isENVELOPE || isENV3M) ? 1 : 0.55}, markPoint: {data: spinsData}},")
     if _env_int_ok and not _env_trend_segs:
-        _sw.append("      {id: 'env-trend-seg-0', name: 'slope段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
+        _sw.append("      {id: 'env-trend-seg-0', name: 'WER段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
     for _si, _sg in enumerate(_env_trend_segs):
         if _env_int_ok and _si == 0:
-            _sw.append("      {id: 'env-trend-seg-0', name: 'slope段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
+            _sw.append("      {id: 'env-trend-seg-0', name: 'WER段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
         elif _env_int_ok:
             _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: []}," % (_si, _si, _sg["theme"]))
         else:
@@ -3819,7 +3834,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  wrap.id = 'werPanel';")
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
     _wer_title = ("WER · 终栈⑪（引擎口径）" if _env_int_ok
-                  else "WER · dose 0.10（水位降门槛 · 仅显示）")
+                  else "WER · 终栈⑪（计算失败）")
     _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:220px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")
