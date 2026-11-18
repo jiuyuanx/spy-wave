@@ -488,130 +488,112 @@ const STVX_MAINUP = [389.78, 389.78, 389.78, 389.78, 389.78, 389.78, 389.78, 389
 const STVX_MAINDN = [388.06, 388.06, 388.06, 388.06, 388.06, 388.06, 388.1, 388.37, 388.37, 388.55, 388.55, 388.64, 389.09, 389.2, 389.2, 389.2, 389.2, 389.2, 389.2, 389.38, 389.65, 389.65, 389.65, 389.65, 389.65, 389.65, 389.65, 389.65, 389.77, 389.77, 389.88, 390.26, 390.28, 390.38, 390.76, 390.77, 390.84, 390.84, 390.91, 391.18, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.39, 391.43, 391.43, 391.43, 391.43, 391.43, 391.43, 391.44, 391.44, 391.44, 391.57, 391.57, 391.57, 391.57, 391.57, 391.57, 391.57, 390.75, 391.06, 391.06, 391.06, 391.06, 391.06, 391.06, 391.14, 391.46, 391.75, 391.78, 391.9, 392.1, 392.47, 392.47, 392.47, 392.47, 392.48, 392.55, 392.71, 392.87, 392.93, 392.93, 392.93, 393.1, 393.11, 393.3, 393.39, 393.39, 393.46, 393.46, 393.46, 393.46, 393.46, 393.46, 393.46, 393.75, 393.95, 394.03, 394.16, 394.4, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.76, 394.88, 394.88];
 const STVX_MAINFILL = [["09:30", 389.78, 388.97, "09:33", 389.78, 388.76, -1], ["09:33", 389.78, 388.76, "09:36", 389.78, 388.85, -1], ["09:36", 389.78, 388.85, "09:39", 389.78, 389.27, -1], ["09:39", 389.78, 389.27, "09:42", 389.78, 389.57, -1], ["09:42", 389.78, 389.57, "09:45", 389.78, 389.44, -1], ["09:45", 389.78, 389.44, "09:48", 389.78, 389.53, -1], ["09:48", 389.78, 389.53, "09:51", 388.37, 389.81, -1], ["09:51", 388.37, 389.81, "09:54", 388.37, 389.87, 1], ["09:54", 388.37, 389.87, "09:57", 388.55, 389.72, 1], ["09:57", 388.55, 389.72, "10:00", 388.55, 389.76, 1], ["10:00", 388.55, 389.76, "10:03", 388.64, 390.29, 1], ["10:03", 388.64, 390.29, "10:06", 389.09, 390.77, 1], ["10:06", 389.09, 390.77, "10:09", 389.2, 390.48, 1], ["10:09", 389.2, 390.48, "10:12", 389.2, 390.38, 1], ["10:12", 389.2, 390.38, "10:15", 389.2, 390.02, 1], ["10:15", 389.2, 390.02, "10:18", 389.2, 390.14, 1], ["10:18", 389.2, 390.14, "10:21", 389.2, 390.5, 1], ["10:21", 389.2, 390.5, "10:24", 389.2, 390.36, 1], ["10:24", 389.2, 390.36, "10:27", 389.38, 390.99, 1], ["10:27", 389.38, 390.99, "10:30", 389.65, 391.0, 1], ["10:30", 389.65, 391.0, "10:33", 389.65, 390.94, 1], ["10:33", 389.65, 390.94, "10:36", 389.65, 390.77, 1], ["10:36", 389.65, 390.77, "10:39", 389.65, 390.6, 1], ["10:39", 389.65, 390.6, "10:42", 389.65, 390.49, 1], ["10:42", 389.65, 390.49, "10:45", 389.65, 390.49, 1], ["10:45", 389.65, 390.49, "10:48", 389.65, 390.41, 1], ["10:48", 389.65, 390.41, "10:51", 389.65, 390.63, 1], ["10:51", 389.65, 390.63, "10:54", 389.77, 391.0, 1], ["10:54", 389.77, 391.0, "10:57", 389.77, 390.64, 1], ["10:57", 389.77, 390.64, "11:00", 389.88, 391.29, 1], ["11:00", 389.88, 391.29, "11:03", 390.26, 391.29, 1], ["11:03", 390.26, 391.29, "11:06", 390.28, 391.38, 1], ["11:06", 390.28, 391.38, "11:09", 390.38, 391.73, 1], ["11:09", 390.38, 391.73, "11:12", 390.76, 391.78, 1], ["11:12", 390.76, 391.78, "11:15", 390.77, 391.76, 1], ["11:15", 390.77, 391.76, "11:18", 390.84, 391.72, 1], ["11:18", 390.84, 391.72, "11:21", 390.84, 391.83, 1], ["11:21", 390.84, 391.83, "11:24", 390.91, 391.96, 1], ["11:24", 390.91, 391.96, "11:27", 391.18, 392.31, 1], ["11:27", 391.18, 392.31, "11:30", 391.39, 392.41, 1], ["11:30", 391.39, 392.41, "11:33", 391.39, 392.26, 1], ["11:33", 391.39, 392.26, "11:36", 391.39, 391.96, 1], ["11:36", 391.39, 391.96, "11:39", 391.39, 391.77, 1], ["11:39", 391.39, 391.77, "11:42", 391.39, 391.8, 1], ["11:42", 391.39, 391.8, "11:45", 391.39, 392.09, 1], ["11:45", 391.39, 392.09, "11:48", 391.39, 391.93, 1], ["11:48", 391.39, 391.93, "11:51", 391.39, 392.0, 1], ["11:51", 391.39, 392.0, "11:54", 391.39, 391.92, 1], ["11:54", 391.39, 391.92, "11:57", 391.39, 391.75, 1], ["11:57", 391.39, 391.75, "12:00", 391.39, 391.98, 1], ["12:00", 391.39, 391.98, "12:03", 391.39, 392.0, 1], ["12:03", 391.39, 392.0, "12:06", 391.39, 392.1, 1], ["12:06", 391.39, 392.1, "12:09", 391.39, 391.99, 1], ["12:09", 391.39, 391.99, "12:12", 391.39, 391.99, 1], ["12:12", 391.39, 391.99, "12:15", 391.39, 392.12, 1], ["12:15", 391.39, 392.12, "12:18", 391.39, 392.19, 1], ["12:18", 391.39, 392.19, "12:21", 391.39, 392.1, 1], ["12:21", 391.39, 392.1, "12:24", 391.43, 392.12, 1], ["12:24", 391.43, 392.12, "12:27", 391.43, 392.0, 1], ["12:27", 391.43, 392.0, "12:30", 391.43, 391.78, 1], ["12:30", 391.43, 391.78, "12:33", 391.43, 391.94, 1], ["12:33", 391.43, 391.94, "12:36", 391.43, 391.98, 1], ["12:36", 391.43, 391.98, "12:39", 391.43, 392.08, 1], ["12:39", 391.43, 392.08, "12:42", 391.44, 392.05, 1], ["12:42", 391.44, 392.05, "12:45", 391.44, 392.02, 1], ["12:45", 391.44, 392.02, "12:48", 391.44, 392.15, 1], ["12:48", 391.44, 392.15, "12:51", 391.57, 392.25, 1], ["12:51", 391.57, 392.25, "12:54", 391.57, 392.01, 1], ["12:54", 391.57, 392.01, "12:57", 391.57, 391.85, 1], ["12:57", 391.57, 391.85, "13:00", 391.57, 392.4, 1], ["13:00", 391.57, 392.4, "13:03", 391.57, 392.04, 1], ["13:03", 391.57, 392.04, "13:06", 391.57, 391.91, 1], ["13:06", 391.57, 391.91, "13:09", 392.58, 391.41, 1], ["13:09", 392.58, 391.41, "13:12", 392.58, 392.07, -1], ["13:12", 392.58, 392.07, "13:15", 392.58, 391.97, -1], ["13:15", 392.58, 391.97, "13:18", 392.58, 391.38, -1], ["13:18", 392.58, 391.38, "13:21", 392.51, 391.41, -1], ["13:21", 392.51, 391.41, "13:24", 392.51, 391.62, -1], ["13:24", 392.51, 391.62, "13:27", 392.51, 391.64, -1], ["13:27", 392.51, 391.64, "13:30", 392.51, 392.09, -1], ["13:30", 392.51, 392.09, "13:33", 392.51, 392.21, -1], ["13:33", 392.51, 392.21, "13:36", 391.46, 392.87, -1], ["13:36", 391.46, 392.87, "13:39", 391.75, 392.83, 1], ["13:39", 391.75, 392.83, "13:42", 391.78, 392.81, 1], ["13:42", 391.78, 392.81, "13:45", 391.9, 392.78, 1], ["13:45", 391.9, 392.78, "13:48", 392.1, 393.56, 1], ["13:48", 392.1, 393.56, "13:51", 392.47, 393.48, 1], ["13:51", 392.47, 393.48, "13:54", 392.47, 393.3, 1], ["13:54", 392.47, 393.3, "13:57", 392.47, 393.42, 1], ["13:57", 392.47, 393.42, "14:00", 392.47, 393.28, 1], ["14:00", 392.47, 393.28, "14:03", 392.48, 393.33, 1], ["14:03", 392.48, 393.33, "14:06", 392.55, 393.42, 1], ["14:06", 392.55, 393.42, "14:09", 392.71, 393.65, 1], ["14:09", 392.71, 393.65, "14:12", 392.87, 393.6, 1], ["14:12", 392.87, 393.6, "14:15", 392.93, 393.67, 1], ["14:15", 392.93, 393.67, "14:18", 392.93, 393.57, 1], ["14:18", 392.93, 393.57, "14:21", 392.93, 393.84, 1], ["14:21", 392.93, 393.84, "14:24", 393.1, 393.93, 1], ["14:24", 393.1, 393.93, "14:27", 393.11, 393.91, 1], ["14:27", 393.11, 393.91, "14:30", 393.3, 394.32, 1], ["14:30", 393.3, 394.32, "14:33", 393.39, 394.17, 1], ["14:33", 393.39, 394.17, "14:36", 393.39, 394.15, 1], ["14:36", 393.39, 394.15, "14:39", 393.46, 394.12, 1], ["14:39", 393.46, 394.12, "14:42", 393.46, 394.16, 1], ["14:42", 393.46, 394.16, "14:45", 393.46, 394.07, 1], ["14:45", 393.46, 394.07, "14:48", 393.46, 393.94, 1], ["14:48", 393.46, 393.94, "14:51", 393.46, 393.94, 1], ["14:51", 393.46, 393.94, "14:54", 393.46, 393.83, 1], ["14:54", 393.46, 393.83, "14:57", 393.46, 394.35, 1], ["14:57", 393.46, 394.35, "15:00", 393.75, 394.65, 1], ["15:00", 393.75, 394.65, "15:03", 393.95, 394.61, 1], ["15:03", 393.95, 394.61, "15:06", 394.03, 395.0, 1], ["15:06", 394.03, 395.0, "15:09", 394.16, 395.02, 1], ["15:09", 394.16, 395.02, "15:12", 394.4, 395.44, 1], ["15:12", 394.4, 395.44, "15:15", 394.76, 395.57, 1], ["15:15", 394.76, 395.57, "15:18", 394.76, 395.27, 1], ["15:18", 394.76, 395.27, "15:21", 394.76, 394.92, 1], ["15:21", 394.76, 394.92, "15:24", 394.76, 395.1, 1], ["15:24", 394.76, 395.1, "15:27", 394.76, 395.18, 1], ["15:27", 394.76, 395.18, "15:30", 394.76, 395.39, 1], ["15:30", 394.76, 395.39, "15:33", 394.76, 394.92, 1], ["15:33", 394.76, 394.92, "15:36", 394.76, 395.14, 1], ["15:36", 394.76, 395.14, "15:39", 394.76, 395.24, 1], ["15:39", 394.76, 395.24, "15:42", 394.76, 395.04, 1], ["15:42", 394.76, 395.04, "15:45", 394.76, 395.07, 1], ["15:45", 394.76, 395.07, "15:48", 394.76, 395.39, 1], ["15:48", 394.76, 395.39, "15:51", 394.76, 395.72, 1], ["15:51", 394.76, 395.72, "15:54", 394.88, 395.96, 1], ["15:54", 394.88, 395.96, "15:57", 394.88, 395.89, 1], ["15:57", 394.88, 395.89, "15:57", 394.88, 395.89, 1]];
 const STVX_MAINFLIPS = [{"value": ["09:30", 389.78], "itemStyle": {"color": "#f23645"}, "label": {"formatter": "Sell", "position": "top", "backgroundColor": "#f23645", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["09:51", 388.37], "itemStyle": {"color": "#089981"}, "label": {"formatter": "Buy", "position": "bottom", "backgroundColor": "#089981", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["13:09", 392.58], "itemStyle": {"color": "#f23645"}, "label": {"formatter": "Sell", "position": "top", "backgroundColor": "#f23645", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["13:36", 391.46], "itemStyle": {"color": "#089981"}, "label": {"formatter": "Buy", "position": "bottom", "backgroundColor": "#089981", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}];
-const STVX_TIMES = ["09:30", "09:33", "09:36", "09:39", "09:42", "09:45", "09:48", "09:51", "09:54", "09:57", "10:00", "10:03", "10:06", "10:09", "10:12", "10:15", "10:18", "10:21", "10:24", "10:27", "10:30", "10:33", "10:36", "10:39", "10:42", "10:45", "10:48", "10:51", "10:54", "10:57", "11:00", "11:03", "11:06", "11:09", "11:12", "11:15", "11:18", "11:21", "11:24", "11:27", "11:30", "11:33", "11:36", "11:39", "11:42", "11:45", "11:48", "11:51", "11:54", "11:57", "12:00", "12:03", "12:06", "12:09", "12:12", "12:15", "12:18", "12:21", "12:24", "12:27", "12:30", "12:33", "12:36", "12:39", "12:42", "12:45", "12:48", "12:51", "12:54", "12:57", "13:00", "13:03", "13:06", "13:09", "13:12", "13:15", "13:18", "13:21", "13:24", "13:27", "13:30", "13:33", "13:36", "13:39", "13:42", "13:45", "13:48", "13:51", "13:54", "13:57", "14:00", "14:03", "14:06", "14:09", "14:12", "14:15", "14:18", "14:21", "14:24", "14:27", "14:30", "14:33", "14:36", "14:39", "14:42", "14:45", "14:48", "14:51", "14:54", "14:57", "15:00", "15:03", "15:06", "15:09", "15:12", "15:15", "15:18", "15:21", "15:24", "15:27", "15:30", "15:33", "15:36", "15:39", "15:42", "15:45", "15:48", "15:51", "15:54", "15:57"];
-const STVX_CLOSE = [388.97, 388.76, 388.85, 389.27, 389.57, 389.44, 389.53, 389.81, 389.87, 389.72, 389.76, 390.29, 390.77, 390.48, 390.38, 390.02, 390.14, 390.5, 390.36, 390.99, 391.0, 390.94, 390.77, 390.6, 390.49, 390.49, 390.41, 390.63, 391.0, 390.64, 391.29, 391.29, 391.38, 391.73, 391.78, 391.76, 391.72, 391.83, 391.96, 392.31, 392.41, 392.26, 391.96, 391.77, 391.8, 392.09, 391.93, 392.0, 391.92, 391.75, 391.98, 392.0, 392.1, 391.99, 391.99, 392.12, 392.19, 392.1, 392.12, 392.0, 391.78, 391.94, 391.98, 392.08, 392.05, 392.02, 392.15, 392.25, 392.01, 391.85, 392.4, 392.04, 391.91, 391.41, 392.07, 391.97, 391.38, 391.41, 391.62, 391.64, 392.09, 392.21, 392.87, 392.83, 392.81, 392.78, 393.56, 393.48, 393.3, 393.42, 393.28, 393.33, 393.42, 393.65, 393.6, 393.67, 393.57, 393.84, 393.93, 393.91, 394.32, 394.17, 394.15, 394.12, 394.16, 394.07, 393.94, 393.94, 393.83, 394.35, 394.65, 394.61, 395.0, 395.02, 395.44, 395.57, 395.27, 394.92, 395.1, 395.18, 395.39, 394.92, 395.14, 395.24, 395.04, 395.07, 395.39, 395.72, 395.96, 395.89];
 const STVX_TITLE = "2023-01-20 (ST VX版) | 不跳空 | 全天ST VX | +$45,563 (+45.6%)";
 const STVX_TITLE_E = "2023-01-20 ({stvx|ST VX}版) | 不跳空 | 全天{stvx|ST VX} | {pnl_pos|+$45,563 (+45.6%)}";
-const STVX_YMAX = 397.78;
 </script>
 <script>
-(function(){
-  if (typeof STVX_INNER === 'undefined') return;
-  var origTitle = document.title;
-  var wrap = document.createElement('div');
-  wrap.id = 'stvxWrap';
-  wrap.style.display = 'none';
-  wrap.innerHTML = '<div style="max-width:1150px;margin:0 auto"><div id="stvxCh" style="width:100%;height:560px"></div></div>'
-    + '<div style="max-width:1150px;margin:14px auto;padding:0 8px">' + STVX_INNER + '</div>';
-  document.body.appendChild(wrap);
-  var chart = null, active = false, svxBtn = null;
-  function buildOption(){
-    var rich = {stvx:{color:'#00a0a0',fontWeight:'bold',fontSize:18}, pnl_pos:{color:'#1a9e54'}, pnl_neg:{color:'#e5484d'}, dn:{color:'#e5484d',fontWeight:'bold',fontSize:18}, up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18}, flat:{color:'#e5484d',fontWeight:'bold'}};
-    var y0 = {scale:true};
-    if (STVX_YMAX) y0.max = STVX_YMAX;
-    var valsData = [];
-    try { valsData = (typeof vals !== 'undefined') ? vals : []; } catch(e) {}
-    return {
-      title: {text: STVX_TITLE_E, left:'center', textStyle:{rich: rich}},
-      tooltip: {trigger:'axis', axisPointer:{link:[{xAxisIndex:'all'}]}},
-      grid: [{left:48, right:14, top:60, height:'54%'}, {left:48, right:14, top:'72%', height:'16%'}],
-      xAxis: [{type:'category', data:STVX_TIMES, gridIndex:0, boundaryGap:false},
-              {type:'category', data:STVX_TIMES, gridIndex:1, boundaryGap:false, axisLabel:{show:false}}],
-      yAxis: [y0, {scale:true, gridIndex:1}],
-      series: [
-        {id:'stvx-mainfill', name:'主轨', type:'custom', silent:true, z:1, xAxisIndex:0, yAxisIndex:0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type:'polygon', shape:{points:[p1,p2,p3,p4]}, style:{fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke:null}}; }, data: STVX_MAINFILL},
-        {name:'3mK线', type:'line', xAxisIndex:0, yAxisIndex:0, symbol:'none', showSymbol:false, lineStyle:{color:'#374151', width:1}, z:2, data: STVX_CLOSE, markArea:{silent:true, data: STVX_MARKAREA}, markPoint:{data: STVX_SPINS}},
-        {id:'stvx-upper', name:'影子主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#9333ea', width:1.2, type:[6,4], opacity:0.9}, z:4, data: STVX_UPPER},
-        {id:'stvx-lower', name:'影子主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#9333ea', width:1.2, type:[6,4], opacity:0.9}, z:4, data: STVX_LOWER},
-        {id:'stvx-mainup', name:'主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#f23645', width:2}, z:5, data: STVX_MAINUP},
-        {id:'stvx-maindn', name:'主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#089981', width:2}, z:5, data: STVX_MAINDN},
-        {id:'stvx-mainflips', name:'主轨', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:10, z:6, label:{show:true, fontSize:12}, data: STVX_MAINFLIPS},
-        {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0}, label:{show:true, opacity:1, fontSize:11, fontWeight:'bold', position:'top', distance:1, formatter:function(p){return p.data.lbl;}}, data: STVX_SCAT},
-        {name:'QQE', type:'line', xAxisIndex:1, yAxisIndex:1, symbol:'none', showSymbol:false, lineStyle:{color:'#2563eb', width:1}, data: valsData, markPoint:{data: STVX_PINS}}
-      ]
-    };
+(function () {
+  var bar = document.getElementById('vt2023bar');
+  var btnQ = document.getElementById('vt2023btnQ');
+  var btnE = document.getElementById('vt2023btnE');
+  if (!bar || !btnQ || !btnE || typeof ch === 'undefined' || typeof barInfo === 'undefined') { return; }
+  var isSTVX = true;
+  var btnS = document.createElement('button');
+  btnS.type = 'button';
+  btnS.id = 'vt2023btnS';
+  btnS.textContent = 'ST VX版';
+  btnS.style.cssText = btnQ.style.cssText;
+  bar.appendChild(btnS);
+  var tbl = document.createElement('div');
+  tbl.id = 'stvxWrap';
+  tbl.style.display = 'none';
+  var cEl = document.getElementById('c');
+  if (cEl && cEl.parentNode) { cEl.parentNode.insertBefore(tbl, cEl.nextSibling); } else { document.body.appendChild(tbl); }
+  var baseOpt = null, baseTitle = null, baseActs = null, on = false;
+  function paintS(active) {
+    btnS.style.background = active ? '#2b7fff' : '#fff';
+    btnS.style.borderColor = active ? '#2b7fff' : '#ccc';
+    btnS.style.color = active ? '#fff' : '#333';
   }
-  function paintBtns(on){
-    if (svxBtn) {
-      svxBtn.style.background = on ? '#2b7fff' : '#fff';
-      svxBtn.style.color = on ? '#fff' : '#333';
-      svxBtn.style.borderColor = on ? '#2b7fff' : '#ccc';
-    }
-    if (on) {
-      var btns = document.querySelectorAll('button[data-ver]');
-      for (var i=0;i<btns.length;i++) { if (btns[i] !== svxBtn) { btns[i].style.background = '#fff'; btns[i].style.color = '#333'; btns[i].style.borderColor = '#ccc'; } }
-      var bq = document.getElementById('vt2023btnQ'), be = document.getElementById('vt2023btnE');
-      if (bq) { bq.style.background = '#fff'; bq.style.color = '#333'; bq.style.borderColor = '#ccc'; }
-      if (be) { be.style.background = '#fff'; be.style.color = '#333'; be.style.borderColor = '#ccc'; }
-    }
-  }
-  function activate(){
-    if (!active) {
-      active = true;
-      var kids = document.body.children;
-      for (var i=0;i<kids.length;i++) {
-        var el = kids[i];
-        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') continue;
-        if (el === wrap) continue;
-        if (el.id === 'vt2023bar') continue;
-        if (el.querySelector && el.querySelector('#daypick')) continue;
-        el.__svxDisp = el.style.display;
+  paintS(false);
+  function showMain() {
+    var cenv = document.getElementById('cenv');
+    var envWrap = cenv ? cenv.parentNode : null;
+    var envTable = document.getElementById('envtable');
+    var kids = document.body.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') { continue; }
+      if (el.id === 'vt2023bar' || el.id === 'stvxWrap' || (el.querySelector && el.querySelector('#daypick'))) { continue; }
+      var isEnv = (el === envWrap || el === envTable);
+      if (el.__vtStyle === undefined) { el.__vtStyle = el.getAttribute('style'); }
+      if (!isEnv) {
+        if (el.__vtHidden) {
+          if (el.__vtStyle === null) { el.removeAttribute('style'); } else { el.setAttribute('style', el.__vtStyle); }
+          el.__vtHidden = false;
+        }
+      } else if (!el.__vtHidden) {
         el.style.display = 'none';
+        el.__vtHidden = true;
       }
     }
-    wrap.style.display = 'block';
+  }
+  function activate() {
+    if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(STVX_SPINS); THEME.applyColors(STVX_PINS); }
+    if (!baseOpt) {
+      baseOpt = ch.getOption();
+      baseTitle = document.title;
+      baseActs = {};
+      for (var t0 in barInfo) { baseActs[t0] = barInfo[t0].acts; }
+    }
+    showMain();
+    var seen = {}, series = [], src = baseOpt.series || [];
+    for (var i = 0; i < src.length; i++) {
+      var s = src[i];
+      if (s.name === '1m曲线' && !seen.l1) { seen.l1 = 1; s.markPoint = {data: STVX_SPINS}; }
+      else if (s.name === 'QQE' && !seen.qq) { seen.qq = 1; s.markPoint = {data: STVX_PINS}; }
+      else if (s.name === '每单盈亏' && !seen.sc) { seen.sc = 1; s.data = STVX_SCAT; s.markArea = {silent: true, data: []}; }
+      else if (s.name === '3mK线' && !seen.k3) { seen.k3 = 1; s.markArea = {silent: true, data: STVX_MARKAREA}; }
+      else if (s.name === '成交点' && !seen.fd) { seen.fd = 1; s.data = []; }
+      else if (s.name === 'Supertrend上涨' || s.name === 'Supertrend下跌' || s.name === 'Supertrend填充' || s.name === 'ST翻转') { s.data = []; }
+      series.push(s);
+    }
+    series.push({id: 'stvx-upper', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_UPPER : []}, {id: 'stvx-lower', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_LOWER : []}, {id: 'stvx-mainfill', name: '主轨', type: 'custom', silent: true, z: 1, xAxisIndex: 0, yAxisIndex: 0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type: 'polygon', shape: {points: [p1,p2,p3,p4]}, style: {fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke: null}}; }, data: isSTVX ? STVX_MAINFILL : []}, {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []}, {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []}, {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []});
+    ch.setOption({title: {text: STVX_TITLE_E, left: 'center', textStyle: {fontSize: 14, rich: {stvx: {color: '#00a0a0', fontWeight: 'bold'}, pnl_pos: {color: '#1a9e54'}, pnl_neg: {color: '#e5484d'}}}}, series: series});
+  try {
+    var _lo2 = ch.getOption();
+    var _ld2 = (_lo2 && _lo2.legend && _lo2.legend[0] && _lo2.legend[0].data) ? _lo2.legend[0].data.slice() : null;
+    if (_ld2) {
+      var _hasL2 = function(n){ for (var i=0;i<_ld2.length;i++){ var d=_ld2[i]; if ((typeof d==='string' ? d : d.name)===n) return true; } return false; };
+      var _chgL2 = false;
+      if (!_hasL2('主轨')) { _ld2.push({name: '主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('影子主轨')) { _ld2.push({name: '影子主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%239333ea%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}); _chgL2 = true; }
+      if (_chgL2) ch.setOption({legend: {data: _ld2}});
+    }
+  } catch(e) {}
+    tbl.innerHTML = STVX_INNER;
+    tbl.style.display = '';
+    for (var t in barInfo) { barInfo[t].acts = STVX_ACTS[t] || []; }
     document.title = STVX_TITLE;
-    paintBtns(true);
-    try {
-      if (!chart) { chart = echarts.init(document.getElementById('stvxCh')); chart.setOption(buildOption()); }
-      else chart.resize();
-    } catch(e) {}
+    btnQ.style.background = '#fff'; btnQ.style.borderColor = '#ccc'; btnQ.style.color = '#333';
+    btnE.style.background = '#fff'; btnE.style.borderColor = '#ccc'; btnE.style.color = '#333';
+    paintS(true);
+    on = true;
+    window.dispatchEvent(new Event('resize'));
   }
-  function deactivate(){
-    if (!active) return;
-    active = false;
-    wrap.style.display = 'none';
-    var kids = document.body.children;
-    for (var i=0;i<kids.length;i++) {
-      var el = kids[i];
-      if (el.__svxDisp !== undefined) { el.style.display = el.__svxDisp; delete el.__svxDisp; }
-    }
-    paintBtns(false);
+  function deactivate() {
+    if (!on) { return; }
+    on = false;
+    paintS(false);
+    tbl.style.display = 'none';
+    if (baseOpt) { ch.setOption(baseOpt, {notMerge: true}); }
+    if (baseActs) { for (var t in barInfo) { barInfo[t].acts = baseActs[t] || []; } }
+    if (baseTitle !== null) { document.title = baseTitle; }
   }
-  var vtBar = document.getElementById('vt2023bar');
-  if (vtBar) {
-    var bq0 = document.getElementById('vt2023btnQ');
-    svxBtn = document.createElement('button');
-    svxBtn.type = 'button';
-    svxBtn.id = 'stvxBtn';
-    svxBtn.textContent = 'ST VX版';
-    if (bq0) svxBtn.style.cssText = bq0.style.cssText;
-    svxBtn.onclick = activate;
-    vtBar.appendChild(svxBtn);
-    ['vt2023btnQ','vt2023btnE'].forEach(function(id){
-      var b = document.getElementById(id);
-      if (b && b.onclick) { var ob = b.onclick; b.onclick = function(ev){ deactivate(); ob.call(this, ev); document.title = origTitle; }; }
-    });
-  } else {
-    var sib = document.querySelector('button[data-ver]');
-    if (sib) {
-      svxBtn = document.createElement('button');
-      svxBtn.type = 'button';
-      svxBtn.textContent = 'ST VX版';
-      svxBtn.dataset.ver = 'stvx';
-      svxBtn.style.cssText = sib.style.cssText;
-      sib.parentNode.appendChild(svxBtn);
-      svxBtn.onclick = activate;
-    }
-    ['switchVersion3','switchVersion','switchVersion15'].forEach(function(name){
-      var orig = window[name];
-      if (typeof orig !== 'function' || orig.__svxWrapped) return;
-      var w = function(v){ if (v === 'stvx') { activate(); return; } deactivate(); return orig.apply(this, arguments); };
-      w.__svxWrapped = true;
-      window[name] = w;
-    });
-  }
-  window.addEventListener('resize', function(){ if (active && chart) { try { chart.resize(); } catch(e) {} } });
+  btnS.onclick = function () { if (!on) { activate(); } };
+  var oq = btnQ.onclick, oe = btnE.onclick;
+  btnQ.onclick = function () { deactivate(); if (oq) { oq(); } };
+  btnE.onclick = function () { deactivate(); if (oe) { oe(); } };
 })();
 </script>
 </body></html>

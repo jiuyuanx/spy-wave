@@ -228,14 +228,15 @@ return s;
 return _origEnvTip(ps, barInfo);
 };
 })();
-const RICH = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'}};
+const RICH = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},stvx:{color:'#00a0a0',fontWeight:'bold'}};
 const TITLES = {
   ST: {echart: "2024-02-08 ({st|ST}版) | 不跳空 | 全天{st|ST} | {pnl_neg|-$8,093 (-8.1%)}", plain: "2024-02-08 (ST版) | 不跳空 | 全天ST | -$8,093 (-8.1%)"},
   QQE: {echart: "2024-02-08 ({qqe|QQE}版) | 不跳空 | 全天{qqe|QQE} | {pnl_neg|-$12,206 (-12.2%)}", plain: "2024-02-08 (QQE版) | 不跳空 | 全天QQE | -$12,206 (-12.2%)"},
   CE: {echart: "2024-02-08 ({ce|CE}版) | 不跳空 | 全天{ce|CE} | {pnl_neg|-$13,949 (-13.9%)}", plain: "2024-02-08 (CE版) | 不跳空 | 全天CE | -$13,949 (-13.9%)"},
   ENVELOPE: {echart: "2024-02-08 ({envelope|Envelope}版) | 不跳空 | {pnl_neg|-$2,906 (-2.9%)}", plain: "2024-02-08 (Envelope版) | 不跳空 | -$2,906 (-2.9%)"},
   ENVELOPE3M: {echart: "2024-02-08 ({envelope|Envelope 3m}版) | 不跳空 | 全天{envelope|Envelope 3m} | {pnl_pos|+$28,093 (+28.1%)}", plain: "2024-02-08 (Envelope 3m版) | 不跳空 | 全天Envelope 3m | +$28,093 (+28.1%)"},
-  ENVELOPE2M: {echart: "2024-02-08 ({envelope|Envelope 2m}版) | 不跳空 | 全天{envelope|Envelope 2m} | {pnl_pos|+$9,261 (+9.3%)}", plain: "2024-02-08 (Envelope 2m版) | 不跳空 | 全天Envelope 2m | +$9,261 (+9.3%)"}
+  ENVELOPE2M: {echart: "2024-02-08 ({envelope|Envelope 2m}版) | 不跳空 | 全天{envelope|Envelope 2m} | {pnl_pos|+$9,261 (+9.3%)}", plain: "2024-02-08 (Envelope 2m版) | 不跳空 | 全天Envelope 2m | +$9,261 (+9.3%)"},
+  STVX: {echart: "2024-02-08 ({stvx|ST VX}版) | 不跳空 | 全天{stvx|ST VX} | {pnl_neg|-$7,000 (-7.0%)}", plain: "2024-02-08 (ST VX版) | 不跳空 | 全天ST VX | -$7,000 (-7.0%)"}
 };
 function switchVersion(v) {
   curVer = v;
@@ -244,21 +245,33 @@ function switchVersion(v) {
   var isENVELOPE = (v === 'ENVELOPE');
   var isENV3M = (v === 'ENVELOPE3M');
   var isENV2M = (v === 'ENVELOPE2M');
-  var pinsData = isENV2M ? ENVELOPE2M_PINS : (isENV3M ? ENVELOPE3M_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isST ? VG_PINS : pins))));
-  var spinsData = isENV2M ? ENVELOPE2M_SPINS : (isENV3M ? ENVELOPE3M_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isST ? VG_SPINS : spins))));
-  var scatData = isENV2M ? ENVELOPE2M_SCAT : (isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isST ? VG_SCAT : QQE_SCAT))));
-  var actsData = isENV2M ? ENVELOPE2M_ACTS : (isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (isST ? VG_ACTS : QQE_ACTS))));
+  var isSTVX = (v === 'STVX');
+  var pinsData = isENV2M ? ENVELOPE2M_PINS : (isENV3M ? ENVELOPE3M_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isSTVX ? STVX_PINS : (isST ? VG_PINS : pins)))));
+  var spinsData = isENV2M ? ENVELOPE2M_SPINS : (isENV3M ? ENVELOPE3M_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isSTVX ? STVX_SPINS : (isST ? VG_SPINS : spins)))));
+  var scatData = isENV2M ? ENVELOPE2M_SCAT : (isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (isST ? VG_SCAT : QQE_SCAT)))));
+  var actsData = isENV2M ? ENVELOPE2M_ACTS : (isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (isSTVX ? STVX_ACTS : (isST ? VG_ACTS : QQE_ACTS)))));
   if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }
   ch.setOption({
     title: {text: TITLES[v].echart, left: 'center', textStyle: {fontSize: 14, rich: RICH}},
     series: [
       {name: '1m曲线', data: ((isENV3M && ENVELOPE3M_TREND_SEGS.length) || (isENV2M && ENVELOPE2M_TREND_SEGS.length)) ? [] : line1m, markPoint: {data: spinsData}, lineStyle: {color: (isENVELOPE || isENV3M || isENV2M) ? '#1e40af' : '#4da6ff', width: (isENVELOPE || isENV3M || isENV2M) ? 2 : 1.2, opacity: (isENVELOPE || isENV3M || isENV2M) ? 1 : 0.55}},
       {name: 'QQE', markPoint: {data: pinsData}},
-      {name: '每单盈亏', data: scatData, label: {show: (isENVELOPE || isENV3M || isENV2M) ? false : true, opacity: 1, fontSize: isST ? THEME.tradeLabel.fontSize : 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : (isENV3M ? ENVELOPE3M_MARKAREA : (isENV2M ? ENVELOPE2M_MARKAREA : (isCE ? CE_MARKAREA : (isST ? VG_MARKAREA : QQE_MARKAREA))))}},       {name: '3mK线', markArea: {silent: true, data: []}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: isST ? VG_MARKLINE : []}},
+      {name: '每单盈亏', data: scatData, label: {show: (isENVELOPE || isENV3M || isENV2M) ? false : true, opacity: 1, fontSize: isST ? THEME.tradeLabel.fontSize : 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : (isENV3M ? ENVELOPE3M_MARKAREA : (isENV2M ? ENVELOPE2M_MARKAREA : (isCE ? CE_MARKAREA : (isSTVX ? STVX_MARKAREA : (isST ? VG_MARKAREA : QQE_MARKAREA)))))}},       {name: '3mK线', markArea: {silent: true, data: []}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: isST ? VG_MARKLINE : []}},
       {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: THEME.segLabel.fontSize, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: isST ? VG_SEG_SCAT : []},
-      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []}, {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : (isENV3M ? ENVELOPE3M_UPPER : (isENV2M ? ENVELOPE2M_UPPER : []))}, {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : (isENV3M ? ENVELOPE3M_LOWER : (isENV2M ? ENVELOPE2M_LOWER : []))}, {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : (isENV3M ? ENVELOPE3M_CHANMID : (isENV2M ? ENVELOPE2M_CHANMID : []))}, {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : (isENV3M ? ENVELOPE3M_MID : (isENV2M ? ENVELOPE2M_MID : []))}, {name: '成交点', data: (isENVELOPE || isENV3M || isENV2M) ? [] : filldots}, {id: 'env-trend-seg-0', name: 'WER段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []}, {id: 'env-trend-seg-1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: []}, {id: 'env-trend-seg-2', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: []}, {id: 'env3-trend-seg-0', name: '3m趋势段0', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[0].data : []}, {id: 'env3-trend-seg-1', name: '3m趋势段1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[1].data : []}, {id: 'env3-trend-seg-2', name: '3m趋势段2', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[2].data : []}, {id: 'env2-trend-seg-0', name: '2m趋势段0', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV2M ? ENVELOPE2M_TREND_SEGS[0].data : []}, {id: 'env2-trend-seg-1', name: '2m趋势段1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: isENV2M ? ENVELOPE2M_TREND_SEGS[1].data : []}, {id: 'env2-trend-seg-2', name: '2m趋势段2', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV2M ? ENVELOPE2M_TREND_SEGS[2].data : []}     ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M || isENV2M) ? false : true, '9mK线': (isENVELOPE || isENV3M || isENV2M) ? false : true, '9m QQE': (isENVELOPE || isENV3M || isENV2M) ? false : true, '3mK线': (isENVELOPE || isENV2M) ? false : true, 'QQE': (isENVELOPE || isENV3M || isENV2M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M || isENV2M) ? false : true, '翻仓线': (isENVELOPE || isENV3M || isENV2M) ? false : true, '回补门槛': (isENVELOPE || isENV3M || isENV2M) ? false : true}}, xAxis: [{data: isENV2M ? ENVELOPE2M_TIMES : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: (isENVELOPE || isENV2M) ? false : true, axisPointer: {label: {show: (isENVELOPE || isENV2M) ? false : true}}, data: isENV2M ? ENVELOPE2M_TIMES : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: (isENVELOPE || isENV2M) ? false : true, axisPointer: {label: {show: (isENVELOPE || isENV2M) ? false : true}}, data: isENV2M ? ENVELOPE2M_TIMES : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {min: isENVELOPE ? -1/6 : (isENV2M ? -1/3 : -0.5), max: isENVELOPE ? 779/6 : (isENV2M ? 389/3 : 129.5)}], yAxis: [{min: isENVELOPE ? 496.35 : (isENV3M ? 496.35 : (isENV2M ? 496.35 : null)), max: isENVELOPE ? 499.52 : (isENV3M ? 499.52 : (isENV2M ? 499.49 : 499.15))}, {show: (isENVELOPE || isENV3M || isENV2M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M || isENV2M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M || isENV2M) ? '0%' : '42%'}]   });
+      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []}, {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : (isENV3M ? ENVELOPE3M_UPPER : (isENV2M ? ENVELOPE2M_UPPER : []))}, {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : (isENV3M ? ENVELOPE3M_LOWER : (isENV2M ? ENVELOPE2M_LOWER : []))}, {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : (isENV3M ? ENVELOPE3M_CHANMID : (isENV2M ? ENVELOPE2M_CHANMID : []))}, {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : (isENV3M ? ENVELOPE3M_MID : (isENV2M ? ENVELOPE2M_MID : []))}, {name: '成交点', data: (isENVELOPE || isENV3M || isENV2M || isSTVX) ? [] : filldots}, {id: 'env-trend-seg-0', name: 'WER段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []}, {id: 'env-trend-seg-1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: []}, {id: 'env-trend-seg-2', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: []}, {id: 'env3-trend-seg-0', name: '3m趋势段0', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[0].data : []}, {id: 'env3-trend-seg-1', name: '3m趋势段1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[1].data : []}, {id: 'env3-trend-seg-2', name: '3m趋势段2', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV3M ? ENVELOPE3M_TREND_SEGS[2].data : []}, {id: 'env2-trend-seg-0', name: '2m趋势段0', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV2M ? ENVELOPE2M_TREND_SEGS[0].data : []}, {id: 'env2-trend-seg-1', name: '2m趋势段1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendUp, width: THEME.envelope.trendWidth}, data: isENV2M ? ENVELOPE2M_TREND_SEGS[1].data : []}, {id: 'env2-trend-seg-2', name: '2m趋势段2', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendFlat, width: THEME.envelope.trendWidth}, data: isENV2M ? ENVELOPE2M_TREND_SEGS[2].data : []}     , {id: 'stvx-upper', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_UPPER : []}, {id: 'stvx-lower', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_LOWER : []}, {id: 'stvx-mainfill', name: '主轨', type: 'custom', silent: true, z: 1, xAxisIndex: 0, yAxisIndex: 0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type: 'polygon', shape: {points: [p1,p2,p3,p4]}, style: {fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke: null}}; }, data: isSTVX ? STVX_MAINFILL : []}, {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []}, {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []}, {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []}], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M || isENV2M || isSTVX) ? false : true, '9mK线': (isENVELOPE || isENV3M || isENV2M) ? false : true, '9m QQE': (isENVELOPE || isENV3M || isENV2M) ? false : true, '3mK线': (isENVELOPE || isENV2M) ? false : true, 'QQE': (isENVELOPE || isENV3M || isENV2M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M || isENV2M) ? false : true, '翻仓线': (isENVELOPE || isENV3M || isENV2M) ? false : true, '回补门槛': (isENVELOPE || isENV3M || isENV2M) ? false : true}}, xAxis: [{data: isENV2M ? ENVELOPE2M_TIMES : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: (isENVELOPE || isENV2M) ? false : true, axisPointer: {label: {show: (isENVELOPE || isENV2M) ? false : true}}, data: isENV2M ? ENVELOPE2M_TIMES : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: (isENVELOPE || isENV2M) ? false : true, axisPointer: {label: {show: (isENVELOPE || isENV2M) ? false : true}}, data: isENV2M ? ENVELOPE2M_TIMES : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {min: isENVELOPE ? -1/6 : (isENV2M ? -1/3 : -0.5), max: isENVELOPE ? 779/6 : (isENV2M ? 389/3 : 129.5)}], yAxis: [{min: isENVELOPE ? 496.35 : (isENV3M ? 496.35 : (isENV2M ? 496.35 : null)), max: isENVELOPE ? 499.52 : (isENV3M ? 499.52 : (isENV2M ? 499.49 : 499.15))}, {show: (isENVELOPE || isENV3M || isENV2M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M || isENV2M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M || isENV2M) ? '0%' : '42%'}]   });
+  try {
+    var _lo2 = ch.getOption();
+    var _ld2 = (_lo2 && _lo2.legend && _lo2.legend[0] && _lo2.legend[0].data) ? _lo2.legend[0].data.slice() : null;
+    if (_ld2) {
+      var _hasL2 = function(n){ for (var i=0;i<_ld2.length;i++){ var d=_ld2[i]; if ((typeof d==='string' ? d : d.name)===n) return true; } return false; };
+      var _chgL2 = false;
+      if (!_hasL2('主轨')) { _ld2.push({name: '主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('影子主轨')) { _ld2.push({name: '影子主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%239333ea%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}); _chgL2 = true; }
+      if (_chgL2) ch.setOption({legend: {data: _ld2}});
+    }
+  } catch(e) {}
   var tbl = document.querySelector('table');
-  if (tbl) { tbl.innerHTML = isENV2M ? ENVELOPE2M_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_TABLE : (isST ? VG_TABLE : QQE_TABLE)))); }
+  if (tbl) { tbl.innerHTML = isENV2M ? ENVELOPE2M_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_TABLE : (isSTVX ? STVX_INNER : (isST ? VG_TABLE : QQE_TABLE))))); }
   for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }
   document.title = TITLES[v].plain;
   if (window._verBtns) { window._verBtns.forEach(function(b) { var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }
@@ -271,7 +284,7 @@ var curVer = 'ST';
   if (!sel) { return; }
   var wrap = document.createElement('span');
   window._verBtns = [];
-  [['ST','ST版'],['QQE','QQE版'],['CE','CE版'],['ENVELOPE','Envelope版'],['ENVELOPE3M','Envelope 3m版'],['ENVELOPE2M','Envelope 2m版']].forEach(function(p) {
+  [['ST','ST版'],['QQE','QQE版'],['CE','CE版'],['ENVELOPE','Envelope版'],['ENVELOPE3M','Envelope 3m版'],['ENVELOPE2M','Envelope 2m版'],['STVX','ST VX版']].forEach(function(p) {
     var b = document.createElement('button');
     b.type = 'button';
     b.dataset.ver = p[0];
@@ -551,130 +564,6 @@ const STVX_MAINUP = [498.41, 498.41, 498.41, 498.41, 498.41, 498.41, 498.41, 498
 const STVX_MAINDN = [497.8, 497.8, 497.8, 497.8, 496.94, 497.0, 497.03, 497.12, 497.21, 497.21, 497.29, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 497.38, 496.61, 496.77, 496.85, 496.98, 496.98, 496.98, 496.98, 496.98, 497.02, 497.17, 497.17, 497.17, 497.17, 497.17, 497.17, 497.23, 497.26, 497.27, 497.39, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.49, 497.59, 497.59, 497.59, 497.59, 497.59, 497.59, 497.59, 497.59, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.64, 497.71, 497.76, 497.77, 497.81, 497.81, 497.84, 497.84, 497.91, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96, 497.96];
 const STVX_MAINFILL = [["09:30", 497.8, 498.0, "09:33", 497.8, 498.08, 1], ["09:33", 497.8, 498.08, "09:36", 497.8, 498.08, 1], ["09:36", 497.8, 498.08, "09:39", 498.41, 497.74, 1], ["09:39", 498.41, 497.74, "09:42", 498.41, 497.86, -1], ["09:42", 498.41, 497.86, "09:45", 498.41, 497.84, -1], ["09:45", 498.41, 497.84, "09:48", 498.41, 497.9, -1], ["09:48", 498.41, 497.9, "09:51", 498.41, 497.9, -1], ["09:51", 498.41, 497.9, "09:54", 498.41, 498.03, -1], ["09:54", 498.41, 498.03, "09:57", 498.41, 498.0, -1], ["09:57", 498.41, 498.0, "10:00", 498.41, 498.16, -1], ["10:00", 498.41, 498.16, "10:03", 498.41, 498.13, -1], ["10:03", 498.41, 498.13, "10:06", 498.41, 498.09, -1], ["10:06", 498.41, 498.09, "10:09", 498.41, 497.99, -1], ["10:09", 498.41, 497.99, "10:12", 498.41, 497.81, -1], ["10:12", 498.41, 497.81, "10:15", 498.41, 497.94, -1], ["10:15", 498.41, 497.94, "10:18", 498.41, 498.01, -1], ["10:18", 498.41, 498.01, "10:21", 498.41, 497.69, -1], ["10:21", 498.41, 497.69, "10:24", 498.41, 497.83, -1], ["10:24", 498.41, 497.83, "10:27", 498.41, 497.85, -1], ["10:27", 498.41, 497.85, "10:30", 498.41, 497.87, -1], ["10:30", 498.41, 497.87, "10:33", 498.41, 497.94, -1], ["10:33", 498.41, 497.94, "10:36", 498.41, 497.67, -1], ["10:36", 498.41, 497.67, "10:39", 498.4, 497.4, -1], ["10:39", 498.4, 497.4, "10:42", 498.37, 497.7, -1], ["10:42", 498.37, 497.7, "10:45", 498.37, 497.67, -1], ["10:45", 498.37, 497.67, "10:48", 498.37, 498.0, -1], ["10:48", 498.37, 498.0, "10:51", 498.37, 498.02, -1], ["10:51", 498.37, 498.02, "10:54", 498.37, 498.04, -1], ["10:54", 498.37, 498.04, "10:57", 498.37, 498.17, -1], ["10:57", 498.37, 498.17, "11:00", 498.37, 497.96, -1], ["11:00", 498.37, 497.96, "11:03", 498.37, 497.9, -1], ["11:03", 498.37, 497.9, "11:06", 498.37, 497.83, -1], ["11:06", 498.37, 497.83, "11:09", 498.37, 497.81, -1], ["11:09", 498.37, 497.81, "11:12", 498.37, 497.74, -1], ["11:12", 498.37, 497.74, "11:15", 498.37, 497.61, -1], ["11:15", 498.37, 497.61, "11:18", 498.37, 497.85, -1], ["11:18", 498.37, 497.85, "11:21", 498.37, 497.66, -1], ["11:21", 498.37, 497.66, "11:24", 498.36, 497.39, -1], ["11:24", 498.36, 497.39, "11:27", 498.2, 497.35, -1], ["11:27", 498.2, 497.35, "11:30", 498.2, 497.57, -1], ["11:30", 498.2, 497.57, "11:33", 498.2, 497.64, -1], ["11:33", 498.2, 497.64, "11:36", 498.2, 497.67, -1], ["11:36", 498.2, 497.67, "11:39", 498.2, 497.75, -1], ["11:39", 498.2, 497.75, "11:42", 498.2, 497.48, -1], ["11:42", 498.2, 497.48, "11:45", 498.2, 497.56, -1], ["11:45", 498.2, 497.56, "11:48", 498.2, 497.66, -1], ["11:48", 498.2, 497.66, "11:51", 498.2, 497.65, -1], ["11:51", 498.2, 497.65, "11:54", 498.2, 497.74, -1], ["11:54", 498.2, 497.74, "11:57", 498.2, 497.82, -1], ["11:57", 498.2, 497.82, "12:00", 498.2, 497.74, -1], ["12:00", 498.2, 497.74, "12:03", 498.2, 497.66, -1], ["12:03", 498.2, 497.66, "12:06", 498.2, 497.55, -1], ["12:06", 498.2, 497.55, "12:09", 498.2, 497.69, -1], ["12:09", 498.2, 497.69, "12:12", 498.2, 497.87, -1], ["12:12", 498.2, 497.87, "12:15", 498.2, 497.81, -1], ["12:15", 498.2, 497.81, "12:18", 498.2, 497.86, -1], ["12:18", 498.2, 497.86, "12:21", 498.2, 497.86, -1], ["12:21", 498.2, 497.86, "12:24", 498.2, 498.06, -1], ["12:24", 498.2, 498.06, "12:27", 498.2, 498.04, -1], ["12:27", 498.2, 498.04, "12:30", 498.2, 498.0, -1], ["12:30", 498.2, 498.0, "12:33", 498.2, 498.01, -1], ["12:33", 498.2, 498.01, "12:36", 498.2, 498.06, -1], ["12:36", 498.2, 498.06, "12:39", 498.2, 497.83, -1], ["12:39", 498.2, 497.83, "12:42", 498.2, 497.78, -1], ["12:42", 498.2, 497.78, "12:45", 498.2, 497.6, -1], ["12:45", 498.2, 497.6, "12:48", 498.18, 497.66, -1], ["12:48", 498.18, 497.66, "12:51", 498.18, 497.7, -1], ["12:51", 498.18, 497.7, "12:54", 498.15, 497.51, -1], ["12:54", 498.15, 497.51, "12:57", 498.1, 497.58, -1], ["12:57", 498.1, 497.58, "13:00", 497.49, 498.15, -1], ["13:00", 497.49, 498.15, "13:03", 497.49, 498.13, 1], ["13:03", 497.49, 498.13, "13:06", 497.49, 497.95, 1], ["13:06", 497.49, 497.95, "13:09", 497.49, 497.96, 1], ["13:09", 497.49, 497.96, "13:12", 497.49, 497.98, 1], ["13:12", 497.49, 497.98, "13:15", 497.49, 497.87, 1], ["13:15", 497.49, 497.87, "13:18", 497.49, 497.92, 1], ["13:18", 497.49, 497.92, "13:21", 497.49, 497.88, 1], ["13:21", 497.49, 497.88, "13:24", 497.49, 497.93, 1], ["13:24", 497.49, 497.93, "13:27", 497.49, 498.05, 1], ["13:27", 497.49, 498.05, "13:30", 497.49, 498.01, 1], ["13:30", 497.49, 498.01, "13:33", 497.49, 498.14, 1], ["13:33", 497.49, 498.14, "13:36", 497.59, 498.25, 1], ["13:36", 497.59, 498.25, "13:39", 497.59, 498.21, 1], ["13:39", 497.59, 498.21, "13:42", 497.59, 498.06, 1], ["13:42", 497.59, 498.06, "13:45", 497.59, 498.12, 1], ["13:45", 497.59, 498.12, "13:48", 497.59, 497.98, 1], ["13:48", 497.59, 497.98, "13:51", 497.59, 497.99, 1], ["13:51", 497.59, 497.99, "13:54", 497.59, 498.06, 1], ["13:54", 497.59, 498.06, "13:57", 497.59, 498.13, 1], ["13:57", 497.59, 498.13, "14:00", 497.64, 498.19, 1], ["14:00", 497.64, 498.19, "14:03", 497.64, 498.06, 1], ["14:03", 497.64, 498.06, "14:06", 497.64, 497.84, 1], ["14:06", 497.64, 497.84, "14:09", 497.64, 498.04, 1], ["14:09", 497.64, 498.04, "14:12", 497.64, 497.89, 1], ["14:12", 497.64, 497.89, "14:15", 497.64, 498.02, 1], ["14:15", 497.64, 498.02, "14:18", 497.64, 498.05, 1], ["14:18", 497.64, 498.05, "14:21", 497.64, 497.9, 1], ["14:21", 497.64, 497.9, "14:24", 497.64, 497.88, 1], ["14:24", 497.64, 497.88, "14:27", 497.64, 497.83, 1], ["14:27", 497.64, 497.83, "14:30", 497.64, 497.88, 1], ["14:30", 497.64, 497.88, "14:33", 497.64, 497.68, 1], ["14:33", 497.64, 497.68, "14:36", 497.64, 497.69, 1], ["14:36", 497.64, 497.69, "14:39", 497.64, 497.89, 1], ["14:39", 497.64, 497.89, "14:42", 497.64, 497.96, 1], ["14:42", 497.64, 497.96, "14:45", 497.64, 498.08, 1], ["14:45", 497.64, 498.08, "14:48", 497.64, 498.05, 1], ["14:48", 497.64, 498.05, "14:51", 497.64, 498.03, 1], ["14:51", 497.64, 498.03, "14:54", 497.64, 498.19, 1], ["14:54", 497.64, 498.19, "14:57", 497.71, 498.25, 1], ["14:57", 497.71, 498.25, "15:00", 497.76, 498.38, 1], ["15:00", 497.76, 498.38, "15:03", 497.77, 498.31, 1], ["15:03", 497.77, 498.31, "15:06", 497.81, 498.34, 1], ["15:06", 497.81, 498.34, "15:09", 497.81, 498.26, 1], ["15:09", 497.81, 498.26, "15:12", 497.84, 498.31, 1], ["15:12", 497.84, 498.31, "15:15", 497.84, 498.38, 1], ["15:15", 497.84, 498.38, "15:18", 497.91, 498.52, 1], ["15:18", 497.91, 498.52, "15:21", 497.96, 498.49, 1], ["15:21", 497.96, 498.49, "15:24", 497.96, 498.49, 1], ["15:24", 497.96, 498.49, "15:27", 497.96, 498.42, 1], ["15:27", 497.96, 498.42, "15:30", 497.96, 498.43, 1], ["15:30", 497.96, 498.43, "15:33", 497.96, 498.33, 1], ["15:33", 497.96, 498.33, "15:36", 497.96, 498.34, 1], ["15:36", 497.96, 498.34, "15:39", 497.96, 498.39, 1], ["15:39", 497.96, 498.39, "15:42", 497.96, 498.31, 1], ["15:42", 497.96, 498.31, "15:45", 497.96, 498.27, 1], ["15:45", 497.96, 498.27, "15:48", 497.96, 498.32, 1], ["15:48", 497.96, 498.32, "15:51", 497.96, 498.12, 1], ["15:51", 497.96, 498.12, "15:54", 497.96, 498.24, 1], ["15:54", 497.96, 498.24, "15:57", 497.96, 498.4, 1], ["15:57", 497.96, 498.4, "15:57", 497.96, 498.4, 1]];
 const STVX_MAINFLIPS = [{"value": ["09:30", 497.8], "itemStyle": {"color": "#089981"}, "label": {"formatter": "Buy", "position": "bottom", "backgroundColor": "#089981", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["09:39", 498.41], "itemStyle": {"color": "#f23645"}, "label": {"formatter": "Sell", "position": "top", "backgroundColor": "#f23645", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["13:00", 497.49], "itemStyle": {"color": "#089981"}, "label": {"formatter": "Buy", "position": "bottom", "backgroundColor": "#089981", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}];
-const STVX_TIMES = ["09:30", "09:33", "09:36", "09:39", "09:42", "09:45", "09:48", "09:51", "09:54", "09:57", "10:00", "10:03", "10:06", "10:09", "10:12", "10:15", "10:18", "10:21", "10:24", "10:27", "10:30", "10:33", "10:36", "10:39", "10:42", "10:45", "10:48", "10:51", "10:54", "10:57", "11:00", "11:03", "11:06", "11:09", "11:12", "11:15", "11:18", "11:21", "11:24", "11:27", "11:30", "11:33", "11:36", "11:39", "11:42", "11:45", "11:48", "11:51", "11:54", "11:57", "12:00", "12:03", "12:06", "12:09", "12:12", "12:15", "12:18", "12:21", "12:24", "12:27", "12:30", "12:33", "12:36", "12:39", "12:42", "12:45", "12:48", "12:51", "12:54", "12:57", "13:00", "13:03", "13:06", "13:09", "13:12", "13:15", "13:18", "13:21", "13:24", "13:27", "13:30", "13:33", "13:36", "13:39", "13:42", "13:45", "13:48", "13:51", "13:54", "13:57", "14:00", "14:03", "14:06", "14:09", "14:12", "14:15", "14:18", "14:21", "14:24", "14:27", "14:30", "14:33", "14:36", "14:39", "14:42", "14:45", "14:48", "14:51", "14:54", "14:57", "15:00", "15:03", "15:06", "15:09", "15:12", "15:15", "15:18", "15:21", "15:24", "15:27", "15:30", "15:33", "15:36", "15:39", "15:42", "15:45", "15:48", "15:51", "15:54", "15:57"];
-const STVX_CLOSE = [498.0, 498.08, 498.08, 497.74, 497.86, 497.84, 497.9, 497.9, 498.03, 498.0, 498.16, 498.13, 498.09, 497.99, 497.81, 497.94, 498.01, 497.69, 497.83, 497.85, 497.87, 497.94, 497.67, 497.4, 497.7, 497.67, 498.0, 498.02, 498.04, 498.17, 497.96, 497.9, 497.83, 497.81, 497.74, 497.61, 497.85, 497.66, 497.39, 497.35, 497.57, 497.64, 497.67, 497.75, 497.48, 497.56, 497.66, 497.65, 497.74, 497.82, 497.74, 497.66, 497.55, 497.69, 497.87, 497.81, 497.86, 497.86, 498.06, 498.04, 498.0, 498.01, 498.06, 497.83, 497.78, 497.6, 497.66, 497.7, 497.51, 497.58, 498.15, 498.13, 497.95, 497.96, 497.98, 497.87, 497.92, 497.88, 497.93, 498.05, 498.01, 498.14, 498.25, 498.21, 498.06, 498.12, 497.98, 497.99, 498.06, 498.13, 498.19, 498.06, 497.84, 498.04, 497.89, 498.02, 498.05, 497.9, 497.88, 497.83, 497.88, 497.68, 497.69, 497.89, 497.96, 498.08, 498.05, 498.03, 498.19, 498.25, 498.38, 498.31, 498.34, 498.26, 498.31, 498.38, 498.52, 498.49, 498.49, 498.42, 498.43, 498.33, 498.34, 498.39, 498.31, 498.27, 498.32, 498.12, 498.24, 498.4];
-const STVX_TITLE = "2024-02-08 (ST VX版) | 不跳空 | 全天ST VX | -$7,000 (-7.0%)";
-const STVX_TITLE_E = "2024-02-08 ({stvx|ST VX}版) | 不跳空 | 全天{stvx|ST VX} | {pnl_neg|-$7,000 (-7.0%)}";
-const STVX_YMAX = 498.93;
 </script>
-<script>
-(function(){
-  if (typeof STVX_INNER === 'undefined') return;
-  var origTitle = document.title;
-  var wrap = document.createElement('div');
-  wrap.id = 'stvxWrap';
-  wrap.style.display = 'none';
-  wrap.innerHTML = '<div style="max-width:1150px;margin:0 auto"><div id="stvxCh" style="width:100%;height:560px"></div></div>'
-    + '<div style="max-width:1150px;margin:14px auto;padding:0 8px">' + STVX_INNER + '</div>';
-  document.body.appendChild(wrap);
-  var chart = null, active = false, svxBtn = null;
-  function buildOption(){
-    var rich = {stvx:{color:'#00a0a0',fontWeight:'bold',fontSize:18}, pnl_pos:{color:'#1a9e54'}, pnl_neg:{color:'#e5484d'}, dn:{color:'#e5484d',fontWeight:'bold',fontSize:18}, up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18}, flat:{color:'#e5484d',fontWeight:'bold'}};
-    var y0 = {scale:true};
-    if (STVX_YMAX) y0.max = STVX_YMAX;
-    var valsData = [];
-    try { valsData = (typeof vals !== 'undefined') ? vals : []; } catch(e) {}
-    return {
-      title: {text: STVX_TITLE_E, left:'center', textStyle:{rich: rich}},
-      tooltip: {trigger:'axis', axisPointer:{link:[{xAxisIndex:'all'}]}},
-      grid: [{left:48, right:14, top:60, height:'54%'}, {left:48, right:14, top:'72%', height:'16%'}],
-      xAxis: [{type:'category', data:STVX_TIMES, gridIndex:0, boundaryGap:false},
-              {type:'category', data:STVX_TIMES, gridIndex:1, boundaryGap:false, axisLabel:{show:false}}],
-      yAxis: [y0, {scale:true, gridIndex:1}],
-      series: [
-        {id:'stvx-mainfill', name:'主轨', type:'custom', silent:true, z:1, xAxisIndex:0, yAxisIndex:0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type:'polygon', shape:{points:[p1,p2,p3,p4]}, style:{fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke:null}}; }, data: STVX_MAINFILL},
-        {name:'3mK线', type:'line', xAxisIndex:0, yAxisIndex:0, symbol:'none', showSymbol:false, lineStyle:{color:'#374151', width:1}, z:2, data: STVX_CLOSE, markArea:{silent:true, data: STVX_MARKAREA}, markPoint:{data: STVX_SPINS}},
-        {id:'stvx-upper', name:'影子主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#9333ea', width:1.2, type:[6,4], opacity:0.9}, z:4, data: STVX_UPPER},
-        {id:'stvx-lower', name:'影子主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#9333ea', width:1.2, type:[6,4], opacity:0.9}, z:4, data: STVX_LOWER},
-        {id:'stvx-mainup', name:'主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#f23645', width:2}, z:5, data: STVX_MAINUP},
-        {id:'stvx-maindn', name:'主轨', type:'line', xAxisIndex:0, yAxisIndex:0, symbolSize:0, showSymbol:false, lineStyle:{color:'#089981', width:2}, z:5, data: STVX_MAINDN},
-        {id:'stvx-mainflips', name:'主轨', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:10, z:6, label:{show:true, fontSize:12}, data: STVX_MAINFLIPS},
-        {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0}, label:{show:true, opacity:1, fontSize:11, fontWeight:'bold', position:'top', distance:1, formatter:function(p){return p.data.lbl;}}, data: STVX_SCAT},
-        {name:'QQE', type:'line', xAxisIndex:1, yAxisIndex:1, symbol:'none', showSymbol:false, lineStyle:{color:'#2563eb', width:1}, data: valsData, markPoint:{data: STVX_PINS}}
-      ]
-    };
-  }
-  function paintBtns(on){
-    if (svxBtn) {
-      svxBtn.style.background = on ? '#2b7fff' : '#fff';
-      svxBtn.style.color = on ? '#fff' : '#333';
-      svxBtn.style.borderColor = on ? '#2b7fff' : '#ccc';
-    }
-    if (on) {
-      var btns = document.querySelectorAll('button[data-ver]');
-      for (var i=0;i<btns.length;i++) { if (btns[i] !== svxBtn) { btns[i].style.background = '#fff'; btns[i].style.color = '#333'; btns[i].style.borderColor = '#ccc'; } }
-      var bq = document.getElementById('vt2023btnQ'), be = document.getElementById('vt2023btnE');
-      if (bq) { bq.style.background = '#fff'; bq.style.color = '#333'; bq.style.borderColor = '#ccc'; }
-      if (be) { be.style.background = '#fff'; be.style.color = '#333'; be.style.borderColor = '#ccc'; }
-    }
-  }
-  function activate(){
-    if (!active) {
-      active = true;
-      var kids = document.body.children;
-      for (var i=0;i<kids.length;i++) {
-        var el = kids[i];
-        if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') continue;
-        if (el === wrap) continue;
-        if (el.id === 'vt2023bar') continue;
-        if (el.querySelector && el.querySelector('#daypick')) continue;
-        el.__svxDisp = el.style.display;
-        el.style.display = 'none';
-      }
-    }
-    wrap.style.display = 'block';
-    document.title = STVX_TITLE;
-    paintBtns(true);
-    try {
-      if (!chart) { chart = echarts.init(document.getElementById('stvxCh')); chart.setOption(buildOption()); }
-      else chart.resize();
-    } catch(e) {}
-  }
-  function deactivate(){
-    if (!active) return;
-    active = false;
-    wrap.style.display = 'none';
-    var kids = document.body.children;
-    for (var i=0;i<kids.length;i++) {
-      var el = kids[i];
-      if (el.__svxDisp !== undefined) { el.style.display = el.__svxDisp; delete el.__svxDisp; }
-    }
-    paintBtns(false);
-  }
-  var vtBar = document.getElementById('vt2023bar');
-  if (vtBar) {
-    var bq0 = document.getElementById('vt2023btnQ');
-    svxBtn = document.createElement('button');
-    svxBtn.type = 'button';
-    svxBtn.id = 'stvxBtn';
-    svxBtn.textContent = 'ST VX版';
-    if (bq0) svxBtn.style.cssText = bq0.style.cssText;
-    svxBtn.onclick = activate;
-    vtBar.appendChild(svxBtn);
-    ['vt2023btnQ','vt2023btnE'].forEach(function(id){
-      var b = document.getElementById(id);
-      if (b && b.onclick) { var ob = b.onclick; b.onclick = function(ev){ deactivate(); ob.call(this, ev); document.title = origTitle; }; }
-    });
-  } else {
-    var sib = document.querySelector('button[data-ver]');
-    if (sib) {
-      svxBtn = document.createElement('button');
-      svxBtn.type = 'button';
-      svxBtn.textContent = 'ST VX版';
-      svxBtn.dataset.ver = 'stvx';
-      svxBtn.style.cssText = sib.style.cssText;
-      sib.parentNode.appendChild(svxBtn);
-      svxBtn.onclick = activate;
-    }
-    ['switchVersion3','switchVersion','switchVersion15'].forEach(function(name){
-      var orig = window[name];
-      if (typeof orig !== 'function' || orig.__svxWrapped) return;
-      var w = function(v){ if (v === 'stvx') { activate(); return; } deactivate(); return orig.apply(this, arguments); };
-      w.__svxWrapped = true;
-      window[name] = w;
-    });
-  }
-  window.addEventListener('resize', function(){ if (active && chart) { try { chart.resize(); } catch(e) {} } });
-})();
-</script>
+
 </body></html>
