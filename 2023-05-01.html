@@ -601,4 +601,25 @@ const STVX_TITLE_E = "2023-05-01 ({stvx|ST VX}版) | 不跳空 | 全天{stvx|ST 
   btnE.onclick = function () { deactivate(); if (oe) { oe(); } };
 })();
 </script>
+<script>
+(function () {
+  var K = 'waveVer3';
+  function save(v) { try { localStorage.setItem(K, v); } catch (e) {} }
+  var btnQ = document.getElementById('vt2023btnQ');
+  var btnE = document.getElementById('vt2023btnE');
+  var btnS = document.getElementById('vt2023btnS');
+  function wrap(btn, v) {
+    if (!btn) { return; }
+    var orig = btn.onclick;
+    btn.onclick = function () { save(v); if (orig) { orig(); } };
+  }
+  wrap(btnQ, 'qqe');
+  wrap(btnE, 'envelope');
+  wrap(btnS, 'stvx');
+  var v = null;
+  try { v = localStorage.getItem(K); } catch (e) {}
+  if (v === 'envelope' && btnE && btnE.click) { btnE.click(); }
+  else if (v === 'stvx' && btnS && btnS.click) { btnS.click(); }
+})();
+</script>
 </body></html>
