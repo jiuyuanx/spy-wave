@@ -225,6 +225,8 @@ const STVX_TITLE15E = "2026-10-20 ({stvx|ST VX}版) | 不跳空 | 全天{stvx|ST
 var LIVE_INNER15 = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();
 var LIVE_ACTS15 = {}; for (var t in barInfo) { LIVE_ACTS15[t] = barInfo[t].acts || []; }
 var curVer15 = 'live';
+window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };
+window.addEventListener('resize', function(){ if (curVer15 !== 'envelope' && curVer15 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });
 function switchVersion15(v){
   curVer15 = v;
   var isLive = (v === 'live');
@@ -259,6 +261,8 @@ function switchVersion15(v){
       if (_chgL2) ch.setOption({legend: {data: _ld2}});
     }
   } catch(e) {}
+  var _chHost = document.getElementById('c');
+  if (_chHost) { if (isENVELOPE || isENV3M) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }
   var tw = document.getElementById('tblWrap');
   if (tw) { tw.innerHTML = isLive ? LIVE_INNER15 : (isENV2M ? ENVELOPE2M_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER15 : (isCE ? CE_INNER15 : (isSTVX ? STVX_INNER : (isVH ? VH_INNER15 : QQE_INNER15)))))); }
   var actsData = isLive ? LIVE_ACTS15 : (isENV2M ? ENVELOPE2M_ACTS : (isENV3M ? ENVELOPE3M_ACTS : (isENVELOPE ? ENVELOPE_ACTS15 : (isCE ? CE_ACTS15 : (isSTVX ? STVX_ACTS : (isVH ? VH_ACTS15 : QQE_ACTS15))))));

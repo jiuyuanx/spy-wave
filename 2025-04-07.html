@@ -270,6 +270,8 @@ function switchVersion(v) {
       if (_chgL2) ch.setOption({legend: {data: _ld2}});
     }
   } catch(e) {}
+  var _chHost = document.getElementById('c');
+  if (_chHost) { if (isENVELOPE || isENV3M) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }
   var tbl = document.querySelector('table');
   if (tbl) { tbl.innerHTML = isENV2M ? ENVELOPE2M_INNER : (isENV3M ? ENVELOPE3M_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_TABLE : (isSTVX ? STVX_INNER : (isST ? VC_TABLE : QQE_TABLE))))); }
   for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }
@@ -279,6 +281,8 @@ function switchVersion(v) {
   if (vc) { if (!window._vcOrig) { window._vcOrig = vc.innerHTML; } if (v === 'CE') { vc.innerHTML = CE_COMPARE; } else if (v === 'ENVELOPE') { vc.innerHTML = ENVELOPE_COMPARE; } else if (v === 'QQE') { vc.innerHTML = QQE_COMPARE; } else { vc.innerHTML = window._vcOrig; } }
 }
 var curVer = 'ST';
+window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };
+window.addEventListener('resize', function(){ if (curVer !== 'ENVELOPE' && curVer !== 'ENVELOPE3M' && window._fitChartH) window._fitChartH(); });
 (function() {
   var sel = document.getElementById('daypick');
   if (!sel) { return; }
