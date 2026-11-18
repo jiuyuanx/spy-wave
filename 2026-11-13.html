@@ -527,7 +527,7 @@ function switchVersion3(v){
     if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } werSyncZoom(); }
   };
 })();
-switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m'].indexOf(_v) >= 0 ? _v : 'live'; })());
+document.addEventListener('DOMContentLoaded', function(){ switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m'].indexOf(_v) >= 0 ? _v : 'live'; })()); });
 </script><script>
 const STVX_PINS = [{"coord": ["09:36", 1.7], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}, {"coord": ["15:57", 26.8], "value": "平C", "itemStyle": {"color": "#9ca3af"}, "rs": "日终平仓(1m15:55)"}, {"coord": ["10:27", -30.6], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}];
 const STVX_SPINS = [{"coord": [2.8333, 756.61], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}, {"coord": [129.8333, 754.27], "value": "平C", "itemStyle": {"color": "#9ca3af"}, "rs": "日终平仓(1m15:55)"}, {"coord": [19.8333, 750.11], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}];
