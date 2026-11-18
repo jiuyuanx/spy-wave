@@ -250,6 +250,7 @@ window._fitChartH = function(){ var host = document.getElementById('c'); if (!ho
 window.addEventListener('resize', function(){ if (curVer15 !== 'envelope' && curVer15 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });
 function switchVersion15(v){
   curVer15 = v;
+  try { localStorage.setItem('waveVer3', v); } catch(e) {}
   var isLive = (v === 'live');
   var isVH = (v === 'vh');
   var isCE = (v === 'ce');
@@ -308,7 +309,7 @@ function switchVersion15(v){
   window._verBtns15 = wrap.querySelectorAll('button');
   if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
 })();
-switchVersion15('live');
+switchVersion15((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m','envelope2m','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());
 
 </script>
 <script>
