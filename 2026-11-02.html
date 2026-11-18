@@ -235,6 +235,7 @@ window._fitChartH = function(){ var host = document.getElementById('c'); if (!ho
 window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && curVer3 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });
 function switchVersion3(v){
   curVer3 = v;
+  try { localStorage.setItem('waveVer3', v); } catch(e) {}
   var isLive = (v === 'live');
   var isVH = (v === 'vh');
   var useVH = isLive || isVH;
@@ -581,7 +582,7 @@ function switchVersion3(v){
     if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } werSyncZoom(); }
   };
 })();
-switchVersion3('live');
+switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m','envelope2m','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());
 </script><script>
 const STVX_PINS = [{"coord": ["09:36", 32.4], "value": "开C", "itemStyle": {"color": "#00cc00"}, "rs": "ST开盘开call"}, {"coord": ["13:57", -26.1], "value": "平C", "itemStyle": {"color": "#9ca3af"}, "rs": "ST翻转平call"}, {"coord": ["15:00", -1.0], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "窗口恢复开put"}, {"coord": ["15:42", -26.5], "value": "止损C", "itemStyle": {"color": "#9ca3af"}, "rs": "止损窗口6根平"}, {"coord": ["10:54", -8.1], "value": "翻P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}, {"coord": ["13:03", -1.6], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}, {"coord": ["15:06", 8.4], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}];
 const STVX_SPINS = [{"coord": [2.8333, 759.37], "value": "开C", "itemStyle": {"color": "#00cc00"}, "rs": "ST开盘开call"}, {"coord": [89.8333, 757.09], "value": "平C", "itemStyle": {"color": "#9ca3af"}, "rs": "ST翻转平call"}, {"coord": [110.8333, 754.76], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "窗口恢复开put"}, {"coord": [124.8333, 752.63], "value": "止损C", "itemStyle": {"color": "#9ca3af"}, "rs": "止损窗口6根平"}, {"coord": [28.8333, 761.35], "value": "翻P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}, {"coord": [71.8333, 758.81], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}, {"coord": [112.8333, 755.63], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}];

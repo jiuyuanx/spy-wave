@@ -235,6 +235,7 @@ window._fitChartH = function(){ var host = document.getElementById('c'); if (!ho
 window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && curVer3 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });
 function switchVersion3(v){
   curVer3 = v;
+  try { localStorage.setItem('waveVer3', v); } catch(e) {}
   var isLive = (v === 'live');
   var isVH = (v === 'vh');
   var useVH = isLive || isVH;
@@ -555,7 +556,7 @@ function switchVersion3(v){
     if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } werSyncZoom(); }
   };
 })();
-switchVersion3('live');
+switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m','envelope2m','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());
 </script><script>
 const STVX_PINS = [{"coord": ["09:30", -10.0], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "ST开盘开put"}, {"coord": ["15:57", 2.1], "value": "平P", "itemStyle": {"color": "#9ca3af"}, "rs": "日终平仓(1m15:55)"}, {"coord": ["09:42", 10.0], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}, {"coord": ["11:33", -14.8], "value": "翻P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}, {"coord": ["13:03", 25.3], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}, {"coord": ["14:09", -18.4], "value": "翻P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}];
 const STVX_SPINS = [{"coord": [0.8333, 753.23], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "ST开盘开put"}, {"coord": [129.8333, 754.38], "value": "平P", "itemStyle": {"color": "#9ca3af"}, "rs": "日终平仓(1m15:55)"}, {"coord": [4.8333, 754.39], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}, {"coord": [41.8333, 754.71], "value": "翻P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}, {"coord": [71.8333, 756.01], "value": "翻C", "itemStyle": {"color": "#00cc00"}, "rs": "ST翻转开call"}, {"coord": [93.8333, 755.31], "value": "翻P", "itemStyle": {"color": "#ff0000"}, "rs": "ST翻转开put"}];
