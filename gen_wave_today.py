@@ -947,6 +947,14 @@ def main():
             return
         raise RuntimeError("no today bars")
 
+    # 盘中未完结日判定 (2026-11-19 user 令): 实盘生成 (WAVE_DATE 空) 且当日
+    # 最后一根 3m 未到 15:57 (早收日 12:57) = 未完结日; 各版把最新一根当作
+    # 日终平 (与 Envelope WER 版引擎帧尾平仓同行为: 未平仓位在最新一根按
+    # 收盘合成日终平仓、计入当日连乘与标题)。历史回放 (WAVE_DATE 有值) 与
+    # 已完结日一律不触发, 逐笔逐数与改前一致。
+    _last_hm3 = tstrs[today_idx[-1]] if today_idx else ""
+    _day_partial = (not WAVE_DATE) and _last_hm3 not in ("15:57", "12:57")
+
     # 真色
     # 颜色输出"up"/"down"/"gray"（模板用THEME.qqe3[colors[i]]查表, 和backfill一致; 不是hex）
     colors = []
@@ -1195,6 +1203,24 @@ def main():
                        "cbi": today_idx[-1],
                        "cpx": float(sig["close"].iloc[today_idx[-1]]),
                        "crs": None, "closed": False})
+    # 盘中未完结日: VH 未平仓位在最新一根合成日终平仓 (2026-11-19 user 令,
+    # 与 Envelope 版帧尾平同行为; 只改 VH 版展示: 单子/图钉/tooltip/标题,
+    # vh_actions 原始动作与实盘版不动)
+    if _day_partial and vh_rts and not vh_rts[-1]["closed"] \
+            and vh_rts[-1]["obi"] in today_idx:
+        _vrt = vh_rts[-1]
+        _vrt["closed"] = True
+        _vrt["crs"] = "日终平仓"
+        _lb = today_idx[-1]
+        _p = today_idx.index(_lb)
+        _xp = round(_p + 2.5 / 3, 4)
+        _yp = round(float(sig["close"].iloc[_lb]), 2)
+        _v = "平" + ("C" if _vrt["odr"] == "call" else "P")
+        vh_spins.append({"coord": [_xp, _yp], "value": _v,
+                         "itemStyle": {"color": "#9ca3af"}, "rs": "日终平仓"})
+        _vh_qpins_add(_lb, _v, "#9ca3af", "日终平仓")
+        vh_acts_by_bar.setdefault(_lb, []).append(
+            f"平{_vrt['odr']}@{_vrt['cpx']} 日终平仓")
 
     # 1m曲线数据: x=分数类目坐标(分钟中点), y=1m收盘
     t0 = sig["t"].iloc[today_idx[0]]
@@ -1332,6 +1358,7 @@ def main():
                     "cbi": today_idx[-1],
                     "cpx": float(sig["close"].iloc[today_idx[-1]]),
                     "crs": None, "closed": False})
+    rts_qqe_disp = rts  # QQE版展示用 (盘中合成日终平时换副本; rts 本体供实盘配对, 不动)
     # ---- 实盘每单收益: 信号配对实际成交 ----
     fills, poss, equity, day_open_equity = fetch_day_fills(day_str, live=not WAVE_DATE)
     for rt in rts:
@@ -1455,6 +1482,40 @@ def main():
             "{\"value\":[\"%s\",%.2f],\"lbl\":\"%s\",\"label\":{\"color\":\"%s\"}}" % (
                 tstrs[rt["cbi"]], _yy, txt, col))
     scat_js = "[" + ",".join(scat_data) + "]"
+
+    # 盘中未完结日: QQE 未平仓位在最新一根合成日终平仓 (2026-11-19 user 令,
+    # 与 Envelope 版帧尾平同行为)。只动 QQE 版展示 (表/标题走 rts_qqe_disp
+    # 副本、图钉/单标签/tooltip 补一份); rts 本体/实盘配对/pos_txt 不动。
+    if _day_partial and rts and not rts[-1]["closed"] \
+            and rts[-1]["obi"] in today_idx:
+        _qrt = rts[-1]
+        rts_qqe_disp = [dict(_r) for _r in rts]
+        rts_qqe_disp[-1]["closed"] = True
+        rts_qqe_disp[-1]["crs"] = "日终平仓"
+        _lb = today_idx[-1]
+        _p = today_idx.index(_lb)
+        _xp = round(_p + 2.5 / 3, 4)
+        _yp = round(float(sig["close"].iloc[_lb]), 2)
+        _v = "平" + ("C" if _qrt["odr"] == "call" else "P")
+        spins.append({"coord": [_xp, _yp], "value": _v,
+                      "itemStyle": {"color": "#9ca3af"}, "rs": "日终平仓"})
+        _qpins_add(_lb, _v, "#9ca3af", "日终平仓")
+        bar_info[tstrs[_lb]]["acts"].append(
+            f"平{_qrt['odr']}@{_qrt['cpx']} 日终平仓")
+        _row = 0
+        while any(abs(_lb - _oc) < 15 and _or == _row
+                  for (_oc, _or) in _placed):
+            _row += 1
+        _placed.append((_lb, _row))
+        _max_row = max(_max_row, _row)
+        _yy = round(_base + _row * _row_h, 2)
+        _er = _qrt.get("est_ret") or 0.0
+        scat_data.append(
+            "{\"value\":[\"%s\",%.2f],\"lbl\":\"%s\",\"label\":{\"color\":\"#888888\"}}"
+            % (tstrs[_lb], _yy, f"~({_pct(_er)})"))
+        scat_js = "[" + ",".join(scat_data) + "]"
+        y_max_js = max(y_max_js, round(
+            _base + (_max_row + 1) * _row_h + _rng * 0.05, 2))
 
     # ---- VH版色带/单标签/段标签 (ST单30分钟切段=每10根3m一段、段间复利;
     # QQE单整单一段、无段标签; 色带/标签走THEME ST专用色, 照抄backfill VH版) ----
@@ -1726,7 +1787,7 @@ def main():
         "ST VH版信号单（Gamma理论预估，-100口径）",
         "预估=Gamma公式ROI×$100k日内sequential复利；ST单按30分钟切段理论预估（段标签为理论切段预估，非实际成交），QQE单整单一段；非实际成交")
     qqe_inner, qqe_tot, qqe_tot_pct = _est_table_inner(
-        [{**rt, "est_roi": gamma_roi_100(rt["odr"], rt["opx"], rt["cpx"])} for rt in rts],
+        [{**rt, "est_roi": gamma_roi_100(rt["odr"], rt["opx"], rt["cpx"])} for rt in rts_qqe_disp],
         "QQE版信号单（Gamma理论预估，-100口径）",
         "预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交")
     if not has_live:
@@ -1823,13 +1884,24 @@ def main():
                                  "ors": _t["orsn"], "cbi": _cbi, "cpx": _t["cpx"],
                                  "crs": _t["crsn"], "closed": _t["closed"],
                                  "roi_pen": _t["roi_pen"]})
+            # 盘中未完结日: 未平仓位在最新一根合成日终平仓 (2026-11-19 user
+            # 令, 与 Envelope 版帧尾平同行为)。day_payload 的 day_complete
+            # 语义不动, 合成只在本节展示层 (单子/图钉/tooltip/标题); 翻仓
+            # 判定 _by_hm 仍走原始 actions, 不受合成平仓影响。
+            _svx_actions = list(_pl["actions"])
+            if not _stvx_complete and stvx_rts and not stvx_rts[-1]["closed"]:
+                _srt = stvx_rts[-1]
+                _srt["closed"] = True
+                _srt["crs"] = "日终平仓"
+                _svx_actions.append((tstrs[_srt["cbi"]], "平", _srt["odr"],
+                                     _srt["cpx"], "日终平仓"))
             stvx_inner, stvx_tot, stvx_tot_pct = _est_table_inner(
                 [{**rt, "est_roi": rt["roi_pen"] / 100.0} for rt in stvx_rts],
                 "ST VX版信号单（Gamma理论预估，v2罚后口径）",
                 "预估=Gamma公式ROI(v2逆势put罚后)×$100k日内sequential复利；"
                 "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(窗3根)+大跳空日10:00前不开仓"
                 "+双侧上午门控(≥55%/≤-30%→13:30-15:00只平不开、15:00状态恢复)；非实际成交")
-            for (hm, act, dr, px, rs) in _pl["actions"]:
+            for (hm, act, dr, px, rs) in _svx_actions:
                 _bi = _hm2bi.get(hm)
                 if _bi is not None:
                     stvx_acts.setdefault(tstrs[_bi], []).append(
@@ -1846,7 +1918,7 @@ def main():
                 yq = round(h * 1.15 + (0.5 if h > 0 else -0.5), 1) if not np.isnan(h) else 5
                 stvx_pins.append({"coord": [tstrs[bi], yq], "value": value,
                                   "itemStyle": {"color": color}, "rs": rs_txt})
-            for (hm, act, dr, px, rs) in _pl["actions"]:
+            for (hm, act, dr, px, rs) in _svx_actions:
                 _bi = _hm2bi.get(hm)
                 if _bi is None or hm in _flip_hms:
                     continue
@@ -1942,7 +2014,8 @@ def main():
     # ---- CE版 (Chandelier Exit, ATR1x1.85 Heikin Ashi): 与研究 ce_backtest.py 同算法。
     # 方向在全 sig (warmup+当日) 上连续算, 不按日重置; 当日交易按日页口径
     # (-100口径Gamma, 日内$100k sequential, 信号bar记时间、下根开盘结算)。
-    # 盘中未平仓只算浮动 (与 VH/QQE 持仓中行一致); 仅完整日 (回放/15:57/早收12:57) 日终平。
+    # 日终平: 完整日 (回放/15:57/早收12:57) + 盘中未完结日 (最新一根当作
+    # 日终平, 2026-11-19 user 令, 与 Envelope 版帧尾平同行为)。
     def _ce_compute(df):
         o = df["open"].to_numpy(float)
         h = df["high"].to_numpy(float)
@@ -1993,8 +2066,11 @@ def main():
     _ce_today_l = sig["low"].iloc[today_idx].to_numpy(float)
     _ce_today_h = sig["high"].iloc[today_idx].to_numpy(float)
     _ce_last_hm = tstrs[today_idx[-1]]
+    # 日终平判定: 完整日 (回放/15:57/早收12:57) 照旧; 盘中未完结日也平
+    # (2026-11-19 user 令: 最新一根当作日终平, 与 Envelope 版帧尾平同行为)
     _ce_eod = bool(WAVE_DATE) or (_ce_last_hm == "15:57") or (
-        vh_live._is_early_close_day(sig["t"].iloc[today_idx[-1]]) and _ce_last_hm == "12:57")
+        vh_live._is_early_close_day(sig["t"].iloc[today_idx[-1]]) and _ce_last_hm == "12:57") \
+        or _day_partial
     _ce_trades = []  # 已平: {dir,px0,obi,reason,cbi,px1,close_reason} (obi/cbi = 当日位置)
     _ce_open = None  # 盘中未平: {dir,px0,obi,reason}
     _ce_m = len(today_idx)
@@ -2701,8 +2777,10 @@ def main():
                    if dates3[i] == day_str and 570 <= int(mins3[i]) <= 959]
         if not day_idx:
             return None
-        # 对象化 (+EOD 补单, 与 1m 版同一 _env_eod 判定) + $100k sequential 结算
-        if open3 is not None and _env_eod:
+        # 对象化 (+EOD 补单, 与 1m 版同一 _env_eod 判定; 盘中未完结日也补
+        # 2026-11-19 user 令: 最新一根当作日终平, 与 Envelope 版帧尾平同行为)
+        # + $100k sequential 结算
+        if open3 is not None and (_env_eod or _day_partial):
             last_i = day_idx[-1]
             raw3 = list(raw3) + [(open3["obi"], last_i, open3["dir"], open3["px0"],
                                   float(df3["close"].iloc[last_i]), "EOD")]
