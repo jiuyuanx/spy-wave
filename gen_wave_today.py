@@ -3728,10 +3728,13 @@ def main():
     #     冠军臂逐字同源: fork tv_v67_er_overlay_wcent2f3sr + er_cfg
     #     终栈⑪ (CHAMP_CFG + RAMP_OVER + CE RF/F2/F3/shield),
     #     SL_K=0.7875);
-    #   f1: envf1_recipe.day_payload_warm_f1 —— console envelope1m
-    #     同源 (envwer/env1m_engine.py 逐字 vendored): WER 冠军本体
-    #     + F1 止损反手 (p=0.25, 反手止损 2.5xATR, 本体 SL_K=0.7875)
-    #     + ER 腿 CFG_A, 无箭头; 含帧尾 px 回退修复 (d3dfb9f8c)。
+    #   f1: envqsf_recipe.day_payload_warm_qsf —— F1+WER+QQE转向
+    #     (2026-11-20 晚 user 令主线化, 取代纯 F1+WER 的 envf1_recipe;
+    #     envwer/envqsf_engine.py = 研究 qqesfflip fork 逐字 vendored):
+    #     F1 底盘 (WER 冠军本体 + 止损反手 p=0.25, 反手止损 2.5xATR,
+    #     本体 SL_K=0.7875) + ER 腿 CFG_A + QQESF 转向 (QQE 衰减翻仓
+    #     砍 sf 仓反向接棒 qf 仓, 带 qfFlip 箭头); 当天暖帧原生算,
+    #     不再依赖预计算 JSON。envf1_recipe 保留备查、不再调用。
     # 装配/展示同走 envwer_page (mode 参数分表头文案与 sf 标签;
     # 两配方产出 schema 同形)。
     # 喂帧 = 暖帧 (2026-11-17 16:14 user 令改, 对齐定版整帧连续口径):
@@ -3756,7 +3759,7 @@ def main():
     # (上方旧引擎块保留: 仍供 _env_df/_env_trend_segs/env_min/max 等
     # 页面脚手架, 其单子不再进 Envelope 节。)
     _ENV_MODES = (("champion", "WER终栈⑪", "envelope-wer"),
-                  ("f1", "F1+WER", "envelope-f1"))
+                  ("f1", "F1+WER+QQE转向", "envelope-f1"))
     _env_sets = {}    # mode -> build_consts 常量 dict (该版计算成功时)
     _env_fail = {}    # mode -> 错误文本 (该版计算失败时)
     _env_int_ok = False
@@ -3790,7 +3793,7 @@ def main():
         if _envwer_dir not in _sys.path:
             _sys.path.insert(0, _envwer_dir)
         import envwer_recipe as _ewr
-        import envf1_recipe as _ef1
+        import envqsf_recipe as _eqsf
         import envwer_page as _ewp
         # ---- 1m QQE 面板数据 (2026-11-19 user 令): 与 Envelope 同一
         # 暖帧 _idf 全帧算 QQE MOD (qqe_mod.py 正本), 只取当日、按
@@ -3824,7 +3827,7 @@ def main():
         for _mode, _mname, _logtag in _ENV_MODES:
             try:
                 if _mode == "f1":
-                    _payload, _perr = _ef1.day_payload_warm_f1(
+                    _payload, _perr = _eqsf.day_payload_warm_qsf(
                         _idf[["t", "open", "high", "low", "close"]], day_str)
                 else:
                     _payload, _perr = _ewr.day_payload_warm(
@@ -3838,10 +3841,11 @@ def main():
                 _exp = _sday["total_slope"] + _sday["total_stack"]
                 assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
                 _tot, _tot_pct = _ewp.settle(_itrades)
+                _cmode = "qsf" if _mode == "f1" else _mode
                 _consts, _ititle, _ititlee = _ewp.build_consts(
                     vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
                     _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str,
-                    mode=_mode)
+                    mode=_cmode, qf_arrows=_payload.get("qf_arrows"))
                 _env_sets[_mode] = _consts
                 print(f"  {_logtag}({_mname},暖帧{_payload.get('warm_days', 0)}日): "
                       f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
@@ -3897,7 +3901,7 @@ def main():
             "ENVELOPE_ACTS": {}, "ENVELOPE_TIP": {},
             "ENVELOPE_TITLE": f"{day_str} (Envelope版) | 计算失败（{_mname}）",
             "ENVELOPE_TITLEE": f"{day_str} ({{envelope|Envelope}}版) | 计算失败",
-            "ENVELOPE_SLOPE_DYE": []}
+            "ENVELOPE_SLOPE_DYE": [], "ENVELOPE_QF1M": []}
 
     _env_set_consts = {}
     for _mode, _mname, _logtag in _ENV_MODES:
@@ -3942,6 +3946,7 @@ def main():
                 + ", TITLE: " + json.dumps(_C["ENVELOPE_TITLE"], ensure_ascii=False)
                 + ", TITLEE: " + json.dumps(_C["ENVELOPE_TITLEE"], ensure_ascii=False)
                 + ", SLOPE_DYE: " + json.dumps(_C["ENVELOPE_SLOPE_DYE"], ensure_ascii=False)
+                + ", QF1M: " + json.dumps(_C.get("ENVELOPE_QF1M", []), ensure_ascii=False)
                 + "}")
     _sw.append("const ENVELOPE_SETS = {champion: "
                + _env_set_js(_env_set_consts["champion"])
@@ -3954,6 +3959,7 @@ def main():
     _sw.append("var ENVELOPE_ACTS = ENVELOPE_SETS.champion.ACTS;")
     _sw.append("var ENVELOPE_TIP = ENVELOPE_SETS.champion.TIP;")
     _sw.append("var ENVELOPE_SLOPE_DYE = ENVELOPE_SETS.champion.SLOPE_DYE;")
+    _sw.append("var ENVELOPE_QF1M = ENVELOPE_SETS.champion.QF1M;")
     _sw.append("const ENVELOPE_TITLE = ENVELOPE_SETS.champion.TITLE;")
     _sw.append("const ENVELOPE_TITLEE = ENVELOPE_SETS.champion.TITLEE;")
     _sw.append("const ENVELOPE_TIMES1M = " + json.dumps(_env_times1m) + ";")
@@ -4137,8 +4143,9 @@ return _origEnvTip(ps, barInfo);
     _sw.append("window.switchEnvMode = function(m){")
     _sw.append("  var S = ENVELOPE_SETS[m]; if (!S) return;")
     _sw.append("  window._envMode = m;")
-    _sw.append("  ENVELOPE_PINS = S.PINS; ENVELOPE_SPINS = S.SPINS; ENVELOPE_SCAT_1M = S.SCAT_1M; ENVELOPE_MARKAREA_1M = S.MARKAREA_1M; ENVELOPE_INNER = S.INNER; ENVELOPE_ACTS = S.ACTS; ENVELOPE_TIP = S.TIP; ENVELOPE_SLOPE_DYE = S.SLOPE_DYE;")
+    _sw.append("  ENVELOPE_PINS = S.PINS; ENVELOPE_SPINS = S.SPINS; ENVELOPE_SCAT_1M = S.SCAT_1M; ENVELOPE_MARKAREA_1M = S.MARKAREA_1M; ENVELOPE_INNER = S.INNER; ENVELOPE_ACTS = S.ACTS; ENVELOPE_TIP = S.TIP; ENVELOPE_SLOPE_DYE = S.SLOPE_DYE; ENVELOPE_QF1M = S.QF1M || [];")
     _sw.append("  TITLES3.envelope = S.TITLE; TITLES3E.envelope = S.TITLEE;")
+    _sw.append("  if (window._qqeRefresh) window._qqeRefresh();")
     _sw.append("  if (window._envModeBtns) window._envModeBtns.forEach(function(b){ var on = (b.dataset.envmode === m); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; });")
     _sw.append("  if (typeof curVer3 !== 'undefined' && curVer3 === 'envelope') switchVersion3('envelope');")
     _sw.append("};")
@@ -4161,7 +4168,7 @@ return _origEnvTip(ps, barInfo);
     # _verBtns3 已先行快照, 不含这两个按钮, 免被版本按钮刷色覆盖)
     _sw.append("  var emw = document.createElement('span');")
     _sw.append("  emw.id = 'envModeWrap'; emw.style.display = 'none';")
-    _sw.append("  [['champion','WER冠军'],['f1','F1+WER']].forEach(function(it){")
+    _sw.append("  [['champion','WER冠军'],['f1','F1+WER+QQE转向']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.envmode = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
@@ -4216,15 +4223,21 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  function qqeOpt(){")
     _sw.append("    var Q = ENVELOPE_QQE1M;")
     _sw.append("    var data = Q.hist.map(function(v, i){ return v == null ? null : {value: v, itemStyle: {color: Q.col[i]}}; });")
+    # qf 转向信号圈 (2026-11-20 18:23/18:25 user 令): 落在确认根的
+    # QQE 柱位置, follow 式红绿填充 + 橙边 #ff8c00 (不用深蓝深紫,
+    # 深色只给主图 qfFlip 箭头); 数据 ENVELOPE_QF1M 随 Envelope
+    # 双版切换 (冠军版为空), switchEnvMode 后经 _qqeRefresh 重渲。
+    _sw.append("    var qfByIdx = {}; (typeof ENVELOPE_QF1M !== 'undefined' ? ENVELOPE_QF1M : []).forEach(function(m){ qfByIdx[m[0]] = m[1]; });")
+    _sw.append("    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: '#ff8c00', borderWidth: 2}}; }).filter(function(p){ return p; });")
     _sw.append("    var ST = {'#2f80ed': 'QQE Up（真蓝）', '#e5484d': 'QQE Down（真红）', '#b0b0b0': '中性（|hist|>3 无主信号确认）', '#e0e0e0': '|hist| ≤ 3'};")
     _sw.append("    return {animation: false,")
-    _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; return t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); }},")
+    _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; var h = t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); if (qfByIdx[idx]) h += '<br/><b style=\"color:#ff8c00\">QQE转向' + (qfByIdx[idx] > 0 ? '买入' : '卖出') + '</b>（确认根）'; return h; }},")
     _sw.append("      grid: {left: 40, right: 12, top: 12, bottom: 24},")
     _sw.append("      dataZoom: [{type: 'inside', xAxisIndex: 0}],")
     _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
     _sw.append("      yAxis: {type: 'value', axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
     _sw.append("      series: [")
-    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
+    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markPoint: {symbol: 'circle', symbolSize: 14, label: {show: false}, data: qfPts}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
     _sw.append("      ]};")
     _sw.append("  }")
     _sw.append("  function werOpt(){")
@@ -4469,6 +4482,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    if (slpCh) slpCh.on('globalout', function(){ werHideTip(qqeCh); });")
     _sw.append("    if (slpCh) slpCh.on('mouseout', function(){ werHideTip(qqeCh); });")
     _sw.append("  }")
+    _sw.append("  window._qqeRefresh = function(){ if (qqeCh) qqeCh.setOption(qqeOpt()); };")
     _sw.append("  window._werSync = function(show){")
     _sw.append("    wrap.style.display = show ? 'block' : 'none';")
     _sw.append("    if (qwrap) qwrap.style.display = show ? 'block' : 'none';")
