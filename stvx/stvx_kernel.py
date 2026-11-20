@@ -270,6 +270,10 @@ def make_params(env):
         pf[41] = _dgf(env, "DG_S5_CAP", 0.4)
         pf[42] = _dgf(env, "DG_S5_AGE_TH", 17.0)
         pf[43] = _dgf(env, "DG_S5_START", 0.8)
+        # --- tk 扩展 (2026-11-20 单日诊断): 分时 K — pf[44]=S5_K_PM pf[45]=S5_SPLIT_MIN
+        # bar 开盘分钟 < SPLIT_MIN 用 pf[40], >= 用 pf[44]; 缺省 PM=K (等价原口径)
+        pf[44] = _dgf(env, "DG_S5_K_PM", pf[40])
+        pf[45] = _dgf(env, "DG_S5_SPLIT_MIN", 630.0)
     # --- opd 扩展 (2026-11-13 组合表轮): 条件跳过/延迟, 移植自 st_kernel_numba 同名逻辑,
     #   槽位避开 S5 (pf[40..43]/pi[43..47]): pf[48..49]=年龄带 pf[50..51]=幅度带
     #   pi[48]=SK_LIST(按日集合) pi[49]=SK_DIR(0任意/1同向/2反向)。命中定义与
@@ -429,7 +433,7 @@ def st_arrays_kernel(h, l, c, o, hl2, tr, atr_init,
                      pf, pi,
                      atr, mult, bu, bl, fu, fl, trend,
                      ee_flag_bar, skip_flag_bar,
-                     dec_p, dec_m, slp5, dbg, s5_npput):
+                     dec_p, dec_m, slp5, dbg, s5_npput, hm_min):
     n = len(c)
     if n < 10:
         return
@@ -454,6 +458,7 @@ def st_arrays_kernel(h, l, c, o, hl2, tr, atr_init,
     qd_start = pf[37]; qd_floor = pf[38]; qd_gfloor = pf[39]
     s5_on = pi[43] == 1; s5_gdist = pi[44] == 1; s5_gage = pi[45] == 1
     s5_k = pf[40]; s5_cap = pf[41]; s5_age_th = pf[42]; s5_start = pf[43]
+    s5_k_pm = pf[44]; s5_split_min = pf[45]
     s5_dfull = pf[52]
     pb_on = pi[50] == 1; pb_dir = pi[51]
     nc_on = pi[52] == 1
@@ -754,7 +759,7 @@ def st_arrays_kernel(h, l, c, o, hl2, tr, atr_init,
                 if s5_dbg:
                     dbg[si, 0] = sv; dbg[si, 2] = 1.0
                 if sv >= s5_start:
-                    sdrop = s5_k * sv
+                    sdrop = (s5_k if hm_min[si] < s5_split_min else s5_k_pm) * sv
                     if sdrop > s5_cap:
                         sdrop = s5_cap
                     if s5_dbg:
@@ -1383,7 +1388,7 @@ def run_week_fast(monday, data_year, env):
         s5_npput[dates == _npd] = 1.0
     st_arrays_kernel(h, l, c, o, hl2, tr, atr_init, day_start, bar_in_day, is_1500,
                      cur_ds0, pf, pi, atr, mult, bu, bl, fu, fl, trend, ee_flag_bar, skip_flag_bar,
-                     dec_p, dec_m, slp5, dbg, s5_npput)
+                     dec_p, dec_m, slp5, dbg, s5_npput, hm_min)
     if pi[47] == 1:
         globals()["S5_LAST_DEBUG"] = {
             "dbg": dbg, "fu": fu.copy(), "fl": fl.copy(), "trend": trend.copy(),

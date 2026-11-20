@@ -5,9 +5,11 @@
 研究基线 esFSW3GF (年龄滑梯 + slope5 压带原形 K0.5/CAP0.4 + 止损只在翻仓
 信号根查、窗口 3 根 + GF 大跳空规则 |今开-昨收|>=10 点 -> 10:00 ET 前不开仓)
 + 双侧上午门控 (>=55% / <=-30% -> 13:30-15:00 只平不开、15:00 状态恢复)。
-止损窗口 2026-11-20 起改动态窗 (user 令, 日页常态): ENV_DUAL 加 STOP_WIN_DYN=1,
-内核 pi[68] 臂 = dynwin 定版 (判定根自身阴阳定有利、连续2根不利出窗+按趋势开、
-有利续期 11:00 前+1/起+2、上限仍 3 判定根; 回 50% 目标平保留)。
+止损窗口 2026-11-20 白天曾改动态窗 (STOP_WIN_DYN=1, dynwin 定版)、当晚
+user 令改回固定 3 根: 现行 STOP_WIN_DYN=0, dyn 代码保留在内核、仅关开关。
+压带 2026-11-20 晚改分时 K (user 令): DG_S5_K_PM=0.15 + DG_S5_SPLIT_MIN=630
+—— bar 开盘 <10:30 用 K=0.5 (早盘认错保持现行), >=10:30 用 K=0.15;
+CAP 0.4 等其余压带参数不动 (内核 pf[44]/pf[45], 与研究分时 K 副本同)。
 
 实现纪律 (与 research/st_gap_digest_20261109 逐字同源, 不拼凑、不近似):
 - 内核 stvx_kernel.py = research st_kernel_gf_amgate.py 逐字 vendored
@@ -48,8 +50,9 @@ ENV_DUAL = {
     "DG_OP_POLICY": "delay",
     "DG_OP_SK_LISTFILE": "/home/hatch/workspace/research/st_gap_digest_20261109/combo_hit_F.json",
     "DG_QF": "half", "DG_QF_RATIO": "0.75", "DG_S5": "1", "DG_S5_CAP": "0.4",
-    "DG_S5_K": "0.5", "DG_YD0": "0.5", "REBOUND_RED": "1",
-    "STDIGEST": "c4age+qf", "STOP_WIN_BARS": "3", "STOP_WIN_DYN": "1",
+    "DG_S5_K": "0.5", "DG_S5_K_PM": "0.15", "DG_S5_SPLIT_MIN": "630",
+    "DG_YD0": "0.5", "REBOUND_RED": "1",
+    "STDIGEST": "c4age+qf", "STOP_WIN_BARS": "3", "STOP_WIN_DYN": "0",
     "STOP_WIN_RECOV": "0.50",
     "STRONG_TREND": "1", "ST_FLIP": "0", "ST_ONLY": "1",
 }
@@ -173,7 +176,7 @@ def prep_frame(warm, eod_1m, test_days, env0):
         s5_npput[dates == _npd] = 1.0
     KAMG.st_arrays_kernel(h, l, c, o, hl2, tr, atr_init, day_start, bar_in_day, is_1500,
                           cur_ds0, pf, pi, atr, mult, bu, bl, fu, fl, trend, ee_flag_bar,
-                          skip_flag_bar, dec_p, dec_m, slp5, dbg, s5_npput)
+                          skip_flag_bar, dec_p, dec_m, slp5, dbg, s5_npput, hm_min)
     ee_day_bar = np.zeros(n, dtype=bool); skip_day_bar = np.zeros(n, dtype=bool)
     if ee_flag_bar.any():
         ords = np.unique(day_ord[ee_flag_bar])
