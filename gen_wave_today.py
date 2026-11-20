@@ -2043,7 +2043,21 @@ def main():
                 _mu, _md = _bm.get(tstrs[_bi], (None, None))
                 stvx_main_up.append(_mu)
                 stvx_main_dn.append(_md)
-            stvx_main_fill_js = json.dumps(_pl["main_fill"])
+            # main_fill 着色段归属改按 VX 交易趋势 (2026-11-20 18:00 user
+            # 令: 段统一到交易信号——信号翻了就是新段); 四边形数值/几何
+            # (本体活动带/收盘) 一律不动, 只换逐根 trend 字段 (JS
+            # renderItem 按它选绿/红填充)。0 沿用上一根, 帧首默认 buy,
+            # 与下方 _seg2 拆轨同规则。
+            _btr = {hm: tr for hm, tr in zip(_pl["day_hms"], _pl["trend_day"])}
+            _mf_rows = []
+            _last_vx = 1
+            for _row in _pl["main_fill"]:
+                _t = _btr.get(_row[0], 0)
+                if _t == 1 or _t == -1:
+                    _last_vx = _t
+                _mf_rows.append([_row[0], _row[1], _row[2], _row[3],
+                                 _row[4], _row[5], _last_vx])
+            stvx_main_fill_js = json.dumps(_mf_rows)
             _mf = []
             for (_hm, _val, _tr) in _pl["main_flips"]:
                 _buy = _tr == 1
@@ -2062,13 +2076,14 @@ def main():
             # 是辅助轨 (faint)、上轨是棘轮 (strong); buy 段上轨是辅助轨
             # (faint)、下轨是棘轮 (strong)。(首版 eeb8a15ab 做反, 已对调。)
             # 同一根
-            # 只进一条系列、另一条 null。压带轨按 VX 交易趋势分段 (payload
-            # trend_day = 内核 trend 原样), 本体轨按本体趋势分段 (main_fill
-            # 逐根 trend); 趋势 0 的根沿用上一根的段 (帧首默认 buy)。
-            _btr = {hm: tr for hm, tr in zip(_pl["day_hms"], _pl["trend_day"])}
-            _mtr = {row[0]: row[6] for row in _pl["main_fill"]}
+            # 只进一条系列、另一条 null。分段来源 2026-11-20 18:00 user
+            # 令再统一: 压带轨与本体轨都按 VX 交易趋势分段 (payload
+            # trend_day = 内核 trend 原样)——信号翻了就是新段, 本体轨的
+            # 主/辅角色与段色都跟着交易信号换 (此前本体轨按 main_fill
+            # 逐根本体 trend 分段, 与交易信号分家时视觉上像在反段开仓);
+            # 本体带线数值本身不动。趋势 0 的根沿用上一根的段 (帧首默认
+            # buy)。
             _trs_vx = [_btr.get(tstrs[_bi], 0) for _bi in today_idx]
-            _trs_mn = [_mtr.get(tstrs[_bi], 0) for _bi in today_idx]
 
             def _seg2(_vals, _trs, _upper):
                 _so, _fo, _last = [], [], 1
@@ -2082,8 +2097,8 @@ def main():
 
             stvx_upper_s, stvx_upper_f = _seg2(stvx_upper, _trs_vx, True)
             stvx_lower_s, stvx_lower_f = _seg2(stvx_lower, _trs_vx, False)
-            stvx_main_up_s, stvx_main_up_f = _seg2(stvx_main_up, _trs_mn, True)
-            stvx_main_dn_s, stvx_main_dn_f = _seg2(stvx_main_dn, _trs_mn, False)
+            stvx_main_up_s, stvx_main_up_f = _seg2(stvx_main_up, _trs_vx, True)
+            stvx_main_dn_s, stvx_main_dn_f = _seg2(stvx_main_dn, _trs_vx, False)
             print(f"  stvx: {len(stvx_rts)} 单, 罚后连乘 {stvx_tot_pct:+.1%}, "
                   f"am={_pl['am']}", flush=True)
     except Exception as _se:
