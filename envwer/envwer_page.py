@@ -39,14 +39,31 @@ STACK_ENTRY_RS = {"edge": ("边缘买入", "边缘卖出"),
 STACK_ENTRY_RS_F1 = dict(STACK_ENTRY_RS,
                          sf=("反手买入", "反手卖出"),
                          qf=("QQE转向买入", "QQE转向卖出"))
-# qf 标记配色 (2026-11-20 18:23/18:25 user 令): 价格图 qf 单圈与
-# 1m QQE 面板 qf 圈 = 正常红绿填充 + 橙边 #ff8c00 (与突破页 follow
-# 式同款); qfFlip 箭头不用红绿 —— call 深蓝 / put 深紫, 且离价格
-# 曲线间距加大 (偏移 1.5 价格单位, 原变体 0.7 太贴)。
+# qf 标记样式 (user 2026-11-20 18:36/18:37/18:38 三令定版):
+# 价格图 qf 进场圈与 1m QQE 面板 qf 圈参照突破页 ⑧「F1+ER+QQE转向」
+# 同款 —— 价格圈: 圆 12px、圈内单字母 C/P (白 9px 加粗)、橙边
+# #ff8c00 宽 3 (突破页 buildMarks 的 qf 分支逐项); 填充走日页规范色
+# (pin_color/theme 正绿正红, 与本页其余开仓圈一致)。面板圈在 gen
+# 的 qqeOpt 里画 (13px + 「翻c/翻p」白字 7px, 突破页 panelOptQqeSig
+# 同款)。qf 进场圈的 value 仍留 翻C/翻P (tooltip/acts/theme 按
+# value 取色, 不动), 只覆盖 symbol/label/边宽。
+# qfFlip 箭头: 粗杆圆角块状箭头 (18:38 附图样式, 自定义 SVG path,
+# 非 ECharts 默认 arrow、非细三角), 实心不透明; 颜色 18:37 改版:
+# call 青蓝 / put 紫红 (取代 18:25 的深蓝/深紫); 离价格曲线偏移
+# 2.5 价格单位 (18:37 令: 比 1.5 更远)。
 QF_BORDER = "#ff8c00"
-QF_ARROW_CALL = "#1e40af"   # 深蓝
-QF_ARROW_PUT = "#6b21a8"    # 深紫
-QF_ARROW_OFF = 1.5
+QF_CIRCLE_SIZE = 12
+QF_ARROW_CALL = "#06b6d4"   # 青蓝
+QF_ARROW_PUT = "#cc2e8a"    # 紫红
+QF_ARROW_OFF = 2.5
+QF_ARROW_SIZE = 26
+# 块状圆角上箭头 path (100x100 描图: 宽三角头 + 粗杆 36 宽、尖/翼/
+# 底角全圆角 Q 曲线收口, 按 18:38 附图 ➜ 加粗圆角版比例自描);
+# put 向 symbolRotate 180 翻下。
+QF_ARROW_PATH = ("path://M44.9 6.8 Q50 2 55.1 6.8 L92.7 42.9 "
+                 "Q97 47 91.7 49.8 L72.4 59.7 Q68 62 68 67 L68 90 "
+                 "Q68 97 61 97 L39 97 Q32 97 32 90 L32 67 Q32 62 "
+                 "27.6 59.7 L8.3 49.8 Q3 47 7.3 42.9 Z")
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
                   "EOD": "日终平仓", "TREND_EXIT": "趋势出段"}
@@ -257,17 +274,31 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         kind = "flip" if t["flip_entry"] else "open"
         lab = ("翻" if t["flip_entry"] else "开") + ("C" if is_call else "P")
         _ox, _oy = spt(t["obi"])
-        spins.append(spin_item(_ox, _oy,
-                               lab, pin_color(kind, t["dir"]), t["entry_rs"],
-                               is_call, t["src"] == "slope",
-                               is_qf=(t.get("mode") == "qf")))
+        _entry = spin_item(_ox, _oy,
+                           lab, pin_color(kind, t["dir"]), t["entry_rs"],
+                           is_call, t["src"] == "slope",
+                           is_qf=(t.get("mode") == "qf"))
+        if t.get("mode") == "qf":
+            # 突破页 ⑧ 同款 qf 进场圈 (user 2026-11-20 18:36 令):
+            # 圆 12px、圈内单字母 C/P (白 9px 加粗)、橙边宽 3;
+            # value 不动 (仍 翻C/翻P), 只覆盖渲染参数。
+            _entry["symbol"] = "circle"
+            _entry["symbolSize"] = QF_CIRCLE_SIZE
+            _entry["label"] = {"show": True,
+                               "formatter": "C" if is_call else "P",
+                               "color": "#fff", "fontSize": 9,
+                               "fontWeight": "bold"}
+            _entry["itemStyle"]["borderColor"] = QF_BORDER
+            _entry["itemStyle"]["borderWidth"] = 3
+        spins.append(_entry)
         if not (t["flip_close"] and t["i"] != last_i):
             _cx, _cy = spt(t["cbi"])
+            # qf 单平仓圈 = 普通平仓圈 (突破页 ⑧ 同口径: qf 出场圈
+            # 无橙边), 故此处不传 is_qf。
             spins.append(spin_item(_cx, _cy,
                                    "平" + ("C" if is_call else "P"),
                                    pin_color("close", t["dir"]), t["close_rs"],
-                                   is_call, t["src"] == "slope", is_close=True,
-                                   is_qf=(t.get("mode") == "qf")))
+                                   is_call, t["src"] == "slope", is_close=True))
     open_keys = {(s["coord"][0], s["value"][-1]) for s in spins
                  if s["value"].startswith("开")}
     spins = [s for s in spins
@@ -275,9 +306,9 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
                      and (s["coord"][0], s["value"][-1]) in open_keys)]
 
     # ---- QQE 转向箭头 (仅 qsf 版): 确认根收盘下方/上方 QF_ARROW_OFF
-    # 处, call 深蓝上箭头 / put 深紫下箭头 (2026-11-20 18:25 user 令:
-    # 箭头不用红绿、改深蓝/深紫; 18:23 令: 离曲线远一点, 偏移由变体
-    # 的 0.7 加大到 1.5) ----
+    # 处, 粗杆圆角块状箭头 (QF_ARROW_PATH 自定义 path, user 2026-11-20
+    # 18:38 附图定版; 18:37 令: call 青蓝 / put 紫红、实心不透明、
+    # 偏移 2.5 离曲线更远) ----
     if qf_arrows:
         for _a in qf_arrows:
             _bi, _nd = int(_a[0]), int(_a[1])
@@ -287,17 +318,16 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
             spins.append(
                 {"coord": [_ax, _ay],
                  "value": "qfFlipC" if _nd > 0 else "qfFlipP",
-                 "symbol": "arrow", "symbolSize": 22,
+                 "symbol": QF_ARROW_PATH, "symbolSize": QF_ARROW_SIZE,
                  "symbolRotate": 0 if _nd > 0 else 180,
                  "label": {"show": False},
-                 "itemStyle": {"color": _acol,
-                               "borderColor": _acol,
-                               "borderWidth": 1.5},
+                 "itemStyle": {"color": _acol, "opacity": 1},
                  "rs": "QQE衰减翻仓转向"})
 
     # ---- 1m QQE 面板 qf 信号圈槽位: [390 槽下标 (=确认根分钟偏移),
-    # 方向]; 圈样式在 gen 的 qqeOpt 里按 follow 式画 (红绿填充 +
-    # 橙边 #ff8c00, 2026-11-20 18:25 user 令) ----
+    # 方向]; 圈样式在 gen 的 qqeOpt 里按突破页 panelOptQqeSig 同款
+    # 画 (13px、圈内「翻c/翻p」白字 7px 加粗、红绿填充 + 橙边
+    # #ff8c00 宽 2, user 2026-11-20 18:36 令) ----
     qf1m = [[_mo(int(_a[0])), int(_a[1])] for _a in (qf_arrows or [])]
 
     # ---- scat: gen 原生错行算法 (30 分钟窗同行冲突递增行号) ----

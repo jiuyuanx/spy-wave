@@ -4138,11 +4138,15 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var _emw = document.getElementById('envModeWrap'); if (_emw) _emw.style.display = isENVELOPE ? '' : 'none';")
     _sw.append("}")
     # ---- Envelope 双版切换 (2026-11-20): 整套换成交类工作变量 +
-    # TITLES3 标题, 当前在 Envelope 版时立即重渲染; 按钮选中态同步 ----
+    # TITLES3 标题, 当前在 Envelope 版时立即重渲染; 按钮选中态同步。
+    # 选择经 localStorage('waveEnvMode') 跨刷新保持 (user 2026-11-20
+    # 18:36 令: 在 QQE 转向版手动刷新不许跳回默认冠军版); 首次访问
+    # 无记录时仍默认冠军。页面本身仍无 meta refresh (既有规矩)。 ----
     _sw.append("window._envMode = 'champion';")
     _sw.append("window.switchEnvMode = function(m){")
     _sw.append("  var S = ENVELOPE_SETS[m]; if (!S) return;")
     _sw.append("  window._envMode = m;")
+    _sw.append("  try { localStorage.setItem('waveEnvMode', m); } catch(e) {}")
     _sw.append("  ENVELOPE_PINS = S.PINS; ENVELOPE_SPINS = S.SPINS; ENVELOPE_SCAT_1M = S.SCAT_1M; ENVELOPE_MARKAREA_1M = S.MARKAREA_1M; ENVELOPE_INNER = S.INNER; ENVELOPE_ACTS = S.ACTS; ENVELOPE_TIP = S.TIP; ENVELOPE_SLOPE_DYE = S.SLOPE_DYE; ENVELOPE_QF1M = S.QF1M || [];")
     _sw.append("  TITLES3.envelope = S.TITLE; TITLES3E.envelope = S.TITLEE;")
     _sw.append("  if (window._qqeRefresh) window._qqeRefresh();")
@@ -4179,6 +4183,13 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  });")
     _sw.append("  wrap.appendChild(emw);")
     _sw.append("  window._envModeBtns = emw.querySelectorAll('button');")
+    # 刷新保版恢复 (user 2026-11-20 18:36 令): 读上次选择, 非冠军才
+    # 切 (冠军即默认值、无记录时不动); 须在 _envModeBtns 就绪后调,
+    # switchEnvMode 内的按钮刷色依赖它。此刻 curVer3 还是 'live',
+    # 版本恢复行 (脚本末尾 switchVersion3(saved)) 随后按已换好的
+    # 工作变量渲染 Envelope 版, 顺序无冲突。
+    _sw.append("  var _savedEnvMode = null; try { _savedEnvMode = localStorage.getItem('waveEnvMode'); } catch(e) {}")
+    _sw.append("  if (_savedEnvMode && _savedEnvMode !== 'champion' && typeof ENVELOPE_SETS !== 'undefined' && ENVELOPE_SETS[_savedEnvMode]) switchEnvMode(_savedEnvMode);")
     _sw.append("  if (!sel.querySelector('option[value=\"summary.html\"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }")
     _sw.append("})();")
     # ---- WER 面板 (Envelope 版股票图下方; 仅 envelope 时显示) ----
@@ -4223,12 +4234,13 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  function qqeOpt(){")
     _sw.append("    var Q = ENVELOPE_QQE1M;")
     _sw.append("    var data = Q.hist.map(function(v, i){ return v == null ? null : {value: v, itemStyle: {color: Q.col[i]}}; });")
-    # qf 转向信号圈 (2026-11-20 18:23/18:25 user 令): 落在确认根的
-    # QQE 柱位置, follow 式红绿填充 + 橙边 #ff8c00 (不用深蓝深紫,
-    # 深色只给主图 qfFlip 箭头); 数据 ENVELOPE_QF1M 随 Envelope
+    # qf 转向信号圈 (user 2026-11-20 18:36 令改版): 落在确认根的
+    # QQE 柱位置, 突破页 ⑧ panelOptQqeSig 同款 —— 圆 13px、圈内
+    # 「翻c/翻p」白字 7px 加粗、橙边 #ff8c00 宽 2; 填充走日页规范色
+    # 正绿/正红 (与主图 qf 圈一致)。数据 ENVELOPE_QF1M 随 Envelope
     # 双版切换 (冠军版为空), switchEnvMode 后经 _qqeRefresh 重渲。
     _sw.append("    var qfByIdx = {}; (typeof ENVELOPE_QF1M !== 'undefined' ? ENVELOPE_QF1M : []).forEach(function(m){ qfByIdx[m[0]] = m[1]; });")
-    _sw.append("    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: '#ff8c00', borderWidth: 2}}; }).filter(function(p){ return p; });")
+    _sw.append("    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; var lab = d > 0 ? '翻c' : '翻p'; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], value: lab, label: {show: true, formatter: lab, color: '#fff', fontSize: 7, fontWeight: 'bold'}, itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: '#ff8c00', borderWidth: 2}}; }).filter(function(p){ return p; });")
     _sw.append("    var ST = {'#2f80ed': 'QQE Up（真蓝）', '#e5484d': 'QQE Down（真红）', '#b0b0b0': '中性（|hist|>3 无主信号确认）', '#e0e0e0': '|hist| ≤ 3'};")
     _sw.append("    return {animation: false,")
     _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; var h = t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); if (qfByIdx[idx]) h += '<br/><b style=\"color:#ff8c00\">QQE转向' + (qfByIdx[idx] > 0 ? '买入' : '卖出') + '</b>（确认根）'; return h; }},")
@@ -4237,7 +4249,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
     _sw.append("      yAxis: {type: 'value', axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
     _sw.append("      series: [")
-    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markPoint: {symbol: 'circle', symbolSize: 14, label: {show: false}, data: qfPts}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
+    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markPoint: {symbol: 'circle', symbolSize: 13, label: {show: true, color: '#fff', fontSize: 7, fontWeight: 'bold'}, data: qfPts}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
     _sw.append("      ]};")
     _sw.append("  }")
     _sw.append("  function werOpt(){")
