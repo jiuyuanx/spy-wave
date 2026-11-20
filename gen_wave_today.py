@@ -2057,8 +2057,11 @@ def main():
                                       "fontSize": 12}})
             stvx_main_flips_js = json.dumps(_mf, ensure_ascii=False)
             # ---- 分段淡化拆轨 (2026-11-20 user 纠正口径, 推翻整轨角色淡化):
-            # 棘轮 vs 辅助轨按段分——buy 段上轨是主棘轮 (strong)、下轨是
-            # 辅助轨 (faint); sell 段对称 (下轨 strong、上轨 faint)。同一根
+            # 棘轮 vs 辅助轨按段分——辅助轨 = 趋势反侧的那条带线 (淡化),
+            # 主棘轮 = 趋势同侧、实际托/压价格的那条 (全强度): sell 段下轨
+            # 是辅助轨 (faint)、上轨是棘轮 (strong); buy 段上轨是辅助轨
+            # (faint)、下轨是棘轮 (strong)。(首版 eeb8a15ab 做反, 已对调。)
+            # 同一根
             # 只进一条系列、另一条 null。压带轨按 VX 交易趋势分段 (payload
             # trend_day = 内核 trend 原样), 本体轨按本体趋势分段 (main_fill
             # 逐根 trend); 趋势 0 的根沿用上一根的段 (帧首默认 buy)。
@@ -2072,7 +2075,7 @@ def main():
                 for _v, _t in zip(_vals, _trs):
                     if _t == 1 or _t == -1:
                         _last = _t
-                    _strong = (_last == 1) if _upper else (_last == -1)
+                    _strong = (_last == -1) if _upper else (_last == 1)
                     _so.append(_v if _strong else None)
                     _fo.append(None if _strong else _v)
                 return _so, _fo
