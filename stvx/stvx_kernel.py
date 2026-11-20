@@ -1020,6 +1020,11 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
         px = c[i]
         next_same = (i + 1 < n) and (day_ord[i + 1] == oi)
         px_exec = o[i + 1] if next_same else px
+        # 末根不开新仓 (2026-11-18 user 令): 当日最后一根 (not next_same, 与 rsn1
+        # 强制平同判定) 只平不开 -- 日终平检查在本根迭代前部, 末根翻仓/开仓在其
+        # 后部发出会绕过日终平合法隔夜 (2026-06-09 15:57 开 call 隔夜 -36.44%
+        # 实证)。s_fallback / 翻仓 / 空仓开 / 窗口恢复开四处开仓点同受此限,
+        # 平仓/止损/止损窗逻辑不动。
         # --- amgate 封存: 13:00 bar 本根, 先于本根一切交易逻辑。因果: 只用已维护的
         # 上午因子 + 本根开盘价标记未平腿 (执行开仓根 >= 本根的单不计, 与 walk 口径同)。 ---
         if am_on and not am_sealed and am_j13[oi] >= 0 and i == am_j13[oi]:
@@ -1063,6 +1068,19 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
                 if (sw_dr == 1 and px >= sw_thr) or (sw_dr == -1 and px <= sw_thr):
                     a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 2; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
                     pos = 0; stop_dir = 0; sw_on = False
+                    if not sw_dyn:
+                        # 固定窗出窗重开 (2026-11-20 user 18:08 令): 窗平仓同根按当时
+                        # ST 趋势立即开仓 (窗只推迟翻仓不取消, 回50%出窗同样重开);
+                        # 门控窗内只平不开 / gf 未开 / 末根不开新仓, 守卫同 dyn 不利出。
+                        # dyn 路径 (STOP_WIN_DYN=1) 不走此块, 行为不变。
+                        inwin2 = am_on and am_triggered and hm_min[i] >= am_start and hm_min[i] < am_end
+                        gfblock2 = gf_today and (gf_open_idx < 0 or i < gf_open_idx)
+                        if trend[i] != 0 and next_same and not inwin2 and not gfblock2:
+                            new2 = trend[i]
+                            a_bar[na] = i; a_act[na] = 0; a_dir[na] = new2; a_px[na] = px_exec; a_rsn[na] = 15; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                            pos = new2; stop_dir = new2; stop_px = px
+                            if ee_on and ee_day[i]:
+                                ee_active = True; ee_day_ord = oi; ee_px = px; ee_atr_v = atr[i]; ee_bid = bar_in_day[i]
                     continue
                 if sw_dyn:
                     # 有利根看判定根自身阴阳 (2026-11-19 user 16:18 定版): call 阳线有利 / put 阴线有利, 十字算不利
@@ -1104,10 +1122,29 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
                     if age == sw_bars:
                         a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 4; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
                         pos = 0; stop_dir = 0; sw_on = False
+                        # 固定窗到期出窗重开 (2026-11-20 user 18:08 令, 同 rsn2 处注释;
+                        # 本块仅固定窗可达, dyn 已在上方分支 continue)
+                        inwin2 = am_on and am_triggered and hm_min[i] >= am_start and hm_min[i] < am_end
+                        gfblock2 = gf_today and (gf_open_idx < 0 or i < gf_open_idx)
+                        if trend[i] != 0 and next_same and not inwin2 and not gfblock2:
+                            new2 = trend[i]
+                            a_bar[na] = i; a_act[na] = 0; a_dir[na] = new2; a_px[na] = px_exec; a_rsn[na] = 15; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                            pos = new2; stop_dir = new2; stop_px = px
+                            if ee_on and ee_day[i]:
+                                ee_active = True; ee_day_ord = oi; ee_px = px; ee_atr_v = atr[i]; ee_bid = bar_in_day[i]
                     continue
                 if age >= sw_bars + 1:
                     a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 5; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
                     pos = 0; stop_dir = 0; sw_on = False
+                    # 固定窗补平出窗重开 (同上)
+                    inwin2 = am_on and am_triggered and hm_min[i] >= am_start and hm_min[i] < am_end
+                    gfblock2 = gf_today and (gf_open_idx < 0 or i < gf_open_idx)
+                    if trend[i] != 0 and next_same and not inwin2 and not gfblock2:
+                        new2 = trend[i]
+                        a_bar[na] = i; a_act[na] = 0; a_dir[na] = new2; a_px[na] = px_exec; a_rsn[na] = 15; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                        pos = new2; stop_dir = new2; stop_px = px
+                        if ee_on and ee_day[i]:
+                            ee_active = True; ee_day_ord = oi; ee_px = px; ee_atr_v = atr[i]; ee_bid = bar_in_day[i]
                     continue
         # 20% Gamma 止损检查
         if pos != 0:
@@ -1158,7 +1195,7 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
         if s_fallback and in_win:
             diag[4] += 1.0
             s_wait = False
-        elif s_fallback and not gf_block:
+        elif s_fallback and not gf_block and next_same:
             new = trend[i]
             a_bar[na] = i; a_act[na] = 0; a_dir[na] = new; a_px[na] = px_exec; a_rsn[na] = 12; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
             pos = new; stop_dir = new; stop_px = px
@@ -1184,10 +1221,14 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
             elif pos != 0 and pos != new:
                 rc = 8 if is_flip else 10
                 a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = rc; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
-                a_bar[na] = i; a_act[na] = 0; a_dir[na] = new; a_px[na] = px_exec; a_rsn[na] = rc + 1; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
-                pos = new; stop_dir = new; stop_px = px
+                if next_same:
+                    a_bar[na] = i; a_act[na] = 0; a_dir[na] = new; a_px[na] = px_exec; a_rsn[na] = rc + 1; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                    pos = new; stop_dir = new; stop_px = px
+                else:
+                    # 当日最后一根: 翻仓降为只平不开 (末根不开新仓, 见 next_same 处注释)
+                    pos = 0; stop_dir = 0
                 ee_active = False
-            elif pos == 0:
+            elif pos == 0 and next_same:
                 rc = 9 if is_flip else 11
                 a_bar[na] = i; a_act[na] = 0; a_dir[na] = new; a_px[na] = px_exec; a_rsn[na] = rc; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
                 pos = new; stop_dir = new; stop_px = px
@@ -1198,7 +1239,7 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
         # --- amgate 窗口恢复: 窗口结束首根 bar (am_resume_now 已在 bar 顶定格),
         # 空仓且 ST 趋势有定义 -> 按当时趋势直接开仓 (状态触发, 同开盘开执行价口径);
         # 持仓未平不动; 本根若已由翻仓/开盘开仓进场 (pos != 0) 则不重复开。 ---
-        if am_resume_now and pos == 0 and trend[i] != 0:
+        if am_resume_now and pos == 0 and trend[i] != 0 and next_same:
             new = trend[i]
             a_bar[na] = i; a_act[na] = 0; a_dir[na] = new; a_px[na] = px_exec; a_rsn[na] = 13; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
             pos = new; stop_dir = new; stop_px = px
