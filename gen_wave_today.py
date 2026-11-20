@@ -3645,6 +3645,7 @@ def main():
     _env_wer_err = ""
     slpdev_panel = {"slope": [], "dev": [],
                     "th": {"up": 0.05, "dn": 0.07, "dev": 0.079}}
+    env_qqe1m = {"hist": [], "col": []}
     import sys as _sys
     try:
         if _env_df is None or not len(_env_df):
@@ -3665,6 +3666,35 @@ def main():
             _idf[["t", "open", "high", "low", "close"]], day_str)
         if _payload is None:
             raise RuntimeError(f"载荷失败: {_perr}")
+        # ---- 1m QQE 面板数据 (2026-11-19 user 令): 与 Envelope 同一
+        # 暖帧 _idf 全帧算 QQE MOD (qqe_mod.py 正本), 只取当日、按
+        # 固定 390 槽 (09:30-15:59) 对齐; 颜色 = QQE MOD 状态
+        # (up 真蓝 #2f80ed / down 真红 #e5484d / neutral 灰 / 其余
+        # |hist|<=3 浅灰, 与 theme qqe3 同色)。失败只丢面板。
+        try:
+            _qq = qqe_mod(_idf["close"].to_numpy(float))
+            _qh = _qq["hist"]
+            _qmap = {}
+            for _qi in np.where(
+                    (_idf["t"].dt.strftime("%Y-%m-%d")
+                     == day_str).to_numpy())[0]:
+                _qmap[_idf["t"].iloc[_qi].strftime("%H:%M")] = _qi
+            _hist390, _col390 = [], []
+            for _tm in _env_times1m:
+                _qi = _qmap.get(_tm)
+                if _qi is None or not np.isfinite(_qh[_qi]):
+                    _hist390.append(None)
+                    _col390.append(None)
+                    continue
+                _hist390.append(round(float(_qh[_qi]), 2))
+                _col390.append("#2f80ed" if _qq["up"][_qi] else
+                               "#e5484d" if _qq["down"][_qi] else
+                               "#b0b0b0" if _qq["neutral"][_qi] else
+                               "#e0e0e0")
+            env_qqe1m = {"hist": _hist390, "col": _col390}
+        except Exception as _qe:
+            print(f"  WARN envelope qqe1m 面板计算失败 (面板不显示): "
+                  f"{_qe}", flush=True)
         _sday, _day = _payload["sday"], _payload["day"]
         _runs = _ewp.norm_runs(_sday, _day)
         _itrades = _ewp.build_trades(_sday, _runs)
@@ -3794,6 +3824,7 @@ def main():
     _sw.append("const STVX_MAINFLIPS = " + stvx_main_flips_js + ";")
     _sw.append("const ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
     _sw.append("const ENVELOPE_SLPDEV = " + json.dumps(slpdev_panel) + ";")
+    _sw.append("const ENVELOPE_QQE1M = " + json.dumps(env_qqe1m) + ";")
     _sw.append("const ENVELOPE3M_TREND_SEGS = " + json.dumps(_env3_trend_segs) + ";")
     _sw.append("""(function(){
 if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
@@ -3894,8 +3925,11 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []},")
     _sw.append("      {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []},")
     _sw.append("      {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []},")
-    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M || isSTVX) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : (isENV3M ? " + env3_min_js + " : null), max: isENVELOPE ? " + env_max_js + " : (isENV3M ? " + env3_max_js + " : " + str(y_max_js) + ")}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: (isENVELOPE || isENV3M) ? '83%' : '38%'}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]")
+    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isENV3M || isSTVX) ? false : true, '9mK线': (isENVELOPE || isENV3M) ? false : true, '9m QQE': (isENVELOPE || isENV3M) ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': (isENVELOPE || isENV3M) ? false : true, '80%衰减线': (isENVELOPE || isENV3M) ? false : true, '翻仓线': (isENVELOPE || isENV3M) ? false : true, '回补门槛': (isENVELOPE || isENV3M) ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : (isENV3M ? " + env3_min_js + " : null), max: isENVELOPE ? " + env_max_js + " : (isENV3M ? " + env3_max_js + " : " + str(y_max_js) + ")}, {show: (isENVELOPE || isENV3M) ? false : true}], grid: [{height: isENVELOPE ? '88%' : ((isENV3M) ? '83%' : '38%')}, {height: (isENVELOPE || isENV3M) ? '0%' : '42%'}]")
     _sw.append("  });")
+    # Envelope 版隐藏主图 dataZoom 滑条 (2026-11-19 user 令: 省空间;
+    # 缩放走鼠标/双指 inside + 子面板联动, 切回其他版本自动恢复)。
+    _sw.append("  try { ch.setOption({dataZoom: [{}, {show: !isENVELOPE}]}); } catch(e) {}")
     # ST VX 主轨/影子主轨图例 (2026-11-17): 模板 legend.data 固定, 这里把两项
     # 幂等追加进去 (主轨=绿/红双段图标同 st慢版, 影子主轨=紫虚线图标)。
     _sw.append("  try {")
@@ -3942,12 +3976,24 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  if (!host || typeof ENVELOPE_WER === 'undefined' || !ENVELOPE_WER.wer.length) return;")
     _sw.append("  var wrap = document.createElement('div');")
     _sw.append("  wrap.id = 'werPanel';")
-    _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
+    _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
     _wer_title = ("WER · 终栈⑪（引擎口径）" if _env_int_ok
                   else "WER · 终栈⑪（计算失败）")
-    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
+    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")
+    # ---- 1m QQE 面板 (2026-11-19 user 令): 股票图与 WER 图之间,
+    # 高度同 WER 图 150px; 数据 ENVELOPE_QQE1M (gen 侧同暖帧 QQE
+    # MOD 全帧算、当日 390 槽对齐); 联动与 WER/slope 面板同套手动
+    # 同步 (见 werBindQqe)。
+    _sw.append("  var qqeCh = null, qqeBound = false, qqeBoundMain = null, qwrap = null;")
+    _sw.append("  if (typeof ENVELOPE_QQE1M !== 'undefined' && ENVELOPE_QQE1M.hist && ENVELOPE_QQE1M.hist.length) {")
+    _sw.append("    qwrap = document.createElement('div');")
+    _sw.append("    qwrap.id = 'qqePanel';")
+    _sw.append("    qwrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
+    _sw.append("    qwrap.innerHTML = '<div style=\\\"font-size:13px;font-weight:bold;margin:2px 0 0\\\">QQE · 1m（QQE MOD 口径）</div><div id=\\\"qqe1mCh\\\" style=\\\"width:100%;height:150px\\\"></div>';")
+    _sw.append("    host.parentNode.insertBefore(qwrap, wrap);")
+    _sw.append("  }")
     # ---- slope/dev 面板 (2026-11-17 user 令): WER 图下方, 样式照突破页
     # slope/dev 阈值面板 (线 + 带标签阈值虚线); 数据 ENVELOPE_SLPDEV
     # (envwer_page 构建, slope7=引擎 ind slope, dev=引擎 _slope_segments
@@ -3956,20 +4002,34 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  if (typeof ENVELOPE_SLPDEV !== 'undefined' && ENVELOPE_SLPDEV.slope && ENVELOPE_SLPDEV.slope.length) {")
     _sw.append("    swrap = document.createElement('div');")
     _sw.append("    swrap.id = 'slpPanel';")
-    _sw.append("    swrap.style.cssText = 'max-width:1150px;margin:2px auto 0;padding:0 8px;display:none';")
-    _sw.append("    swrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:6px 0 2px\">slope / dev · 阈值（引擎口径）</div><div id=\"slpCh\" style=\"width:100%;height:150px\"></div>';")
+    _sw.append("    swrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
+    _sw.append("    swrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">slope / dev · 阈值（引擎口径）</div><div id=\"slpCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("    wrap.parentNode.insertBefore(swrap, wrap.nextSibling);")
     _sw.append("  }")
     _sw.append("  var evIn = {}, evOut = {};")
     _sw.append("  ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; });")
     _sw.append("  ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; });")
+    _sw.append("  function qqeOpt(){")
+    _sw.append("    var Q = ENVELOPE_QQE1M;")
+    _sw.append("    var data = Q.hist.map(function(v, i){ return v == null ? null : {value: v, itemStyle: {color: Q.col[i]}}; });")
+    _sw.append("    var ST = {'#2f80ed': 'QQE Up（真蓝）', '#e5484d': 'QQE Down（真红）', '#b0b0b0': '中性（|hist|>3 无主信号确认）', '#e0e0e0': '|hist| ≤ 3'};")
+    _sw.append("    return {animation: false,")
+    _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; return t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); }},")
+    _sw.append("      grid: {left: 40, right: 12, top: 12, bottom: 24},")
+    _sw.append("      dataZoom: [{type: 'inside', xAxisIndex: 0}],")
+    _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
+    _sw.append("      yAxis: {type: 'value', axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
+    _sw.append("      series: [")
+    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
+    _sw.append("      ]};")
+    _sw.append("  }")
     _sw.append("  function werOpt(){")
     _sw.append("    var areas = ENVELOPE_WER.areas.map(function(a){ return [{xAxis: ENVELOPE_TIMES1M[a[0]], itemStyle: {color: a[2] > 0 ? 'rgba(26,158,84,0.10)' : 'rgba(229,72,77,0.10)'}}, {xAxis: ENVELOPE_TIMES1M[a[1]]}]; });")
     _sw.append("    var pts = ENVELOPE_WER.entries.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#7c3aed', borderColor: '#fff', borderWidth: 1.5}}; })")
     _sw.append("      .concat(ENVELOPE_WER.exits.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#6b7280', borderColor: '#fff', borderWidth: 1.5}}; }));")
     _sw.append("    return {animation: false,")
     _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || ENVELOPE_WER.wer[idx] == null) return ''; var h = t + '<br/>WER = <b>' + Number(ENVELOPE_WER.wer[idx]).toFixed(4) + '</b><br/>有效门槛 eff_to = <b>' + Number(ENVELOPE_WER.eff[idx]).toFixed(3) + '</b>'; if (evIn[t]) h += '<br/><b style=\"color:#7c3aed\">段入场</b>（' + (evIn[t] > 0 ? '上行' : '下行') + '）'; if (evOut[t]) h += '<br/><b style=\"color:#6b7280\">段出场</b>'; return h; }},")
-    _sw.append("      grid: {left: 40, right: 12, top: 24, bottom: 24},")
+    _sw.append("      grid: {left: 40, right: 12, top: 12, bottom: 24},")
     _sw.append("      dataZoom: [{type: 'inside', xAxisIndex: 0}],")
     _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
     _sw.append("      yAxis: {type: 'value', min: 0, max: 1.25, name: 'WER', nameTextStyle: {fontSize: 11, color: '#7c3aed'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
@@ -4020,7 +4080,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    }")
     _sw.append("    return {animation: false,")
     _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0) return ''; var sv = S.slope[idx], dv = S.dev[idx]; if (sv == null && dv == null) return ''; return t + '<br/><span style=\"color:' + TD.slopeLine + '\">slope7 = <b>' + s3(sv) + '</b>' + relTxt(sv, TH.up, -TH.dn) + '</span><br/><span style=\"color:' + TD.colDev + '\">dev = <b>' + s3(dv) + '</b>' + relTxt(dv, TH.dev, -TH.dev) + '</span>'; }},")
-    _sw.append("      grid: {left: 40, right: 12, top: 24, bottom: 24},")
+    _sw.append("      grid: {left: 40, right: 12, top: 12, bottom: 24},")
     _sw.append("      dataZoom: [{type: 'inside', xAxisIndex: 0}],")
     _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
     _sw.append("      yAxis: {type: 'value', min: -mx, max: mx, name: 'slope / dev', nameTextStyle: {fontSize: 11, color: '#374151'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
@@ -4126,6 +4186,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      if (dz && dz.start != null && dz.end != null && (dz.start > 0 || dz.end < 100)) {")
     _sw.append("        werZoomLock = true;")
     _sw.append("        if (werCh) werCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});")
+    _sw.append("        if (qqeCh) qqeCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});")
     _sw.append("        if (slpCh) slpCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});")
     _sw.append("        werZoomLock = false;")
     _sw.append("      }")
@@ -4164,10 +4225,51 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    if (werCh) werCh.on('globalout', function(){ werHideTip(slpCh); });")
     _sw.append("    if (werCh) werCh.on('mouseout', function(){ werHideTip(slpCh); });")
     _sw.append("  }")
+    _sw.append("  // 1m QQE 图与主图/WER/slope 图四方联动: 与 werBindSlp 同套")
+    _sw.append("  // 手动同步 (datazoom 转发 + updateAxisPointer->showTip)。")
+    _sw.append("  function werBindQqe(){")
+    _sw.append("    if (!qqeCh || typeof echarts === 'undefined') return;")
+    _sw.append("    var main = werMain();")
+    _sw.append("    if (!main) return;")
+    _sw.append("    if (werMainSIdx < 0) werFindMainSIdx();")
+    _sw.append("    if (qqeBound && qqeBoundMain === main) return;")
+    _sw.append("    qqeBound = true;")
+    _sw.append("    qqeBoundMain = main;")
+    _sw.append("    main.on('datazoom', function(ev){ if (qwrap.style.display !== 'none') werZoomTo(qqeCh, ev); });")
+    _sw.append("    qqeCh.on('datazoom', function(ev){ werZoomTo(main, ev); if (werCh) werZoomTo(werCh, ev); if (slpCh) werZoomTo(slpCh, ev); });")
+    _sw.append("    if (werCh) werCh.on('datazoom', function(ev){ werZoomTo(qqeCh, ev); });")
+    _sw.append("    if (slpCh) slpCh.on('datazoom', function(ev){ werZoomTo(qqeCh, ev); });")
+    _sw.append("    main.on('updateAxisPointer', function(ev){")
+    _sw.append("      if (qwrap.style.display === 'none') return;")
+    _sw.append("      var idx = werTipIdx(ev, true);")
+    _sw.append("      if (idx >= 0) werShowTip(qqeCh, 0, idx); else werHideTip(qqeCh);")
+    _sw.append("    });")
+    _sw.append("    qqeCh.on('updateAxisPointer', function(ev){")
+    _sw.append("      var idx = werTipIdx(ev, false);")
+    _sw.append("      if (idx >= 0) { if (werMainSIdx >= 0) werShowTip(main, werMainSIdx, idx); if (werCh) werShowTip(werCh, 0, idx); if (slpCh) werShowTip(slpCh, 0, idx); } else { werHideTip(main); if (werCh) werHideTip(werCh); if (slpCh) werHideTip(slpCh); }")
+    _sw.append("    });")
+    _sw.append("    if (werCh) werCh.on('updateAxisPointer', function(ev){")
+    _sw.append("      var idx = werTipIdx(ev, false);")
+    _sw.append("      if (idx >= 0) werShowTip(qqeCh, 0, idx); else werHideTip(qqeCh);")
+    _sw.append("    });")
+    _sw.append("    if (slpCh) slpCh.on('updateAxisPointer', function(ev){")
+    _sw.append("      var idx = werTipIdx(ev, false);")
+    _sw.append("      if (idx >= 0) werShowTip(qqeCh, 0, idx); else werHideTip(qqeCh);")
+    _sw.append("    });")
+    _sw.append("    main.on('globalout', function(){ werHideTip(qqeCh); });")
+    _sw.append("    qqeCh.on('globalout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); if (slpCh) werHideTip(slpCh); });")
+    _sw.append("    main.on('mouseout', function(){ werHideTip(qqeCh); });")
+    _sw.append("    qqeCh.on('mouseout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); if (slpCh) werHideTip(slpCh); });")
+    _sw.append("    if (werCh) werCh.on('globalout', function(){ werHideTip(qqeCh); });")
+    _sw.append("    if (werCh) werCh.on('mouseout', function(){ werHideTip(qqeCh); });")
+    _sw.append("    if (slpCh) slpCh.on('globalout', function(){ werHideTip(qqeCh); });")
+    _sw.append("    if (slpCh) slpCh.on('mouseout', function(){ werHideTip(qqeCh); });")
+    _sw.append("  }")
     _sw.append("  window._werSync = function(show){")
     _sw.append("    wrap.style.display = show ? 'block' : 'none';")
+    _sw.append("    if (qwrap) qwrap.style.display = show ? 'block' : 'none';")
     _sw.append("    if (swrap) swrap.style.display = show ? 'block' : 'none';")
-    _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } werSyncZoom(); }")
+    _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } if (qwrap) { if (!qqeCh) { qqeCh = echarts.init(document.getElementById('qqe1mCh')); qqeCh.setOption(qqeOpt()); } else { qqeCh.resize(); } werBindQqe(); } werSyncZoom(); }")
     _sw.append("  };")
     _sw.append("})();")
     _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','envelope3m','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());")
