@@ -47,23 +47,23 @@ STACK_ENTRY_RS_F1 = dict(STACK_ENTRY_RS,
 # 的 qqeOpt 里画 (13px + 「翻c/翻p」白字 7px, 突破页 panelOptQqeSig
 # 同款)。qf 进场圈的 value 仍留 翻C/翻P (tooltip/acts/theme 按
 # value 取色, 不动), 只覆盖 symbol/label/边宽。
-# qfFlip 箭头: 粗杆圆角块状箭头 (18:38 附图样式, 自定义 SVG path,
-# 非 ECharts 默认 arrow、非细三角), 实心不透明; 颜色 18:37 改版:
-# call 青蓝 / put 紫红 (取代 18:25 的深蓝/深紫); 离价格曲线偏移
-# 2.5 价格单位 (18:37 令: 比 1.5 更远)。
+# qfFlip 箭头: 经典直杆块状箭头 (18:46 附图定版, 覆盖 18:38 的
+# 圆角版: 矩形箭杆 + 三角箭头头、直角直边, 即 PowerPoint 块箭头 /
+# ➡ 那种最普通箭头形, 自定义 SVG path, 非 ECharts 默认 arrow),
+# 实心不透明; 颜色 18:46 改版: call 深青蓝 / put 深红 (取代
+# 18:37 的青蓝/紫红); 离价格曲线偏移 2.5 价格单位 (18:37 令)。
 QF_BORDER = "#ff8c00"
 QF_CIRCLE_SIZE = 12
-QF_ARROW_CALL = "#06b6d4"   # 青蓝
-QF_ARROW_PUT = "#cc2e8a"    # 紫红
+QF_ARROW_CALL = "#0e7490"   # 深青蓝
+QF_ARROW_PUT = "#b91c1c"    # 深红
 QF_ARROW_OFF = 2.5
 QF_ARROW_SIZE = 26
-# 块状圆角上箭头 path (100x100 描图: 宽三角头 + 粗杆 36 宽、尖/翼/
-# 底角全圆角 Q 曲线收口, 按 18:38 附图 ➜ 加粗圆角版比例自描);
+# 经典块状上箭头 path (100x100 标准多边形, 全直边直角: 尖 (50,2)、
+# 头宽 96 (x 2..98)、头高 46 (y 2..48)、杆宽 32 (x 34..66)、
+# 杆至 y 98; PowerPoint 上箭头块箭头同式比例);
 # put 向 symbolRotate 180 翻下。
-QF_ARROW_PATH = ("path://M44.9 6.8 Q50 2 55.1 6.8 L92.7 42.9 "
-                 "Q97 47 91.7 49.8 L72.4 59.7 Q68 62 68 67 L68 90 "
-                 "Q68 97 61 97 L39 97 Q32 97 32 90 L32 67 Q32 62 "
-                 "27.6 59.7 L8.3 49.8 Q3 47 7.3 42.9 Z")
+QF_ARROW_PATH = ("path://M50 2 L98 48 L66 48 L66 98 L34 98 "
+                 "L34 48 L2 48 Z")
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
                   "EOD": "日终平仓", "TREND_EXIT": "趋势出段"}
@@ -306,8 +306,8 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
                      and (s["coord"][0], s["value"][-1]) in open_keys)]
 
     # ---- QQE 转向箭头 (仅 qsf 版): 确认根收盘下方/上方 QF_ARROW_OFF
-    # 处, 粗杆圆角块状箭头 (QF_ARROW_PATH 自定义 path, user 2026-11-20
-    # 18:38 附图定版; 18:37 令: call 青蓝 / put 紫红、实心不透明、
+    # 处, 经典直杆块状箭头 (QF_ARROW_PATH 自定义 path, user 2026-11-20
+    # 18:46 附图定版; call 深青蓝 / put 深红、实心不透明、
     # 偏移 2.5 离曲线更远) ----
     if qf_arrows:
         for _a in qf_arrows:
