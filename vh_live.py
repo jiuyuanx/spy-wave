@@ -8,7 +8,9 @@
 
 VH 开关全部写死: HYBRID=1, VARIANT=G, WIN_AFTER_ST_IMM=1, FLIPCHECK=1,
 HYB_11SAME=1, REBOUND_RED=1, CUM_SLOPE_THRESHOLD=0.05, STRONG_TREND=1,
-ST_FLIP=0, STOP_WIN_BARS=6, STOP_WIN_RECOV=0.50, USE_30S_STOP=0, ST_ONLY=0。
+ST_FLIP=0, STOP_WIN_BARS=6, STOP_WIN_RECOV=0.50, USE_30S_STOP=0, ST_ONLY=0,
+STOP_WIN_DYN=1 (2026-11-20 user 令: 日页常态动态止损窗口, dynwin 定版——判定根
+自身阴阳定有利、连续2根不利出窗+按趋势开、有利续期早盘+1/11:00起+2、上限6根)。
 其余开关取回测批默认值 (见 build 脚本 ENV_LIT)。
 
 接口:
@@ -468,6 +470,7 @@ def _run_all(warm, eod_1m, force_st=False):
     _HYBRID = True
     _HYB_VARIANT = "G"  # A/B/C/D/E/F/G (G=V_C跳空逻辑+非跳空日全天ST; 规则见主循环hybrid块; F的5-8天按QQE全天无切换)
     _WIN_AFTER_ST_IMM = True
+    _STOP_WIN_DYN = True  # 2026-11-20 user 令: 动态止损窗口常态 (dynwin 定版, 研究侧 gen_pmcut_dyn STOP_WIN_DYN 臂逐字移植)
     _FLIPCHECK = True
     _HYB_11SAME = True
     # STONLY 2026-11-01 用户12:14纠正: 窗口出来马上开只在ST段(_hyb_run_st)触发, QQE段窗口退出不马上开 (翻转部分不动)
@@ -1259,13 +1262,20 @@ def _run_all(warm, eod_1m, force_st=False):
         #   操作1: 任意窗口bar收盘回来50% (触发bar收盘到开仓价的50%处) -> 平仓
         #   操作2: 窗口内翻仓/平仓信号正常跑, 跟随信号屏蔽(跟随在空仓分支内, 持仓时不进)
         #   到期: N根走完还拿着原单 -> 强制平 (到期检查在信号分支后, 见循环底部)
-        # 防冻设计: 窗口只进不出地数bar (不看价值, 不续期); 任何开仓/平仓/EOD/跨日都清窗口;
-        #   窗口内不启动新等待 (等待会把窗口拖长, 正是旧冻结bug的根源)
+        # 防冻设计: 任何开仓/平仓/EOD/跨日都清窗口; 窗口内不启动新等待
+        #   (等待会把窗口拖长, 正是旧冻结bug的根源)
+        # 动态窗 (2026-11-20 起常态, _STOP_WIN_DYN): 出窗改判定根制——信号根下一根起
+        #   逐根判定, 有利=判定根自身阴阳, 连2根不利出窗+按趋势开, 有利续期
+        #   (11:00前+1/起+2), 上限=_STOP_WIN_BARS 判定根; 回50%平保留 (见下方分支)
         if _stop_win is not None and pos is None:
             _stop_win = None  # 安全网: 仓位已无则窗口作废
         if _stop_win is not None and pos is not None:
             _win_age = i - _stop_win["trig_bar"]
             if _win_age >= 1:
+                # 判定根计数 (2026-11-19 user 15:14 定版): 信号根不算窗口根,
+                # 本块处理的每一根都是判定根, 序号从信号根下一根=1 起
+                _stop_win["jbars"] = _stop_win.get("jbars", 0) + 1
+                _j = _stop_win["jbars"]
                 _wdr = _stop_win["dr"]; _wth = _stop_win["threshold"]
                 if (_wdr == "call" and px >= _wth) or (_wdr == "put" and px <= _wth):
                     actions.append((i, f"{day}T{hm}", "平", pos, px_exec, f"止损窗口回{int(_STOP_WIN_RECOV*100)}%平"))
@@ -1283,6 +1293,57 @@ def _run_all(warm, eod_1m, force_st=False):
                         _wa_new = "call" if _st_trend[i] == 1 else "put"
                         actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
                         pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
+                    continue
+                if _STOP_WIN_DYN:
+                    # 有利根看判定根自身阴阳 (2026-11-19 user 16:18 定版, 取代收盘 vs 上一根收盘):
+                    # call 等向上反弹 -> 阳线 (收>开) 有利; put 等向下反弹 -> 阴线 (收<开) 有利; 十字算不利
+                    _fav = (px > float(_open_arr[i])) if _wdr == "call" else (px < float(_open_arr[i]))
+                    # 连续不利计数 (2026-11-19 user 15:47 定版): 最少看两根, 连续两根不利才出窗,
+                    # 有利根清零; 原「第一根观察」被 streak 自然包含 (#1 不利只是 streak=1), 不再单设豁免
+                    _stop_win["streak"] = 0 if _fav else _stop_win.get("streak", 0) + 1
+                    _stk = _stop_win["streak"]
+                    if _stk < 2 and not _fav:
+                        actions.append((i, f"{day}T{hm}", "持", pos, px_exec, f"止损窗口(续·不利{_stk})"))
+                        _stop_triggered = True
+                        continue
+                    if _stk >= 2:
+                        actions.append((i, f"{day}T{hm}", "平", pos, px_exec, "止损窗口不利出(连2根)"))
+                        pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
+                        wait_red = wait_blue = False
+                        _follow_entry_bar = None
+                        _hold_watch = None
+                        _fav_peak = 0; _fav_sign = 0
+                        _stop_entry_dir = None
+                        k3_tp_bar = None; _bigtp_bar = None; _bigwait_target = None; _bigwait_bars = 0; k3_wait_target = None; k3_wait_bars = 0
+                        _close_hist = abs(hist[i]) if not np.isnan(hist[i]) else 0
+                        _stop_win = None
+                        _stop_triggered = True
+                        if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0 and not _pm_closeonly:
+                            _wa_new = "call" if _st_trend[i] == 1 else "put"
+                            actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
+                            pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
+                        continue
+                    # 续期 (2026-11-19 user 16:18 定版): 早盘判定根 (11:00 之前) 有利只续 1 根, 11:00 起续 2 根
+                    _stop_win["dyn_dead"] = min(_STOP_WIN_BARS, _j + (1 if hm < "11:00" else 2))
+                    if _j >= _STOP_WIN_BARS:
+                        actions.append((i, f"{day}T{hm}", "平", pos, px_exec, "止损窗口到上限平"))
+                        pos = None; _was_above_zero_wk = False; _was_below_zero_wk = False; _call_gap_wk = 0; _put_gap_wk = 0; last_action_bar = i; was_on_top = was_on_bottom = False
+                        wait_red = wait_blue = False
+                        _follow_entry_bar = None
+                        _hold_watch = None
+                        _fav_peak = 0; _fav_sign = 0
+                        _stop_entry_dir = None
+                        k3_tp_bar = None; _bigtp_bar = None; _bigwait_target = None; _bigwait_bars = 0; k3_wait_target = None; k3_wait_bars = 0
+                        _close_hist = abs(hist[i]) if not np.isnan(hist[i]) else 0
+                        _stop_win = None
+                        _stop_triggered = True
+                        if _WIN_AFTER_ST_IMM and _hyb_run_st and _st_trend[i] != 0 and not _pm_closeonly:
+                            _wa_new = "call" if _st_trend[i] == 1 else "put"
+                            actions.append((i, f"{day}T{hm}", "开", _wa_new, px_exec, f"窗口出来ST开{_wa_new}"))
+                            pos = _wa_new; _init_stop_vars(_wa_new, px, i); last_action_bar = i
+                        continue
+                    actions.append((i, f"{day}T{hm}", "持", pos, px_exec, f"止损窗口(续·有利,延至{_stop_win['dyn_dead']})"))
+                    _stop_triggered = True
                     continue
                 if _win_age <= _STOP_WIN_BARS:
                     # W15FZ (2026-10-28 用户: 窗口内屏蔽平仓, 等待机会平仓): 窗口bar直接冻结,

@@ -1890,7 +1890,7 @@ def main():
     stvx_main_flips_js = "[]"
     stvx_inner, stvx_tot, stvx_tot_pct = _est_table_inner(
         [], "ST VX版信号单（Gamma理论预估，v2罚后口径）",
-        "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(窗3根)+大跳空GF+双侧上午门控；非实际成交")
+        "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(动态窗:连2根不利出/上限3判定根)+大跳空GF+双侧上午门控；非实际成交")
     try:
         import sys as _sys3
         _stvx_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stvx")
@@ -1951,7 +1951,7 @@ def main():
                 [{**rt, "est_roi": rt["roi_pen"] / 100.0} for rt in stvx_rts],
                 "ST VX版信号单（Gamma理论预估，v2罚后口径）",
                 "预估=Gamma公式ROI(v2逆势put罚后)×$100k日内sequential复利；"
-                "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(窗3根)+大跳空日10:00前不开仓"
+                "ST VX=年龄滑梯+slope5压带+止损只在翻仓根查(动态窗:连2根不利出/上限3判定根)+大跳空日10:00前不开仓"
                 "+双侧上午门控(≥55%/≤-30%→13:30-15:00只平不开、15:00状态恢复)；非实际成交")
             for (hm, act, dr, px, rs) in _svx_actions:
                 _bi = _hm2bi.get(hm)

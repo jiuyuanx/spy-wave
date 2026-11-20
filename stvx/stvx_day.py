@@ -5,6 +5,9 @@
 研究基线 esFSW3GF (年龄滑梯 + slope5 压带原形 K0.5/CAP0.4 + 止损只在翻仓
 信号根查、窗口 3 根 + GF 大跳空规则 |今开-昨收|>=10 点 -> 10:00 ET 前不开仓)
 + 双侧上午门控 (>=55% / <=-30% -> 13:30-15:00 只平不开、15:00 状态恢复)。
+止损窗口 2026-11-20 起改动态窗 (user 令, 日页常态): ENV_DUAL 加 STOP_WIN_DYN=1,
+内核 pi[68] 臂 = dynwin 定版 (判定根自身阴阳定有利、连续2根不利出窗+按趋势开、
+有利续期 11:00 前+1/起+2、上限仍 3 判定根; 回 50% 目标平保留)。
 
 实现纪律 (与 research/st_gap_digest_20261109 逐字同源, 不拼凑、不近似):
 - 内核 stvx_kernel.py = research st_kernel_gf_amgate.py 逐字 vendored
@@ -46,7 +49,8 @@ ENV_DUAL = {
     "DG_OP_SK_LISTFILE": "/home/hatch/workspace/research/st_gap_digest_20261109/combo_hit_F.json",
     "DG_QF": "half", "DG_QF_RATIO": "0.75", "DG_S5": "1", "DG_S5_CAP": "0.4",
     "DG_S5_K": "0.5", "DG_YD0": "0.5", "REBOUND_RED": "1",
-    "STDIGEST": "c4age+qf", "STOP_WIN_BARS": "3", "STOP_WIN_RECOV": "0.50",
+    "STDIGEST": "c4age+qf", "STOP_WIN_BARS": "3", "STOP_WIN_DYN": "1",
+    "STOP_WIN_RECOV": "0.50",
     "STRONG_TREND": "1", "ST_FLIP": "0", "ST_ONLY": "1",
 }
 

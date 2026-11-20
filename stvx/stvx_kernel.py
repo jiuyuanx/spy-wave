@@ -228,6 +228,7 @@ def make_params(env):
     # --- 止损窗口 (交易循环) ---
     pf[32] = float(env.get("STOP_WIN_RECOV", "0.50"))
     pi[32] = int(env.get("STOP_WIN_BARS", "5"))
+    pi[68] = int(env.get("STOP_WIN_DYN", "0"))  # 68 STOP_WIN_DYN (2026-11-19 user: 动态止损窗口)
     # --- nb 扩展 (2026-11-13): PF 沿用臂, 与慢版 stonly_gen_pf.py 逐项对齐 ---
     # pf[35]=PF_D0  pf[36]=PF_T ; pi[33]=PF_ON  pi[34]=PF_CLK(0=a 沿原窗口/1=b 自翻仓重滑)
     pf_on = env.get("DG_PF", "") == "1"
@@ -867,7 +868,9 @@ def st_arrays_kernel(h, l, c, o, hl2, tr, atr_init,
 # reason 码: 0 日终平仓(1m15:55) / 1 日终平仓(最后一根) / 2 止损窗口回RECOV平 /
 #   3 止损窗口(续) / 4 止损窗口6根平 / 5 止损窗口6根平(补) / 6 止损窗口开始(p1=gamma,p2=thr) /
 #   7 VP提前认错(p1=adv,p2=atr) / 8 ST翻转平 / 9 ST翻转开 / 10 ST开盘平 / 11 ST开盘开 /
-#   12 ST兜底开 (S 政策: 前3根未翻, 第3根按当时 ST 状态开) / 13 窗口恢复开 (AMGATE)
+#   12 ST兜底开 (S 政策: 前3根未翻, 第3根按当时 ST 状态开) / 13 窗口恢复开 (AMGATE) /
+#   14 止损窗口不利出 (动态窗: 连续2根不利) / 15 窗口出来ST开 (不利出后按趋势开) /
+#   16 止损窗口到上限平 (动态窗) / 18 止损窗口(续·有利, p2=延至判定根) / 19 止损窗口(续·不利, p1=连不利数)
 
 @njit
 def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
@@ -878,6 +881,7 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
     recov = pf[32]; ee_atr = pf[33]
     ee_on = pi[24] == 1; ee_bars = pi[25]; skip_on = pi[26] == 1
     sw_bars = pi[32]
+    sw_dyn = pi[68] == 1
     op_pol = pi[39]; op_k = pi[40]; op_ign_off = pi[41] == 1; op_kraw = pi[42] == 1
     sk_age_lo = pf[48]; sk_age_hi = pf[49]; sk_amp_lo = pf[50]; sk_amp_hi = pf[51]
     sk_dir = pi[49]; sk_list = pi[48] == 1
@@ -896,7 +900,7 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
     na = 0
     pos = 0  # 0 无仓 / 1 call / -1 put
     stop_dir = 0; stop_px = 0.0
-    sw_on = False; sw_trig = -1; sw_thr = 0.0; sw_dr = 0
+    sw_on = False; sw_trig = -1; sw_thr = 0.0; sw_dr = 0; sw_dead = 2; sw_j = 0; sw_streak = 0
     ee_active = False; ee_day_ord = -1; ee_px = 0.0; ee_atr_v = 0.0; ee_bid = 0
     prev_ord = -1; day_start_idx = start_idx
     ign_n = 1; ign_day_idx = -1; ign_wk = 1
@@ -1048,10 +1052,48 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
         if sw_on and pos != 0:
             age = i - sw_trig
             if age >= 1:
+                # 判定根计数 (2026-11-19 user 15:14 定版): 信号根不算窗口根,
+                # 本块处理的每一根都是判定根, 序号从信号根下一根=1 起
+                sw_j += 1
                 if (sw_dr == 1 and px >= sw_thr) or (sw_dr == -1 and px <= sw_thr):
                     a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 2; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
                     pos = 0; stop_dir = 0; sw_on = False
                     continue
+                if sw_dyn:
+                    # 有利根看判定根自身阴阳 (2026-11-19 user 16:18 定版): call 阳线有利 / put 阴线有利, 十字算不利
+                    fav = (px > o[i]) if sw_dr == 1 else (px < o[i])
+                    # 连续不利计数 (2026-11-19 user 15:47 定版): 连续两根不利才出窗, 有利清零;
+                    # 原「第一根观察」被 streak 自然包含, 不再单设豁免
+                    if fav:
+                        sw_streak = 0
+                    else:
+                        sw_streak += 1
+                    if sw_streak < 2 and not fav:
+                        a_bar[na] = i; a_act[na] = 2; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 19; a_p1[na] = float(sw_streak); a_p2[na] = 0.0; na += 1
+                        continue
+                    if sw_streak >= 2:
+                        a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 14; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                        pos = 0; stop_dir = 0; sw_on = False
+                        inwin2 = am_on and am_triggered and hm_min[i] >= am_start and hm_min[i] < am_end
+                        gfblock2 = gf_today and (gf_open_idx < 0 or i < gf_open_idx)
+                        if trend[i] != 0 and next_same and not inwin2 and not gfblock2:
+                            new2 = trend[i]
+                            a_bar[na] = i; a_act[na] = 0; a_dir[na] = new2; a_px[na] = px_exec; a_rsn[na] = 15; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                            pos = new2; stop_dir = new2; stop_px = px
+                            if ee_on and ee_day[i]:
+                                ee_active = True; ee_day_ord = oi; ee_px = px; ee_atr_v = atr[i]; ee_bid = bar_in_day[i]
+                        continue
+                    if fav:
+                        # 续期 (2026-11-19 user 16:18 定版): 早盘判定根 (11:00 前, hm_min<660) 只续 1 根, 11:00 起续 2 根
+                        sw_dead = sw_j + (1 if hm_min[i] < 660 else 2)
+                        if sw_dead > sw_bars:
+                            sw_dead = sw_bars
+                        if sw_j >= sw_bars:
+                            a_bar[na] = i; a_act[na] = 1; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 16; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
+                            pos = 0; stop_dir = 0; sw_on = False
+                            continue
+                        a_bar[na] = i; a_act[na] = 2; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 18; a_p1[na] = 1.0; a_p2[na] = float(sw_dead); na += 1
+                        continue
                 if age <= sw_bars:
                     a_bar[na] = i; a_act[na] = 2; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 3; a_p1[na] = 0.0; a_p2[na] = 0.0; na += 1
                     if age == sw_bars:
@@ -1078,7 +1120,7 @@ def st_trade_kernel(c, o, day_ord, hm_min, eod_px, skip_bar,
                         g = _pymin(g, 0.0)
                 if not sw_on and g <= -20.0 and trend[i] != trend[i - 1]:
                     thr = px + recov * (stop_px - px)
-                    sw_on = True; sw_trig = i; sw_thr = thr; sw_dr = pos
+                    sw_on = True; sw_trig = i; sw_thr = thr; sw_dr = pos; sw_dead = 2; sw_j = 0; sw_streak = 0
                     a_bar[na] = i; a_act[na] = 2; a_dir[na] = pos; a_px[na] = px_exec; a_rsn[na] = 6; a_p1[na] = g; a_p2[na] = thr; na += 1
                     continue
         else:
@@ -1197,6 +1239,18 @@ def _fmt_reason(rsn, dirc, p1, p2, recov, ee_atr_v):
         return f"ST兜底开{dn}"
     if rsn == 13:
         return f"窗口恢复开{dn}"
+    if rsn == 14:
+        return "止损窗口不利出"
+    if rsn == 15:
+        return f"窗口出来ST开{dn}"
+    if rsn == 16:
+        return "止损窗口到上限平"
+    if rsn == 17:
+        return f"止损窗口(观察·{'有利' if p1 > 0 else '不利'})"
+    if rsn == 18:
+        return f"止损窗口(续·有利,延至{int(p2)})"
+    if rsn == 19:
+        return f"止损窗口(续·不利{int(p1)})"
     return f"?rsn{rsn}"
 
 
