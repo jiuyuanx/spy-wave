@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""日页 Envelope 版 (WER 终栈⑪ 冠军版) 常量构造 (2026-11-17 vendored)。
+"""日页 Envelope 版常量构造 (2026-11-17 vendored; 2026-11-20 起
+数据源换 F1+WER —— envf1_recipe / console env1m_engine 同源, 本模块
+构造逻辑与版式不变, 仅表头文案与 sf 反手入场标签随新引擎更新)。
 
 与 envint/envint_page.py 逐行同源 (norm_runs / build_trades / settle /
 build_consts 函数体同形), 差别只有三处:
@@ -24,6 +26,7 @@ CLOSE_BORDER = "#6b7280"  # 终栈平仓圈灰边
 
 STACK_ENTRY_RS = {"edge": ("边缘买入", "边缘卖出"),
                   "er": ("ER买入", "ER卖出"),
+                  "sf": ("反手买入", "反手卖出"),
                   "trend": ("趋势买入", "趋势卖出")}
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
@@ -288,10 +291,11 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         "<td>~%s</td><td></td></tr>" % money(tot))
     inner = (
         "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
-        "Envelope版信号单（WER终栈⑪ · Gamma理论预估，-100口径）</div>"
+        "Envelope版信号单（F1+WER · Gamma理论预估，-100口径）</div>"
         "<div style=\"font-size:12px;color:#555;margin-bottom:6px\">"
-        "WER 冠军版（终栈⑪）：ER 段＋F3S 段内管理 · dose/ramp/brk5 · "
-        "ER腿止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · "
+        "F1+WER：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋"
+        "ER 段/F3S 段内管理 · dose/ramp/brk5 · "
+        "本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · "
         "引擎信号根收盘口径</div>"
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" "
         "cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;"

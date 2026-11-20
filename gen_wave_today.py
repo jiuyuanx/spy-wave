@@ -3671,14 +3671,18 @@ def main():
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
-    # ---- Envelope 版 = WER 终栈⑪ 冠军版 (2026-11-17 user 令) ----
-    # envwer/ vendored 管线与 brk1112 compute_2weeks.run_day 冠军臂逐字
-    # 同源: fork tv_v67_er_overlay_wcent2f3sr + er_cfg 终栈⑪ (CHAMP_CFG
-    # + RAMP_OVER + CE RF/F2/F3/shield), SL_K=0.7875。
+    # ---- Envelope 版 = F1+WER (2026-11-20 user 令换引擎; 前身为
+    # WER 终栈⑪ 冠军版, 2026-11-17 user 令) ----
+    # 引擎 = console envelope1m 同源 (envwer/env1m_engine.py 逐字
+    # vendored): WER 冠军本体 + F1 止损反手 (p=0.25, 反手止损
+    # 2.5xATR, 本体 SL_K=0.7875) + ER 腿 CFG_A, 无箭头; 配方 =
+    # envwer/envf1_recipe.day_payload_warm_f1 (装配/展示 schema 与
+    # 冠军版暖配方同形, envwer_page 沿用)。只换该节信号/成交/轨迹
+    # 与标题数字, 页面其余部分及 slope/dev 面板不动。
     # 喂帧 = 暖帧 (2026-11-17 16:14 user 令改, 对齐定版整帧连续口径):
     # _env_df 本含目标日前 10 日历日 + 当日 (回放=缓存/API 同款), 整帧
-    # 喂 day_payload_warm (指标/WER/CE 全帧算、simulate 整帧演化、逐笔
-    # 只取当日)。冷版单日跑曾因 ADX 前 31 根 NaN 被 ind_ok 门放大成
+    # 喂 day_payload_warm_f1 (指标/WER/CE 全帧算、simulate 整帧演化、
+    # 逐笔只取当日)。冷版单日跑曾因 ADX 前 31 根 NaN 被 ind_ok 门放大成
     # 10:01 前全场封锁、且整上午指标偏离定版 —— 已弃用 (冷版函数保留
     # 在 envwer_recipe 作对照)。暖版复现闸 (2026-11-17): 2026-11-13 /
     # 11-16 两天逐笔与定版整帧 run (merge4b 原班机器扩窗复跑, 其
@@ -3705,7 +3709,7 @@ def main():
         _envwer_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "envwer")
         if _envwer_dir not in _sys.path:
             _sys.path.insert(0, _envwer_dir)
-        import envwer_recipe as _ewr
+        import envf1_recipe as _ef1
         import envwer_page as _ewp
         _idf = _env_df.copy()
         if getattr(_idf["t"].dt, "tz", None) is not None:
@@ -3714,7 +3718,7 @@ def main():
         _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
         _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
             "t").drop_duplicates("t", keep="last").reset_index(drop=True)
-        _payload, _perr = _ewr.day_payload_warm(
+        _payload, _perr = _ef1.day_payload_warm_f1(
             _idf[["t", "open", "high", "low", "close"]], day_str)
         if _payload is None:
             raise RuntimeError(f"载荷失败: {_perr}")
@@ -3758,15 +3762,15 @@ def main():
             vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
             _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
         _env_int_ok = True
-        print(f"  envelope-wer(终栈⑪,暖帧{_payload.get('warm_days', 0)}日): "
+        print(f"  envelope-f1(F1+WER,暖帧{_payload.get('warm_days', 0)}日): "
               f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
               flush=True)
     except Exception as _ee:
         _env_wer_failed = True
         _env_wer_err = f"{type(_ee).__name__}: {_ee}"
-        print(f"  ERROR envelope-wer 计算失败, 该节标注错误 (不回退旧口径): "
+        print(f"  ERROR envelope-f1 计算失败, 该节标注错误 (不回退旧口径): "
               f"{_env_wer_err}", flush=True)
-        print(f"  ERROR envelope-wer 计算失败: {_env_wer_err}",
+        print(f"  ERROR envelope-f1 计算失败: {_env_wer_err}",
               file=_sys.stderr, flush=True)
 
     if _env_int_ok:
@@ -3795,12 +3799,12 @@ def main():
         env_mark_area_js = "[]"
         env_inner = (
             "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
-            "Envelope版信号单（WER终栈⑪ · Gamma理论预估，-100口径）</div>"
+            "Envelope版信号单（F1+WER · Gamma理论预估，-100口径）</div>"
             "<div style=\"font-size:13px;color:#e5484d;font-weight:bold\">"
-            f"⚠ Envelope版计算失败（WER终栈⑪）：{_err_txt}<br/>"
+            f"⚠ Envelope版计算失败（F1+WER）：{_err_txt}<br/>"
             "本节暂无数据（未回退旧口径），请看构建日志 ERROR 行。</div>")
         env_acts = {}
-        env_title_txt = f"{day_str} (Envelope版) | 计算失败（WER终栈⑪）"
+        env_title_txt = f"{day_str} (Envelope版) | 计算失败（F1+WER）"
         env_title_echart = f"{day_str} ({{envelope|Envelope}}版) | 计算失败"
         env_upper = env_lower = env_chanmid = env_mid = []
         env_tip = {}
@@ -4029,8 +4033,8 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var wrap = document.createElement('div');")
     _sw.append("  wrap.id = 'werPanel';")
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
-    _wer_title = ("WER · 终栈⑪（引擎口径）" if _env_int_ok
-                  else "WER · 终栈⑪（计算失败）")
+    _wer_title = ("WER · F1+WER（引擎口径）" if _env_int_ok
+                  else "WER · F1+WER（计算失败）")
     _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")
