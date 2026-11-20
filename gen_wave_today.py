@@ -3671,46 +3671,57 @@ def main():
         _out_name = WAVE_OUT_NAME_TMPL or f"wave-today-{day_str.replace('-', '')}.html"
     out = f"{WDIR}/{_out_name}"
     os.makedirs(WDIR, exist_ok=True)
-    # ---- Envelope 版 = F1+WER (2026-11-20 user 令换引擎; 前身为
-    # WER 终栈⑪ 冠军版, 2026-11-17 user 令) ----
-    # 引擎 = console envelope1m 同源 (envwer/env1m_engine.py 逐字
-    # vendored): WER 冠军本体 + F1 止损反手 (p=0.25, 反手止损
-    # 2.5xATR, 本体 SL_K=0.7875) + ER 腿 CFG_A, 无箭头; 配方 =
-    # envwer/envf1_recipe.day_payload_warm_f1 (装配/展示 schema 与
-    # 冠军版暖配方同形, envwer_page 沿用)。只换该节信号/成交/轨迹
-    # 与标题数字, 页面其余部分及 slope/dev 面板不动。
+    # ---- Envelope 版 = WER 冠军 / F1+WER 双版同算, 页内按钮切换
+    # (2026-11-20 user 令: 默认显示冠军版, user 在浏览器里自己切;
+    # 今晨先换 F1+WER 单版 (09826da57)、中午改双版并存) ----
+    # 两套引擎/配方都保留、每轮都算 (同一暖帧, 见下):
+    #   champion: envwer_recipe.day_payload_warm —— WER 终栈⑪ 冠军版
+    #     (envwer/ vendored 管线与 brk1112 compute_2weeks.run_day
+    #     冠军臂逐字同源: fork tv_v67_er_overlay_wcent2f3sr + er_cfg
+    #     终栈⑪ (CHAMP_CFG + RAMP_OVER + CE RF/F2/F3/shield),
+    #     SL_K=0.7875);
+    #   f1: envf1_recipe.day_payload_warm_f1 —— console envelope1m
+    #     同源 (envwer/env1m_engine.py 逐字 vendored): WER 冠军本体
+    #     + F1 止损反手 (p=0.25, 反手止损 2.5xATR, 本体 SL_K=0.7875)
+    #     + ER 腿 CFG_A, 无箭头; 含帧尾 px 回退修复 (d3dfb9f8c)。
+    # 装配/展示同走 envwer_page (mode 参数分表头文案与 sf 标签;
+    # 两配方产出 schema 同形)。
     # 喂帧 = 暖帧 (2026-11-17 16:14 user 令改, 对齐定版整帧连续口径):
     # _env_df 本含目标日前 10 日历日 + 当日 (回放=缓存/API 同款), 整帧
-    # 喂 day_payload_warm_f1 (指标/WER/CE 全帧算、simulate 整帧演化、
-    # 逐笔只取当日)。冷版单日跑曾因 ADX 前 31 根 NaN 被 ind_ok 门放大成
-    # 10:01 前全场封锁、且整上午指标偏离定版 —— 已弃用 (冷版函数保留
-    # 在 envwer_recipe 作对照)。暖版复现闸 (2026-11-17): 2026-11-13 /
+    # 喂配方 (指标/WER/CE 全帧算、simulate 整帧演化、逐笔只取当日)。
+    # 冷版单日跑曾因 ADX 前 31 根 NaN 被 ind_ok 门放大成 10:01 前
+    # 全场封锁、且整上午指标偏离定版 —— 已弃用 (冷版函数保留在
+    # envwer_recipe 作对照)。暖版复现闸 (2026-11-17): 2026-11-13 /
     # 11-16 两天逐笔与定版整帧 run (merge4b 原班机器扩窗复跑, 其
     # <=11-10 段与 merge4b.csv 73,150 笔逐笔全等) 逐项全等。
     # 呈现沿用整合版面孔: WER 段内 1m 曲线天蓝染色 (无背景带)、圈锚
     # 信号根收盘、平仓圈灰、日收益连乘、WER 面板与主图同段同源。
-    # 此前两条产出路径 (envint 整合版调用 / 内置旧引擎) 不再产出该节:
-    # 计算失败时不回退旧口径 —— 该节直接标注计算失败 (标题 + 单子表
-    # 红字) 并在构建日志打 ERROR。缘起: 2026-11-17 上午 envint warm
-    # 调用混入 main 致页面静默回退 2026-11-09 老引擎一整天。
+    # 共用常量 (轨道/WER 面板/slope-dev/QQE1m 面板) 两版只发一份:
+    # 两版同帧同指标, 2026-11-19 A/B 实测逐字节同值; 构建时逐项
+    # 比对、不同打 WARN (页面取冠军版那份)。成交类常量 (圈/单子
+    # 表/acts/tip/标题/段染色) 两版各一份进 ENVELOPE_SETS, 页内
+    # switchEnvMode 整套换 (见下方 _sw 注入段; 默认冠军)。
+    # 失败口径: 任一版计算失败只标该版失败 (标题 + 单子表红字)、
+    # 不回退旧口径、不拖累另一版, 构建日志打 ERROR。缘起:
+    # 2026-11-17 上午 envint warm 调用混入 main 致页面静默回退
+    # 2026-11-09 老引擎一整天 —— 失败必须可见。
     # (上方旧引擎块保留: 仍供 _env_df/_env_trend_segs/env_min/max 等
     # 页面脚手架, 其单子不再进 Envelope 节。)
+    _ENV_MODES = (("champion", "WER终栈⑪", "envelope-wer"),
+                  ("f1", "F1+WER", "envelope-f1"))
+    _env_sets = {}    # mode -> build_consts 常量 dict (该版计算成功时)
+    _env_fail = {}    # mode -> 错误文本 (该版计算失败时)
     _env_int_ok = False
     _env_int_consts = None
     _env_wer_failed = False
-    _env_wer_err = ""
     slpdev_panel = {"slope": [], "dev": [],
                     "th": {"up": 0.05, "dn": 0.07, "dev": 0.079}}
     env_qqe1m = {"hist": [], "col": []}
     import sys as _sys
+    _idf = None
     try:
         if _env_df is None or not len(_env_df):
             raise RuntimeError("envelope 1m 数据为空 (_env_df 空)")
-        _envwer_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "envwer")
-        if _envwer_dir not in _sys.path:
-            _sys.path.insert(0, _envwer_dir)
-        import envf1_recipe as _ef1
-        import envwer_page as _ewp
         _idf = _env_df.copy()
         if getattr(_idf["t"].dt, "tz", None) is not None:
             _idf["t"] = _idf["t"].dt.tz_convert(
@@ -3718,10 +3729,21 @@ def main():
         _im = _idf["t"].dt.hour * 60 + _idf["t"].dt.minute
         _idf = _idf[(_im >= 570) & (_im <= 959)].sort_values(
             "t").drop_duplicates("t", keep="last").reset_index(drop=True)
-        _payload, _perr = _ef1.day_payload_warm_f1(
-            _idf[["t", "open", "high", "low", "close"]], day_str)
-        if _payload is None:
-            raise RuntimeError(f"载荷失败: {_perr}")
+    except Exception as _fe:
+        _frame_err = f"{type(_fe).__name__}: {_fe}"
+        for _m, _mn, _lt in _ENV_MODES:
+            _env_fail[_m] = _frame_err
+            print(f"  ERROR {_lt} 计算失败, 该节标注错误 (不回退旧口径): "
+                  f"{_frame_err}", flush=True)
+            print(f"  ERROR {_lt} 计算失败: {_frame_err}",
+                  file=_sys.stderr, flush=True)
+    if _idf is not None:
+        _envwer_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "envwer")
+        if _envwer_dir not in _sys.path:
+            _sys.path.insert(0, _envwer_dir)
+        import envwer_recipe as _ewr
+        import envf1_recipe as _ef1
+        import envwer_page as _ewp
         # ---- 1m QQE 面板数据 (2026-11-19 user 令): 与 Envelope 同一
         # 暖帧 _idf 全帧算 QQE MOD (qqe_mod.py 正本), 只取当日、按
         # 固定 390 槽 (09:30-15:59) 对齐; 颜色 = QQE MOD 状态
@@ -3751,65 +3773,91 @@ def main():
         except Exception as _qe:
             print(f"  WARN envelope qqe1m 面板计算失败 (面板不显示): "
                   f"{_qe}", flush=True)
-        _sday, _day = _payload["sday"], _payload["day"]
-        _runs = _ewp.norm_runs(_sday, _day)
-        _itrades = _ewp.build_trades(_sday, _runs)
-        _roi_sum = sum(t["roi"] for t in _itrades) * 100
-        _exp = _sday["total_slope"] + _sday["total_stack"]
-        assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
-        _tot, _tot_pct = _ewp.settle(_itrades)
-        _env_int_consts, _ititle, _ititlee = _ewp.build_consts(
-            vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
-            _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str)
-        _env_int_ok = True
-        print(f"  envelope-f1(F1+WER,暖帧{_payload.get('warm_days', 0)}日): "
-              f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
-              flush=True)
-    except Exception as _ee:
-        _env_wer_failed = True
-        _env_wer_err = f"{type(_ee).__name__}: {_ee}"
-        print(f"  ERROR envelope-f1 计算失败, 该节标注错误 (不回退旧口径): "
-              f"{_env_wer_err}", flush=True)
-        print(f"  ERROR envelope-f1 计算失败: {_env_wer_err}",
-              file=_sys.stderr, flush=True)
+        for _mode, _mname, _logtag in _ENV_MODES:
+            try:
+                if _mode == "f1":
+                    _payload, _perr = _ef1.day_payload_warm_f1(
+                        _idf[["t", "open", "high", "low", "close"]], day_str)
+                else:
+                    _payload, _perr = _ewr.day_payload_warm(
+                        _idf[["t", "open", "high", "low", "close"]], day_str)
+                if _payload is None:
+                    raise RuntimeError(f"载荷失败: {_perr}")
+                _sday, _day = _payload["sday"], _payload["day"]
+                _runs = _ewp.norm_runs(_sday, _day)
+                _itrades = _ewp.build_trades(_sday, _runs, mode=_mode)
+                _roi_sum = sum(t["roi"] for t in _itrades) * 100
+                _exp = _sday["total_slope"] + _sday["total_stack"]
+                assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
+                _tot, _tot_pct = _ewp.settle(_itrades)
+                _consts, _ititle, _ititlee = _ewp.build_consts(
+                    vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
+                    _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str,
+                    mode=_mode)
+                _env_sets[_mode] = _consts
+                print(f"  {_logtag}({_mname},暖帧{_payload.get('warm_days', 0)}日): "
+                      f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
+                      flush=True)
+            except Exception as _ee:
+                _env_fail[_mode] = f"{type(_ee).__name__}: {_ee}"
+                print(f"  ERROR {_logtag} 计算失败, 该节标注错误 (不回退旧口径): "
+                      f"{_env_fail[_mode]}", flush=True)
+                print(f"  ERROR {_logtag} 计算失败: {_env_fail[_mode]}",
+                      file=_sys.stderr, flush=True)
 
-    if _env_int_ok:
+    # ---- 共用常量 (轨道/WER 面板/slope-dev): 取成功版 (冠军优先);
+    # 两版都成功时逐项比对, 不一致打 WARN (同帧同指标应同值) ----
+    _shared_mode = ("champion" if "champion" in _env_sets else
+                    ("f1" if "f1" in _env_sets else None))
+    _env_wer_failed = _shared_mode is None
+    if _shared_mode is not None:
+        _env_int_ok = True
+        _env_int_consts = _env_sets[_shared_mode]
         _C = _env_int_consts
-        env_pins = _C["ENVELOPE_PINS"]
-        env_spins = _C["ENVELOPE_SPINS"]
-        env_scat_js = json.dumps(_C["ENVELOPE_SCAT_1M"], ensure_ascii=False)
-        env_mark_area_js = _C["ENVELOPE_MARKAREA_1M"]
-        env_inner = _C["ENVELOPE_INNER"]
-        env_acts = _C["ENVELOPE_ACTS"]
-        env_title_txt = _C["ENVELOPE_TITLE"]
-        env_title_echart = _C["ENVELOPE_TITLEE"]
         env_upper = _C["ENVELOPE_UPPER_1M"]
         env_lower = _C["ENVELOPE_LOWER_1M"]
         env_chanmid = _C["ENVELOPE_CHANMID_1M"]
         env_mid = _C["ENVELOPE_MID_1M"]
-        env_tip = _C["ENVELOPE_TIP"]
         wer_panel = _C["ENVELOPE_WER"]
         slpdev_panel = _C["ENVELOPE_SLPDEV"]
-    elif _env_wer_failed:
-        import html as _html_mod
-        _err_txt = _html_mod.escape(_env_wer_err)
-        env_pins = []
-        env_spins = []
-        env_scat_js = "[]"
-        env_mark_area_js = "[]"
-        env_inner = (
-            "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
-            "Envelope版信号单（F1+WER · Gamma理论预估，-100口径）</div>"
-            "<div style=\"font-size:13px;color:#e5484d;font-weight:bold\">"
-            f"⚠ Envelope版计算失败（F1+WER）：{_err_txt}<br/>"
-            "本节暂无数据（未回退旧口径），请看构建日志 ERROR 行。</div>")
-        env_acts = {}
-        env_title_txt = f"{day_str} (Envelope版) | 计算失败（F1+WER）"
-        env_title_echart = f"{day_str} ({{envelope|Envelope}}版) | 计算失败"
+        if len(_env_sets) == 2:
+            _Co = _env_sets["f1" if _shared_mode == "champion" else "champion"]
+            for _k in ("ENVELOPE_UPPER_1M", "ENVELOPE_LOWER_1M",
+                       "ENVELOPE_CHANMID_1M", "ENVELOPE_MID_1M",
+                       "ENVELOPE_WER", "ENVELOPE_SLPDEV"):
+                if _C[_k] != _Co[_k]:
+                    print(f"  WARN envelope 双版共用常量 {_k} 不一致, "
+                          f"页面共用面板取{_shared_mode}版", flush=True)
+    else:
         env_upper = env_lower = env_chanmid = env_mid = []
-        env_tip = {}
         wer_panel = {"wer": [], "eff": [], "areas": [],
                      "entries": [], "exits": []}
+    # ---- 每版成交类常量: 成功用真常量; 失败用该版失败标注常量 ----
+    import html as _html_mod
+
+    def _env_fail_consts(_mname, _err):
+        _err_txt = _html_mod.escape(_err)
+        return {
+            "ENVELOPE_PINS": [], "ENVELOPE_SPINS": [],
+            "ENVELOPE_SCAT_1M": [], "ENVELOPE_MARKAREA_1M": "[]",
+            "ENVELOPE_INNER": (
+                "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+                f"Envelope版信号单（{_mname} · Gamma理论预估，-100口径）</div>"
+                "<div style=\"font-size:13px;color:#e5484d;font-weight:bold\">"
+                f"⚠ Envelope版计算失败（{_mname}）：{_err_txt}<br/>"
+                "本节暂无数据（未回退旧口径），请看构建日志 ERROR 行。</div>"),
+            "ENVELOPE_ACTS": {}, "ENVELOPE_TIP": {},
+            "ENVELOPE_TITLE": f"{day_str} (Envelope版) | 计算失败（{_mname}）",
+            "ENVELOPE_TITLEE": f"{day_str} ({{envelope|Envelope}}版) | 计算失败",
+            "ENVELOPE_SLOPE_DYE": []}
+
+    _env_set_consts = {}
+    for _mode, _mname, _logtag in _ENV_MODES:
+        _env_set_consts[_mode] = _env_sets.get(_mode) or _env_fail_consts(
+            _mname, _env_fail.get(_mode, "未知错误"))
+    # TITLES3 的 envelope 初始标题 = 默认版 (冠军); 页内切换时 JS 同步换
+    env_title_txt = _env_set_consts["champion"]["ENVELOPE_TITLE"]
+    env_title_echart = _env_set_consts["champion"]["ENVELOPE_TITLEE"]
     _qqe_acts = {t: (v.get("acts") or []) for t, v in bar_info.items()}
     _vh_acts = {tstrs[bi]: acts for bi, acts in vh_acts_by_bar.items()}
     _sw = []
@@ -3831,28 +3879,45 @@ def main():
     _sw.append("const CE_ACTS = " + json.dumps(ce_acts, ensure_ascii=False) + ";")
     _sw.append("const CE_INNER = " + json.dumps(ce_inner, ensure_ascii=False) + ";")
     _sw.append("const CE_BS = " + ce_bs_js + ";")
-    _sw.append("const ENVELOPE_PINS = " + json.dumps(env_pins, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_SPINS = " + json.dumps(env_spins, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_SCAT_1M = " + env_scat_js + ";")
-    _sw.append("const ENVELOPE_MARKAREA_1M = " + env_mark_area_js + ";")
-    _sw.append("const ENVELOPE_INNER = " + json.dumps(env_inner, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_ACTS = " + json.dumps(env_acts, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_TITLE = " + json.dumps(env_title_txt, ensure_ascii=False) + ";")
-    _sw.append("const ENVELOPE_TITLEE = " + json.dumps(env_title_echart, ensure_ascii=False) + ";")
+    # ---- Envelope 双版数据集 (2026-11-20): 成交类常量两版各一份进
+    # ENVELOPE_SETS, 工作变量默认取冠军版; 页内 switchEnvMode 整套
+    # 换 (圈/单子表/acts/tip/标题/段染色)。共用常量 (轨道/TIMES1M/
+    # TREND_SEGS) 仍只发一份。 ----
+    def _env_set_js(_C):
+        return ("{PINS: " + json.dumps(_C["ENVELOPE_PINS"], ensure_ascii=False)
+                + ", SPINS: " + json.dumps(_C["ENVELOPE_SPINS"], ensure_ascii=False)
+                + ", SCAT_1M: " + json.dumps(_C["ENVELOPE_SCAT_1M"], ensure_ascii=False)
+                + ", MARKAREA_1M: " + _C["ENVELOPE_MARKAREA_1M"]
+                + ", INNER: " + json.dumps(_C["ENVELOPE_INNER"], ensure_ascii=False)
+                + ", ACTS: " + json.dumps(_C["ENVELOPE_ACTS"], ensure_ascii=False)
+                + ", TIP: " + json.dumps(_C["ENVELOPE_TIP"], ensure_ascii=False)
+                + ", TITLE: " + json.dumps(_C["ENVELOPE_TITLE"], ensure_ascii=False)
+                + ", TITLEE: " + json.dumps(_C["ENVELOPE_TITLEE"], ensure_ascii=False)
+                + ", SLOPE_DYE: " + json.dumps(_C["ENVELOPE_SLOPE_DYE"], ensure_ascii=False)
+                + "}")
+    _sw.append("const ENVELOPE_SETS = {champion: "
+               + _env_set_js(_env_set_consts["champion"])
+               + ", f1: " + _env_set_js(_env_set_consts["f1"]) + "};")
+    _sw.append("var ENVELOPE_PINS = ENVELOPE_SETS.champion.PINS;")
+    _sw.append("var ENVELOPE_SPINS = ENVELOPE_SETS.champion.SPINS;")
+    _sw.append("var ENVELOPE_SCAT_1M = ENVELOPE_SETS.champion.SCAT_1M;")
+    _sw.append("var ENVELOPE_MARKAREA_1M = ENVELOPE_SETS.champion.MARKAREA_1M;")
+    _sw.append("var ENVELOPE_INNER = ENVELOPE_SETS.champion.INNER;")
+    _sw.append("var ENVELOPE_ACTS = ENVELOPE_SETS.champion.ACTS;")
+    _sw.append("var ENVELOPE_TIP = ENVELOPE_SETS.champion.TIP;")
+    _sw.append("var ENVELOPE_SLOPE_DYE = ENVELOPE_SETS.champion.SLOPE_DYE;")
+    _sw.append("const ENVELOPE_TITLE = ENVELOPE_SETS.champion.TITLE;")
+    _sw.append("const ENVELOPE_TITLEE = ENVELOPE_SETS.champion.TITLEE;")
     _sw.append("const ENVELOPE_TIMES1M = " + json.dumps(_env_times1m) + ";")
     _sw.append("const ENVELOPE_UPPER_1M = " + json.dumps(env_upper) + ";")
     _sw.append("const ENVELOPE_LOWER_1M = " + json.dumps(env_lower) + ";")
     _sw.append("const ENVELOPE_CHANMID_1M = " + json.dumps(env_chanmid) + ";")
     _sw.append("const ENVELOPE_MID_1M = " + json.dumps(env_mid) + ";")
-    _sw.append("const ENVELOPE_TIP = " + json.dumps(env_tip, ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE_TREND_SEGS = " + json.dumps(
         _env_int_consts["ENVELOPE_TREND_SEGS"] if _env_int_ok else (
             [{"color": _sg.get("color"), "theme": _sg.get("theme"),
               "data": []} for _sg in _env_trend_segs]
             if _env_wer_failed else _env_trend_segs)) + ";")
-    if _env_int_ok:
-        _sw.append("const ENVELOPE_SLOPE_DYE = " + json.dumps(
-            _env_int_consts["ENVELOPE_SLOPE_DYE"], ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE3M_PINS = " + json.dumps(env3_pins, ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE3M_SPINS = " + json.dumps(env3_spins, ensure_ascii=False) + ";")
     _sw.append("const ENVELOPE3M_SCAT = " + env3_scat_js + ";")
@@ -4008,7 +4073,19 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
     _sw.append("  document.title = TITLES3[v];")
     _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
+    _sw.append("  var _emw = document.getElementById('envModeWrap'); if (_emw) _emw.style.display = isENVELOPE ? '' : 'none';")
     _sw.append("}")
+    # ---- Envelope 双版切换 (2026-11-20): 整套换成交类工作变量 +
+    # TITLES3 标题, 当前在 Envelope 版时立即重渲染; 按钮选中态同步 ----
+    _sw.append("window._envMode = 'champion';")
+    _sw.append("window.switchEnvMode = function(m){")
+    _sw.append("  var S = ENVELOPE_SETS[m]; if (!S) return;")
+    _sw.append("  window._envMode = m;")
+    _sw.append("  ENVELOPE_PINS = S.PINS; ENVELOPE_SPINS = S.SPINS; ENVELOPE_SCAT_1M = S.SCAT_1M; ENVELOPE_MARKAREA_1M = S.MARKAREA_1M; ENVELOPE_INNER = S.INNER; ENVELOPE_ACTS = S.ACTS; ENVELOPE_TIP = S.TIP; ENVELOPE_SLOPE_DYE = S.SLOPE_DYE;")
+    _sw.append("  TITLES3.envelope = S.TITLE; TITLES3E.envelope = S.TITLEE;")
+    _sw.append("  if (window._envModeBtns) window._envModeBtns.forEach(function(b){ var on = (b.dataset.envmode === m); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; });")
+    _sw.append("  if (typeof curVer3 !== 'undefined' && curVer3 === 'envelope') switchVersion3('envelope');")
+    _sw.append("};")
     _sw.append("(function(){")
     _sw.append("  var sel = document.getElementById('daypick');")
     _sw.append("  if (!sel) return;")
@@ -4024,6 +4101,21 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  });")
     _sw.append("  sel.parentNode.insertBefore(wrap, sel.nextSibling);")
     _sw.append("  window._verBtns3 = wrap.querySelectorAll('button');")
+    # Envelope 双版切换按钮 (版本排内, 仅 Envelope 版时显示;
+    # _verBtns3 已先行快照, 不含这两个按钮, 免被版本按钮刷色覆盖)
+    _sw.append("  var emw = document.createElement('span');")
+    _sw.append("  emw.id = 'envModeWrap'; emw.style.display = 'none';")
+    _sw.append("  [['champion','WER冠军'],['f1','F1+WER']].forEach(function(it){")
+    _sw.append("    var b = document.createElement('button');")
+    _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.envmode = it[0];")
+    _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
+    _sw.append("    b.style.borderRadius = '10px'; b.style.border = '1px solid #ccc'; b.style.cursor = 'pointer';")
+    _sw.append("    var on0 = (it[0] === 'champion'); b.style.background = on0 ? '#2b7fff' : '#fff'; b.style.borderColor = on0 ? '#2b7fff' : '#ccc'; b.style.color = on0 ? '#fff' : '#333';")
+    _sw.append("    b.onclick = function(){ switchEnvMode(it[0]); };")
+    _sw.append("    emw.appendChild(b);")
+    _sw.append("  });")
+    _sw.append("  wrap.appendChild(emw);")
+    _sw.append("  window._envModeBtns = emw.querySelectorAll('button');")
     _sw.append("  if (!sel.querySelector('option[value=\"summary.html\"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }")
     _sw.append("})();")
     # ---- WER 面板 (Envelope 版股票图下方; 仅 envelope 时显示) ----
@@ -4033,8 +4125,8 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var wrap = document.createElement('div');")
     _sw.append("  wrap.id = 'werPanel';")
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
-    _wer_title = ("WER · F1+WER（引擎口径）" if _env_int_ok
-                  else "WER · F1+WER（计算失败）")
+    _wer_title = ("WER · WER冠军/F1+WER 共用（引擎口径）" if _env_int_ok
+                  else "WER · WER冠军/F1+WER（计算失败）")
     _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")

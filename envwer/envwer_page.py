@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """日页 Envelope 版常量构造 (2026-11-17 vendored; 2026-11-20 起
-数据源换 F1+WER —— envf1_recipe / console env1m_engine 同源, 本模块
-构造逻辑与版式不变, 仅表头文案与 sf 反手入场标签随新引擎更新)。
+双版同算 —— WER 冠军版 (envwer_recipe) 与 F1+WER (envf1_recipe /
+console env1m_engine 同源) 各产一份 payload, gen 两版都调本模块
+装配、页内按钮切换。本模块构造逻辑与版式不变, 仅表头文案与
+sf 反手入场标签随 mode 参数走: mode="champion" (默认) 用冠军
+文案、无 sf 标签; mode="f1" 用 F1+WER 文案 + sf 反手标签)。
 
 与 envint/envint_page.py 逐行同源 (norm_runs / build_trades / settle /
 build_consts 函数体同形), 差别只有三处:
@@ -26,8 +29,10 @@ CLOSE_BORDER = "#6b7280"  # 终栈平仓圈灰边
 
 STACK_ENTRY_RS = {"edge": ("边缘买入", "边缘卖出"),
                   "er": ("ER买入", "ER卖出"),
-                  "sf": ("反手买入", "反手卖出"),
                   "trend": ("趋势买入", "趋势卖出")}
+# sf 反手标签只在 F1+WER 模式出现 (冠军版无 sf 仓, 2026-11-20 user 令)
+STACK_ENTRY_RS_F1 = dict(STACK_ENTRY_RS,
+                         sf=("反手买入", "反手卖出"))
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
                   "EOD": "日终平仓", "TREND_EXIT": "趋势出段"}
@@ -55,8 +60,11 @@ def norm_runs(sday, day):
     return out
 
 
-def build_trades(sday, runs):
-    """合并 slope 单 + 终栈单为单仓位时间线 (引擎收盘口径)。"""
+def build_trades(sday, runs, mode="champion"):
+    """合并 slope 单 + 终栈单为单仓位时间线 (引擎收盘口径)。
+
+    mode="f1" 时入场标签字典含 sf 反手标签, 其余与冠军版一致。"""
+    entry_rs_map = STACK_ENTRY_RS_F1 if mode == "f1" else STACK_ENTRY_RS
     trades = []
     for t in sday["trades"]:
         trades.append(dict(obi=t["eb"], cbi=t["xb"], dir=t["dir"],
@@ -86,7 +94,7 @@ def build_trades(sday, runs):
             t["entry_rs"] = base
             t["close_rs"] = SLOPE_CLOSE_RS.get(t["rsn"], t["rsn"])
         else:
-            pair = STACK_ENTRY_RS.get(t["mode"], ("买入", "卖出"))
+            pair = entry_rs_map.get(t["mode"], ("买入", "卖出"))
             t["entry_rs"] = pair[0] if buy else pair[1]
             t["close_rs"] = STACK_CLOSE_RS.get(t["rsn"], t["rsn"])
     return trades
@@ -103,11 +111,13 @@ def settle(trades):
 
 
 def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
-                 sday, day, trades, runs, tot, tot_pct, date):
+                 sday, day, trades, runs, tot, tot_pct, date,
+                 mode="champion"):
     """按 gen_wave_today.py 日页原生格式构造 ENVELOPE_* 常量 (live15 模板)。
 
     与 envint_page.build_consts 逐行同源, 差别见模块 docstring (表头
-    文案 + WER 段染色/段内标记)。"""
+    文案 + WER 段染色/段内标记)。mode 只切单子表表头文案:
+    "champion" = WER 冠军版 (终栈⑪) 原文案; "f1" = F1+WER 文案。"""
     close, opn = day["close"], day["open"]
     n = len(close)
 
@@ -289,13 +299,20 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         "<tr style=\"background:#f2f2f2;font-weight:bold\">"
         "<td colspan=\"9\">合计</td><td>—</td><td></td>"
         "<td>~%s</td><td></td></tr>" % money(tot))
+    if mode == "f1":
+        _hdr_title = "Envelope版信号单（F1+WER · Gamma理论预估，-100口径）"
+        _hdr_desc = ("F1+WER：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋"
+                     "ER 段/F3S 段内管理 · dose/ramp/brk5 · "
+                     "本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · ")
+    else:
+        _hdr_title = "Envelope版信号单（WER终栈⑪ · Gamma理论预估，-100口径）"
+        _hdr_desc = ("WER 冠军版（终栈⑪）：ER 段＋F3S 段内管理 · dose/ramp/brk5 · "
+                     "ER腿止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · ")
     inner = (
         "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
-        "Envelope版信号单（F1+WER · Gamma理论预估，-100口径）</div>"
+        + _hdr_title + "</div>"
         "<div style=\"font-size:12px;color:#555;margin-bottom:6px\">"
-        "F1+WER：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋"
-        "ER 段/F3S 段内管理 · dose/ramp/brk5 · "
-        "本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · "
+        + _hdr_desc +
         "引擎信号根收盘口径</div>"
         "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" "
         "cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;"
