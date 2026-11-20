@@ -24,6 +24,10 @@ classify_fills + envwer_page.build_consts 沿用), 以便 gen 只换
     开仓根, 出场=帧尾末根收盘, rsn=EOD) —— 与冠军版引擎在未完
     结帧上自然产生的帧尾平仓、以及 gen 其余各节的帧尾合成日终
     平同口径; 完整日帧尾恒无持仓, 此笔不出现。
+  - 开/平仓根为当日最后一根的单 (盘中真实信号单可平在最新根),
+    图口径价 (次根开盘) 尚不存在: 缺价侧回退信号根收盘 (引擎
+    自身结算口径), 见 _day_payload_warm_f1 内注释 (2026-11-20
+    线上首跑实锤: ER_END 单平帧尾根致整节 float(None) 失败)。
 """
 import copy
 
@@ -118,6 +122,24 @@ def _day_payload_warm_f1(dff, NEWDAY):
     tot_stack = round(sum(float(t["r"]) for t in recs
                           if t["mode"] != "slope"), 1)
     strades = [t for t in dd["trades"] if t[3] != "slope"]
+    # 盘中帧尾根单的图口径价回退 (2026-11-20 修复): assemble_cef 的
+    # 图口径开/平价取次根开盘 (与 settle_official 次根开盘结算同
+    # 口径), 开/平仓根为当日最后一根时次根尚不存在 -> eo/xo=None
+    # (defs 层 chart-miss 既有设计), 页面层 float(px) 会炸整节。
+    # env1m 引擎的真实信号单可平在帧尾最新根 (如 ER_END), 冠军
+    # fork 帧尾不落单故旧节从未踩到。此处回退: assemble_cef 是
+    # 任一侧缺失即两侧同置 None, 故先按元组内 di/dx 恢复仍有次
+    # 根的一侧 (真图口径次根开盘, 与次根出现后的重刷结果一致),
+    # 真缺的一侧用信号根收盘 (引擎自身结算口径), 单子照常展示
+    # 与计入 (r/总额本就不依赖图口径价)。合成日终平 (xb=帧尾
+    # 末根) 同理由此覆盖。
+    for t in strades:
+        if t[9] is None:
+            t[9] = round(float(o1[g0 + t[7]]), 3) if t[7] >= 0 \
+                else round(float(c1[g0 + t[0]]), 3)
+        if t[10] is None:
+            t[10] = round(float(o1[g0 + t[8]]), 3) if t[8] >= 0 \
+                else round(float(c1[g0 + t[1]]), 3)
     n_slope_in_dd = sum(1 for t in dd["trades"] if t[3] == "slope")
     assert n_slope_in_dd == len(slp), \
         f"{NEWDAY} dd slope {n_slope_in_dd} != recs {len(slp)}"
