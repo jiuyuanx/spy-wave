@@ -1916,6 +1916,7 @@ def main():
                 _cs = _ce + timedelta(days=1)
             _df1 = (pd.concat(_chunks).sort_values("t")
                     .drop_duplicates("t", keep="last").reset_index(drop=True))
+        _sanitize_bars(_df1)  # 坏bar剔除: 自拉 API 帧的幻影 print 不得毒化 ST VX (731.85 曾冻上带挡翻仓)
         _last_hm = tstrs[today_idx[-1]] if today_idx else ""
         _stvx_complete = bool(WAVE_DATE) or _last_hm in ("15:57", "12:57")
         _pl, _perr = _svx.day_payload(_df1, day_str, day_complete=_stvx_complete)
