@@ -3555,6 +3555,20 @@ def main():
     # 2026-11-12 布局: 55vh 只剩 Envelope 两版与初始态; 实盘/ST VH/QQE/CE 四版由 switchVersion3 里
     # _fitChartH 按视口动态撑满 (innerHeight - #c文档偏移), 用户反馈四版在手机上被压扁
     html = html.replace('#c{width:100%;height:95vh}', '#c{width:100%;height:55vh}', 1)
+    # ST 双轨系列 id (2026-11-20 user 令: ST 节辅助轨按角色淡化, switchVersion3
+    # 里按当前版本的主/辅角色用 id 定向改透明度; 只改输出不改模板源, 同上方惯例)
+    for _old, _new in [
+        ("{name:'st慢版', type:'line', data:stUp,", "{id:'st-slow-up', name:'st慢版', type:'line', data:stUp,"),
+        ("{name:'st慢版', type:'line', data:stDn,", "{id:'st-slow-dn', name:'st慢版', type:'line', data:stDn,"),
+        ("{name:'st慢版', type:'scatter',", "{id:'st-slow-flips', name:'st慢版', type:'scatter',"),
+        ("{name:'st快版', type:'line', data:stFastUp,", "{id:'st-fast-up', name:'st快版', type:'line', data:stFastUp,"),
+        ("{name:'st快版', type:'line', data:stFastDn,", "{id:'st-fast-dn', name:'st快版', type:'line', data:stFastDn,"),
+        ("{name:'st快版', type:'scatter',", "{id:'st-fast-flips', name:'st快版', type:'scatter',"),
+    ]:
+        if _old in html:
+            html = html.replace(_old, _new, 1)
+        else:
+            print(f"  WARN st series id patch miss: {_old[:44]}")
     html = re.sub(r'<title>.*?</title>', f'<title>{title_txt}</title>', html, count=1)
     html = re.sub(r"title:\{text:'.*?', left:'center'",
                   f"title:{{text:'{title_txt}', left:'center'", html, count=1)
@@ -3988,6 +4002,11 @@ return _origEnvTip(ps, barInfo);
     _sw.append("var curVer3 = 'live';")
     _sw.append("window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };")
     _sw.append("window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && curVer3 !== 'envelope3m' && window._fitChartH) window._fitChartH(); });")
+    # ST 双轨角色表 (2026-11-20 user 令): 交易口径轨=主 (全强度)、另一条=辅
+    # (线 alpha 0.3、标记 0.35、填充走 fillA 角色变量); 角色按当前版本算——
+    # vh/live: 慢版主/快版辅; stvx: 影子(压带)主/主轨(本体)辅。切换时重算重涂,
+    # 不把淡化写死在任何一条轨上。
+    _sw.append("function _stRoleOf(v){ if (v === 'stvx') return {main: ['stvx-upper', 'stvx-lower'], aux: ['stvx-mainup', 'stvx-maindn', 'stvx-mainflips'], fillA: 0.04}; if (v === 'live' || v === 'vh') return {main: ['st-slow-up', 'st-slow-dn', 'st-slow-flips'], aux: ['st-fast-up', 'st-fast-dn', 'st-fast-flips'], fillA: 0.12}; return {main: [], aux: [], fillA: 0.12}; }")
     _sw.append("function switchVersion3(v){")
     _sw.append("  curVer3 = v;")
     _sw.append("  try { localStorage.setItem('waveVer3', v); } catch(e) {}")
@@ -3998,6 +4017,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var isENVELOPE = (v === 'envelope');")
     _sw.append("  var isENV3M = (v === 'envelope3m');")
     _sw.append("  var isSTVX = (v === 'stvx');")
+    _sw.append("  var _str = _stRoleOf(v); window._stAuxFillA = _str.fillA;")
     _sw.append("  var pinsData = isENV3M ? ENVELOPE3M_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isSTVX ? STVX_PINS : (useVH ? pins : QQE_PINS))));")
     _sw.append("  var spinsData = isENV3M ? ENVELOPE3M_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isSTVX ? STVX_SPINS : (useVH ? spins : QQE_SPINS))));")
     _sw.append("  var scatData = isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (useVH ? VH_SCAT : QQE_SCAT))));")
@@ -4042,7 +4062,7 @@ return _origEnvTip(ps, barInfo);
     # + 本体翻转 buy/sell 标记 (scatter 圆点10/z6, 标签同 VH stFlips 规格;
     # 与 VX 自身单子圈是两套标记, 单子走压带趋势、此标记只作本体参考);
     # 影子主轨 (压带 fu/fl) = 紫罗兰 #9333ea 1.2px 虚线无填充 (上方两条, z4)。
-    _sw.append("      {id: 'stvx-mainfill', name: '主轨', type: 'custom', silent: true, z: 1, xAxisIndex: 0, yAxisIndex: 0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type: 'polygon', shape: {points: [p1,p2,p3,p4]}, style: {fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke: null}}; }, data: isSTVX ? STVX_MAINFILL : []},")
+    _sw.append("      {id: 'stvx-mainfill', name: '主轨', type: 'custom', silent: true, z: 1, xAxisIndex: 0, yAxisIndex: 0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type: 'polygon', shape: {points: [p1,p2,p3,p4]}, style: {fill: tr===1 ? ('rgba(8,153,129,' + ((typeof window._stAuxFillA === 'number') ? window._stAuxFillA : 0.12) + ')') : ('rgba(242,54,69,' + ((typeof window._stAuxFillA === 'number') ? window._stAuxFillA : 0.12) + ')'), stroke: null}}; }, data: isSTVX ? STVX_MAINFILL : []},")
     _sw.append("      {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []},")
     _sw.append("      {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []},")
     _sw.append("      {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []},")
@@ -4074,6 +4094,8 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  document.title = TITLES3[v];")
     _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
     _sw.append("  var _emw = document.getElementById('envModeWrap'); if (_emw) _emw.style.display = isENVELOPE ? '' : 'none';")
+    # ST 双轨按角色涂透明度 (主=恢复全强度, 影子主轨保持其设计值 0.9; 辅=线 0.3/标记 0.35)
+    _sw.append("  try { var _sp = []; _str.main.forEach(function(id){ _sp.push({id: id, lineStyle: {opacity: (id === 'stvx-upper' || id === 'stvx-lower') ? 0.9 : 1}, itemStyle: {opacity: 1}, label: {opacity: 1}}); }); _str.aux.forEach(function(id){ _sp.push({id: id, lineStyle: {opacity: 0.3}, itemStyle: {opacity: 0.35}, label: {opacity: 0.35}}); }); if (_sp.length) ch.setOption({series: _sp}); } catch(e) {}")
     _sw.append("}")
     # ---- Envelope 双版切换 (2026-11-20): 整套换成交类工作变量 +
     # TITLES3 标题, 当前在 Envelope 版时立即重渲染; 按钮选中态同步 ----
