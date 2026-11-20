@@ -696,9 +696,11 @@ def _env_load_cache_1m(start_day, end_day):
     n_today = int((df["_t"].dt.date == end_day).sum())
     if n_today < 100:  # 覆盖不足 (如 10-21 仅 151 根下午缺失) -> 走 API
         return None
-    return pd.DataFrame({"t": df["_t"].values, "open": df["open"].values,
-                         "high": df["high"].values, "low": df["low"].values,
-                         "close": df["close"].values}).reset_index(drop=True)
+    out = pd.DataFrame({"t": df["_t"].values, "open": df["open"].values,
+                        "high": df["high"].values, "low": df["low"].values,
+                        "close": df["close"].values}).reset_index(drop=True)
+    _sanitize_bars(out)  # 坏bar剔除: 本地 1m 缓存的幻影 print 不得毒化 Envelope 暖机
+    return out
 
 
 def fetch_day_fills(day_str, live=True):
@@ -757,6 +759,53 @@ def fetch_day_fills(day_str, live=True):
     return fills, poss, equity, day_open_equity
 
 
+# --- bar_sanitize: 坏 bar(单边影线幻影 print)剔除 (2026-11-20 user 令全修; 各管道同文) ---
+# 规则: 第 i 根(i>=10) ATRref = 仅用 <i 的 bar 的 Wilder RMA(10) TR;
+#   high 侧命中: 上影 high-max(o,c) > 4*ATRref 且占整根 range >60% 且下影 <= 1*ATRref; low 侧对称。
+#   真实暴涨/暴跌 bar 收盘贴近极端值、影线占比小, 不触发。
+# 修复 = 修字段不删根: high -> max(o,c,前根 high,后根 high); low -> min(o,c,前根 low,后根 low)。
+# 除命中根外逐值不变。
+def _badbar_hits(o, h, l, c):
+    import numpy as np
+    o = np.asarray(o, float); h = np.asarray(h, float)
+    l = np.asarray(l, float); c = np.asarray(c, float)
+    n = len(c); hits = []
+    if n <= 10:
+        return hits
+    tr = np.empty(n); tr[0] = h[0] - l[0]
+    pc = c[:-1]
+    tr[1:] = np.maximum(h[1:] - l[1:], np.maximum(np.abs(h[1:] - pc), np.abs(l[1:] - pc)))
+    atr = np.full(n, np.nan); a = tr[:10].mean(); atr[10] = a
+    for i in range(11, n):
+        a = a + (tr[i - 1] - a) / 10.0; atr[i] = a
+    body_hi = np.maximum(o, c); body_lo = np.minimum(o, c)
+    up = h - body_hi; dn = body_lo - l; rng = h - l
+    for i in range(n):
+        a = atr[i]
+        if not np.isfinite(a) or a <= 0:
+            continue
+        if up[i] > 4.0 * a and up[i] > 0.6 * rng[i] and dn[i] <= 1.0 * a:
+            cand = [o[i], c[i]] + ([h[i - 1]] if i > 0 else []) + ([h[i + 1]] if i < n - 1 else [])
+            hits.append((i, "high", float(max(cand))))
+        if dn[i] > 4.0 * a and dn[i] > 0.6 * rng[i] and up[i] <= 1.0 * a:
+            cand = [o[i], c[i]] + ([l[i - 1]] if i > 0 else []) + ([l[i + 1]] if i < n - 1 else [])
+            hits.append((i, "low", float(min(cand))))
+    return hits
+
+
+def _sanitize_bars(df, o_col="open", h_col="high", l_col="low", c_col="close"):
+    """就地修复 df(须按时间升序) 的坏字段, 返回命中数。"""
+    if df is None or len(df) == 0:
+        return 0
+    hits = _badbar_hits(df[o_col].values, df[h_col].values, df[l_col].values, df[c_col].values)
+    if not hits:
+        return 0
+    hi = df.columns.get_loc(h_col); lo = df.columns.get_loc(l_col)
+    for (i, side, new) in hits:
+        df.iloc[i, hi if side == "high" else lo] = new
+    return len(hits)
+
+
 def build_bars(day=None):
     if day is None:
         hist3 = w4.load_history()
@@ -795,6 +844,8 @@ def build_bars(day=None):
         "low": bars3["l"].iloc[:n_complete],
         "close": bars3["c"].iloc[:n_complete],
     })
+    _sanitize_bars(sig)  # 坏bar剔除: 幻影 print 不得毒化 QQE/ST/Envelope
+    _sanitize_bars(df1m, "o", "h", "l", "c")
     return sig, df1m
 
 
