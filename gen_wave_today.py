@@ -24,7 +24,7 @@ ET = ZoneInfo("America/New_York")
 WDIR = os.environ.get("WAVE_OUT_DIR", "/home/hatch/workspace/alpaca_watcher")
 WAVE_OUT_NAME_TMPL = os.environ.get("WAVE_OUT_NAME", "")  # 设了就用固定名 (如 index.html)
 _ar = int(os.environ.get("WAVE_AUTOREFRESH", "0") or 0)
-refresh_tag = f'<meta http-equiv="refresh" content="{_ar}">' if _ar > 0 else ""
+refresh_tag = ""  # user 2026-11-19 定版: 页面永不自动刷新浏览器 (想看最新自己点刷新); underlying 页面由 workflow 持续更新即可, WAVE_AUTOREFRESH 不再用
 WAVE_DATE = os.environ.get("WAVE_DATE", "").strip()  # 回放日期 YYYY-MM-DD, 空=今天
 
 import watcher_v4 as w4
