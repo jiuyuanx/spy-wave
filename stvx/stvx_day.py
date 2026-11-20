@@ -262,7 +262,8 @@ def _pen_roi(dr, d):
 
 def day_payload(df1, day_str, day_complete=True):
     """df1: 1m bars (t=naive ET, open/high/low/close), 覆盖 [目标周周一-45天, day]。
-    返回 (payload, err): payload = {actions, trades, pen_pct, bands, am, day_hms}。
+    返回 (payload, err): payload = {actions, trades, pen_pct, bands, bands_main,
+    main_fill, main_flips, trend_day, am, day_hms}。
     actions: [(hm, act, dr, px, rs)] 仅目标日 (bi 已换成日间序号, 见 trades)。
     trades: [{ot, ct, dir, opx, cpx, orsn, crsn, roi, roi_pen, closed, obi, cbi}]
             (obi/cbi = 目标日日间 bar 序号; 未平仓 closed=False, ct=None,
@@ -398,4 +399,7 @@ def day_payload(df1, day_str, day_complete=True):
                 trades=trades, pen_pct=(pen - 1.0) * 100.0,
                 bands=bands, bands_main=bands_main, main_fill=main_fill,
                 main_flips=main_flips,
+                # VX 交易趋势逐根 (内核 trend 原样, 与压带 fu/fl 同次运行;
+                # 日页 ST VX 节分段淡化拆轨用, 2026-11-20 user 令)
+                trend_day=[int(P["trend"][j]) for j in idx_day],
                 am=am_info.get(day_str), day_hms=day_hms), None
