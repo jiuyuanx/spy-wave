@@ -3853,10 +3853,32 @@ def main():
                 assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
                 _tot, _tot_pct = _ewp.settle(_itrades)
                 _cmode = "qsf" if _mode == "f1" else _mode
+                _qfa = _payload.get("qf_arrows")
+                if _mode == "champion":
+                    # QQE 转向箭头同画价格图 (user 2026-11-20 20:31
+                    # 令): 冠军版借 qsf 备忘载荷的 qf_arrows 喂
+                    # build_consts, 只产主图 qfFlip 箭头 (与 f1 版
+                    # 同位同偏移); 冠军无 qf 成交, 价格图不会多出
+                    # qf 圈 (圈仍只在 QQE 面板), 成交/标题/INNER
+                    # 一律不动, 纯展示。qsf 载荷失败时只丢箭头,
+                    # 不拖累冠军版。
+                    try:
+                        _qpl0, _qerr0 = _qsf_payload()
+                        if _qpl0 is not None and _qpl0.get("qf_arrows"):
+                            _qfa = _qpl0["qf_arrows"]
+                            print(f"  envelope-qf展示(冠军版价格图箭头): "
+                                  f"{len(_qfa)} 个确认根", flush=True)
+                        elif _qpl0 is None:
+                            print(f"  WARN envelope 冠军版 qf 箭头缺失 "
+                                  f"(qsf 载荷失败, 仅丢箭头): {_qerr0}",
+                                  flush=True)
+                    except Exception as _qe0:
+                        print(f"  WARN envelope 冠军版 qf 箭头计算失败 "
+                              f"(仅丢箭头): {_qe0}", flush=True)
                 _consts, _ititle, _ititlee = _ewp.build_consts(
                     vals130, times, line1m, _env_times1m, gap_txt, _env_gap_e,
                     _sday, _day, _itrades, _runs, _tot, _tot_pct, day_str,
-                    mode=_cmode, qf_arrows=_payload.get("qf_arrows"))
+                    mode=_cmode, qf_arrows=_qfa)
                 _env_sets[_mode] = _consts
                 print(f"  {_logtag}({_mname},暖帧{_payload.get('warm_days', 0)}日): "
                       f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
@@ -3873,7 +3895,7 @@ def main():
                         if _qpl is not None and _qpl.get("qf_arrows"):
                             _consts["ENVELOPE_QF1M"] = _ewp.qf1m_slots(
                                 _qpl["qf_arrows"], _qpl["day"]["times"])
-                            print(f"  envelope-qf展示(冠军版仅QQE面板): "
+                            print(f"  envelope-qf展示(冠军版QQE面板圈): "
                                   f"{len(_consts['ENVELOPE_QF1M'])} 个确认根",
                                   flush=True)
                         elif _qpl is None:

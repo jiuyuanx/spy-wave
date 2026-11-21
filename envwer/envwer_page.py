@@ -179,9 +179,12 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
     与 envint_page.build_consts 逐行同源, 差别见模块 docstring (表头
     文案 + WER 段染色/段内标记)。mode 切单子表表头文案:
     "champion" = WER 冠军版 (终栈⑪) 原文案; "f1" = F1+WER 文案;
-    "qsf" = F1+WER+QQE转向文案。qf_arrows (仅 qsf 版传入,
-    [[确认根当日下标, 方向, sf单r, qf单r], ...]) 产 qfFlip 箭头
-    (主图 spins) 与 ENVELOPE_QF1M (1m QQE 面板信号圈槽位)。"""
+    "qsf" = F1+WER+QQE转向文案。qf_arrows (qsf 版传入; 冠军版
+    自 2026-11-20 20:31 令起也传入——借 qsf 载荷同值, 只产主图
+    qfFlip 箭头作展示, 冠军无 qf 成交故价格图不产 qf 圈、圈仍只
+    在 QQE 面板; [[确认根当日下标, 方向, sf单r, qf单r], ...])
+    产 qfFlip 箭头 (主图 spins) 与 ENVELOPE_QF1M (1m QQE 面板
+    信号圈槽位; 冠军版 QF1M 由 gen 侧注入覆盖, 同值)。"""
     close, opn = day["close"], day["open"]
     n = len(close)
 
@@ -358,7 +361,7 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
              if not (s["value"].startswith("平")
                      and (s["coord"][0], s["value"][-1]) in open_keys)]
 
-    # ---- QQE 转向箭头 (仅 qsf 版): 确认根收盘下方/上方 QF_ARROW_OFF
+    # ---- QQE 转向箭头 (qsf 版 + 冠军展示版, 20:31 令): 确认根收盘下方/上方 QF_ARROW_OFF
     # 处, 经典直杆块状箭头 (QF_ARROW_PATH 自定义 path, user 2026-11-20
     # 18:46 附图定版; call 深青蓝 / put 深红、实心不透明、
     # 偏移 3.5 离曲线更远 (19:41 令自 2.5 加大)) ----
