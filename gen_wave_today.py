@@ -4061,6 +4061,10 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var scatData = isENV3M ? ENVELOPE3M_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (useVH ? VH_SCAT : QQE_SCAT))));")
     _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
+    # Envelope 进场圈按单子类型的边缘色/透明度 (user 2026-11-20 19:15
+    # 令): 规格在 THEME.pinEdge, applyPinEdges 按圈上 pt 标记刷; 无 pt
+    # 的圈 (平仓圈/他节圈) 不碰, 与 applyColors 同口子。
+    _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyPinEdges) { THEME.applyPinEdges(spinsData); THEME.applyPinEdges(pinsData); }")
     _sw.append("  ch.setOption({")
     _sw.append("    title: {text: isLive ? TITLES3.live : (isENV3M ? TITLES3E.envelope3m : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isSTVX ? TITLES3E.stvx : (isVH ? TITLES3E.vh : TITLES3E.qqe))))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
@@ -4240,7 +4244,11 @@ return _origEnvTip(ps, barInfo);
     # 正绿/正红 (与主图 qf 圈一致)。数据 ENVELOPE_QF1M 随 Envelope
     # 双版切换 (冠军版为空), switchEnvMode 后经 _qqeRefresh 重渲。
     _sw.append("    var qfByIdx = {}; (typeof ENVELOPE_QF1M !== 'undefined' ? ENVELOPE_QF1M : []).forEach(function(m){ qfByIdx[m[0]] = m[1]; });")
-    _sw.append("    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; var lab = d > 0 ? '翻c' : '翻p'; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], value: lab, label: {show: true, formatter: lab, color: '#fff', fontSize: 7, fontWeight: 'bold'}, itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: '#ff8c00', borderWidth: 2}}; }).filter(function(p){ return p; });")
+    # QF1M 圈的橙边/透明度引用 THEME.pinEdge.qf (user 2026-11-20 19:15
+    # 令: 特殊圈不透明度 80%); 下行字面对象仅作 theme 缺失时兜底
+    # (同 slpdev TD 先例, 值同 theme)。边宽 2 维持本面定版。
+    _sw.append("    var QFE = (typeof THEME !== 'undefined' && THEME.pinEdge && THEME.pinEdge.qf) ? THEME.pinEdge.qf : {edge: '#ff8c00', opacity: 0.8};")
+    _sw.append("    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; var lab = d > 0 ? '翻c' : '翻p'; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], value: lab, label: {show: true, formatter: lab, color: '#fff', fontSize: 7, fontWeight: 'bold'}, itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: QFE.edge, borderWidth: 2, opacity: QFE.opacity}}; }).filter(function(p){ return p; });")
     _sw.append("    var ST = {'#2f80ed': 'QQE Up（真蓝）', '#e5484d': 'QQE Down（真红）', '#b0b0b0': '中性（|hist|>3 无主信号确认）', '#e0e0e0': '|hist| ≤ 3'};")
     _sw.append("    return {animation: false,")
     _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; var h = t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); if (qfByIdx[idx]) h += '<br/><b style=\"color:#ff8c00\">QQE转向' + (qfByIdx[idx] > 0 ? '买入' : '卖出') + '</b>（确认根）'; return h; }},")

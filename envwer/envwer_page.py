@@ -64,6 +64,21 @@ QF_ARROW_SIZE = 26
 # put 向 symbolRotate 180 翻下。
 QF_ARROW_PATH = ("path://M50 2 L98 48 L66 48 L66 98 L34 98 "
                  "L34 48 L2 48 Z")
+# 进场圈按单子类型的边缘色/透明度 (user 2026-11-20 19:15 令):
+# 权威定义在 theme.js 的 THEME.pinEdge (运行时 applyPinEdges 按圈上
+# 的 pt 标记刷, 与 pinSpec 同机制 solve once for all); 此处为烘焙
+# 兜底同值 (theme 缺失时页面仍同规格), 改值先改 theme.js 再同步
+# 这里。edge=None = 不设边框 (边缘单维持无边); width=None = 不覆盖
+# 该面既有边宽 (qf 边宽三面定版不同: 主图 3 / pins 2.5 / QF1M 2)。
+# 平仓圈不在此列 (维持灰边现行); sf/er/trend/qf 四类特殊圈原为
+# 不透明 (opacity 未设 = 1.0), 改 0.8; 边缘单原亦 1.0, 改 0.9。
+PIN_TYPE_STYLE = {
+    "edge": {"edge": None, "width": None, "opacity": 0.9},
+    "sf": {"edge": "#ec4899", "width": 2.5, "opacity": 0.8},    # 反手 粉
+    "er": {"edge": "#2563eb", "width": 2.5, "opacity": 0.8},    # ER 蓝
+    "trend": {"edge": "#9333ea", "width": 2.5, "opacity": 0.8},  # 趋势 紫
+    "qf": {"edge": QF_BORDER, "width": None, "opacity": 0.8},  # 转向 橙
+}
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
                   "EOD": "日终平仓", "TREND_EXIT": "趋势出段"}
@@ -239,6 +254,17 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
             st["borderWidth"] = 1
         item = {"coord": [times3[slot], qqe_y(slot)], "value": lab,
                 "itemStyle": st, "rs": rs}
+        if kind != "close" and not is_slope:
+            # 按单子类型上边/透明度 (PIN_TYPE_STYLE, theme 同值兜底)
+            # 并打 pt 标记供运行时 THEME.applyPinEdges 查表重刷。
+            _spec = PIN_TYPE_STYLE.get(t.get("mode") or "edge")
+            if _spec is not None:
+                if _spec["edge"] is not None:
+                    st["borderColor"] = _spec["edge"]
+                if _spec["width"] is not None:
+                    st["borderWidth"] = _spec["width"]
+                st["opacity"] = _spec["opacity"]
+                item["pt"] = t.get("mode") or "edge"
         (f_pins if kind == "flip" else nf_pins).append(item)
 
     for t in trades:
@@ -251,7 +277,7 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
     pins = nf_pins + f_pins
 
     def spin_item(x, y, value, col, rs, is_call, is_slope, is_close=False,
-                  is_qf=False):
+                  is_qf=False, mode=None):
         d = {"coord": [x, y], "value": value,
              "itemStyle": {"color": col}, "rs": rs}
         if is_slope:
@@ -263,6 +289,17 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         elif is_close:
             d["itemStyle"]["borderColor"] = CLOSE_BORDER
             d["itemStyle"]["borderWidth"] = 1
+        if not is_slope and not is_close:
+            # 按单子类型上边/透明度 (PIN_TYPE_STYLE, theme 同值兜底)
+            # 并打 pt 标记供运行时 THEME.applyPinEdges 查表重刷。
+            _spec = PIN_TYPE_STYLE.get(mode or "edge")
+            if _spec is not None:
+                if _spec["edge"] is not None:
+                    d["itemStyle"]["borderColor"] = _spec["edge"]
+                if _spec["width"] is not None:
+                    d["itemStyle"]["borderWidth"] = _spec["width"]
+                d["itemStyle"]["opacity"] = _spec["opacity"]
+                d["pt"] = mode or "edge"
         if is_call:
             d["symbolRotate"] = 180
             d["label"] = {"offset": [0, 5]}
@@ -277,7 +314,8 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         _entry = spin_item(_ox, _oy,
                            lab, pin_color(kind, t["dir"]), t["entry_rs"],
                            is_call, t["src"] == "slope",
-                           is_qf=(t.get("mode") == "qf"))
+                           is_qf=(t.get("mode") == "qf"),
+                           mode=t.get("mode"))
         if t.get("mode") == "qf":
             # 突破页 ⑧ 同款 qf 进场圈 (user 2026-11-20 18:36 令):
             # 圆 12px、圈内单字母 C/P (白 9px 加粗)、橙边宽 3;

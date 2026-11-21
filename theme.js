@@ -140,6 +140,36 @@ var THEME = {
     return arr;
   },
 
+  // Envelope 进场圈按单子类型的边缘色/透明度 (2026-11-20 19:15 user令,
+  // 与 pinSpec 同机制 solve once for all): 反手粉边 / ER蓝边 / 趋势紫边 /
+  // QQE转向橙边不变, 四类特殊圈不透明度 100% -> 80%; 边缘单无边不变、
+  // 不透明度 90% (比特殊圈稍高)。平仓圈不在此列 (维持灰圈现行)。
+  // edge=null 表示不设边框; width=null 表示不覆盖该渲染面既有边宽
+  // (qf 边宽三面各有定版: 主图 3 / QQE面板 pins 2.5 / QF1M 圈 2, 不在此统一)。
+  // 烘焙侧 (envwer_page.py PIN_TYPE_STYLE) 同值兜底, 以此处为准。
+  pinEdge: {
+    edge:  {edge: null,      width: null, opacity: 0.9},
+    sf:    {edge: '#ec4899', width: 2.5,  opacity: 0.8},  // 反手 粉
+    er:    {edge: '#2563eb', width: 2.5,  opacity: 0.8},  // ER 蓝
+    trend: {edge: '#9333ea', width: 2.5,  opacity: 0.8},  // 趋势 紫
+    qf:    {edge: '#ff8c00', width: null, opacity: 0.8}   // QQE转向 橙 (不变)
+  },
+
+  // 按烘焙侧打的类型标记 item.pt 把 pinEdge 规格刷到 spins/pins 数组上
+  // (与 applyColors 同口子调用; 无 pt 的圈一律不碰 —— 平仓圈/他节圈不受影响)
+  applyPinEdges: function(arr) {
+    if (!arr) return arr;
+    for (var i = 0; i < arr.length; i++) {
+      var s = this.pinEdge[arr[i].pt];
+      if (!s) continue;
+      arr[i].itemStyle = arr[i].itemStyle || {};
+      if (s.edge) arr[i].itemStyle.borderColor = s.edge;
+      if (s.width != null) arr[i].itemStyle.borderWidth = s.width;
+      arr[i].itemStyle.opacity = s.opacity;
+    }
+    return arr;
+  },
+
   // 每单盈亏背景alpha (2026-10-19 用户, 23:00四段折线版): 20%→0.4, 35%→0.5, 50%→0.6, 65%封顶0.7
   // 用法: THEME.pnlBgColor(pct) -> 'rgba(...)'，pct为数字百分比（如9.98表示+9.98%）
   // 改公式只改这里，所有引用此函数的页面自动生效（solve once for all）
