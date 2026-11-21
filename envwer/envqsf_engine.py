@@ -256,9 +256,10 @@ QQESF_FLIP_DAMP_M = 0.8      # 翻仓减震乘数 (精华版 QQE_FLIP_DAMP_M 同
 
 
 def _qqe_trig_line(peak):
-    """v68 衰减触发线 (user 2026-11-19 亲定): 峰值 x 0.8^(1 + max(0, 峰值-12)/12)。
-    小峰 (<=12) 即峰值x0.8; 大峰指数收紧 (峰25->x0.628、峰40->x0.476)。"""
-    return peak * 0.8 ** (1.0 + max(0.0, float(peak) - 12.0) / 12.0)
+    """v68 衰减触发线 (user 2026-11-19 亲定; 除数 16 = 2026-11-20 扫参定版):
+    峰值 x 0.8^(1 + max(0, 峰值-12)/16)。
+    小峰 (<=12) 即峰值x0.8; 大峰指数收紧 (峰25->x0.667、峰40->x0.541)。"""
+    return peak * 0.8 ** (1.0 + max(0.0, float(peak) - 12.0) / 16.0)
 
 
 def _qqe_detect_decay(hist, mask, opp_mask, day):
