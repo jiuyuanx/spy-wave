@@ -51,12 +51,13 @@ STACK_ENTRY_RS_F1 = dict(STACK_ENTRY_RS,
 # 圆角版: 矩形箭杆 + 三角箭头头、直角直边, 即 PowerPoint 块箭头 /
 # ➡ 那种最普通箭头形, 自定义 SVG path, 非 ECharts 默认 arrow),
 # 实心不透明; 颜色 18:46 改版: call 深青蓝 / put 深红 (取代
-# 18:37 的青蓝/紫红); 离价格曲线偏移 2.5 价格单位 (18:37 令)。
+# 18:37 的青蓝/紫红); 离价格曲线偏移 3.5 价格单位 (18:37 令
+# 2.5、19:41 令再加大到 3.5)。
 QF_BORDER = "#ff8c00"
 QF_CIRCLE_SIZE = 12
 QF_ARROW_CALL = "#0e7490"   # 深青蓝
 QF_ARROW_PUT = "#b91c1c"    # 深红
-QF_ARROW_OFF = 2.5
+QF_ARROW_OFF = 3.5
 QF_ARROW_SIZE = 26
 # 经典块状上箭头 path (100x100 标准多边形, 全直边直角: 尖 (50,2)、
 # 头宽 96 (x 2..98)、头高 46 (y 2..48)、杆宽 32 (x 34..66)、
@@ -154,6 +155,20 @@ def settle(trades):
         cap += t["pnl"]
         tot += t["pnl"]
     return tot, tot / 100000.0
+
+
+def qf1m_slots(qf_arrows, dtimes):
+    """qf 确认根 -> 1m QQE 面板槽位 [[390 槽下标, 方向], ...]。
+
+    与 build_consts 内的 _mo 同式 (真实时间轴分钟 - 570)。gen 给
+    冠军版喂展示用 QF1M 时也走这里 (user 2026-11-20 19:41 令:
+    冠军版 QQE 面板同画 qf 圈/箭头, 只展示不参与策略), 保证两版
+    槽位逐项同值。"""
+    out = []
+    for _a in (qf_arrows or []):
+        _t = dtimes[int(_a[0])]
+        out.append([int(_t[:2]) * 60 + int(_t[3:]) - 570, int(_a[1])])
+    return out
 
 
 def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
@@ -346,7 +361,7 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
     # ---- QQE 转向箭头 (仅 qsf 版): 确认根收盘下方/上方 QF_ARROW_OFF
     # 处, 经典直杆块状箭头 (QF_ARROW_PATH 自定义 path, user 2026-11-20
     # 18:46 附图定版; call 深青蓝 / put 深红、实心不透明、
-    # 偏移 2.5 离曲线更远) ----
+    # 偏移 3.5 离曲线更远 (19:41 令自 2.5 加大)) ----
     if qf_arrows:
         for _a in qf_arrows:
             _bi, _nd = int(_a[0]), int(_a[1])
@@ -366,7 +381,7 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
     # 方向]; 圈样式在 gen 的 qqeOpt 里按突破页 panelOptQqeSig 同款
     # 画 (13px、圈内「翻c/翻p」白字 7px 加粗、红绿填充 + 橙边
     # #ff8c00 宽 2, user 2026-11-20 18:36 令) ----
-    qf1m = [[_mo(int(_a[0])), int(_a[1])] for _a in (qf_arrows or [])]
+    qf1m = qf1m_slots(qf_arrows, dtimes)
 
     # ---- scat: gen 原生错行算法 (30 分钟窗同行冲突递增行号) ----
     hi_c, lo_c = max(close), min(close)

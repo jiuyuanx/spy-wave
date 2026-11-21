@@ -3824,11 +3824,22 @@ def main():
         except Exception as _qe:
             print(f"  WARN envelope qqe1m 面板计算失败 (面板不显示): "
                   f"{_qe}", flush=True)
+        # qsf 载荷备忘 (user 2026-11-20 19:41 令): 冠军版也要画 QQE
+        # 转向信号 (只在 1m QQE 面板展示、不参与冠军策略), 与 f1 版
+        # 共用同一次 day_payload_warm_qsf 调用 (同暖帧、同入参、
+        # 同结果), 不重复跑引擎。
+        _qsf_memo = []
+
+        def _qsf_payload():
+            if not _qsf_memo:
+                _qsf_memo.append(_eqsf.day_payload_warm_qsf(
+                    _idf[["t", "open", "high", "low", "close"]], day_str))
+            return _qsf_memo[0]
+
         for _mode, _mname, _logtag in _ENV_MODES:
             try:
                 if _mode == "f1":
-                    _payload, _perr = _eqsf.day_payload_warm_qsf(
-                        _idf[["t", "open", "high", "low", "close"]], day_str)
+                    _payload, _perr = _qsf_payload()
                 else:
                     _payload, _perr = _ewr.day_payload_warm(
                         _idf[["t", "open", "high", "low", "close"]], day_str)
@@ -3850,6 +3861,28 @@ def main():
                 print(f"  {_logtag}({_mname},暖帧{_payload.get('warm_days', 0)}日): "
                       f"{len(_itrades)} 单, tot=${_tot:,.0f} ({_tot_pct:+.1%})",
                       flush=True)
+                if _mode == "champion":
+                    # QQE 转向信号只展示 (user 2026-11-20 19:41 令):
+                    # 冠军版成交/标题/INNER/价格图一律不动, 只把 qf
+                    # 确认根槽位喂 ENVELOPE_QF1M, 页内 1m QQE 面板在
+                    # 冠军版下同画圈+箭头 (与 f1 版同位, 经 qsf 载荷
+                    # 自身 day 时间轴换算、与 f1 版逐项同值)。qsf
+                    # 载荷失败时只丢展示 (面板无圈), 不拖累冠军版。
+                    try:
+                        _qpl, _qerr = _qsf_payload()
+                        if _qpl is not None and _qpl.get("qf_arrows"):
+                            _consts["ENVELOPE_QF1M"] = _ewp.qf1m_slots(
+                                _qpl["qf_arrows"], _qpl["day"]["times"])
+                            print(f"  envelope-qf展示(冠军版仅QQE面板): "
+                                  f"{len(_consts['ENVELOPE_QF1M'])} 个确认根",
+                                  flush=True)
+                        elif _qpl is None:
+                            print(f"  WARN envelope 冠军版 qf 展示缺失 "
+                                  f"(qsf 载荷失败, 仅丢面板标记): {_qerr}",
+                                  flush=True)
+                    except Exception as _qe3:
+                        print(f"  WARN envelope 冠军版 qf 展示计算失败 "
+                              f"(仅丢面板标记): {_qe3}", flush=True)
             except Exception as _ee:
                 _env_fail[_mode] = f"{type(_ee).__name__}: {_ee}"
                 print(f"  ERROR {_logtag} 计算失败, 该节标注错误 (不回退旧口径): "
@@ -4242,13 +4275,25 @@ return _origEnvTip(ps, barInfo);
     # QQE 柱位置, 突破页 ⑧ panelOptQqeSig 同款 —— 圆 13px、圈内
     # 「翻c/翻p」白字 7px 加粗、橙边 #ff8c00 宽 2; 填充走日页规范色
     # 正绿/正红 (与主图 qf 圈一致)。数据 ENVELOPE_QF1M 随 Envelope
-    # 双版切换 (冠军版为空), switchEnvMode 后经 _qqeRefresh 重渲。
+    # 双版切换 (双版同值: 冠军版只展示不参与策略, 2026-11-20
+    # 19:41 令), switchEnvMode 后经 _qqeRefresh 重渲。
     _sw.append("    var qfByIdx = {}; (typeof ENVELOPE_QF1M !== 'undefined' ? ENVELOPE_QF1M : []).forEach(function(m){ qfByIdx[m[0]] = m[1]; });")
     # QF1M 圈的橙边/透明度引用 THEME.pinEdge.qf (user 2026-11-20 19:15
     # 令: 特殊圈不透明度 80%); 下行字面对象仅作 theme 缺失时兜底
     # (同 slpdev TD 先例, 值同 theme)。边宽 2 维持本面定版。
     _sw.append("    var QFE = (typeof THEME !== 'undefined' && THEME.pinEdge && THEME.pinEdge.qf) ? THEME.pinEdge.qf : {edge: '#ff8c00', opacity: 0.8};")
     _sw.append("    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; var lab = d > 0 ? '翻c' : '翻p'; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], value: lab, label: {show: true, formatter: lab, color: '#fff', fontSize: 7, fontWeight: 'bold'}, itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: QFE.edge, borderWidth: 2, opacity: QFE.opacity}}; }).filter(function(p){ return p; });")
+    # qf 转向箭头同画在 QQE 面板 (user 2026-11-20 19:41 令): 借主图
+    # 块箭头同款 (path/色同 envwer_page 的 QF_ARROW_PATH /
+    # QF_ARROW_CALL / QF_ARROW_PUT: call 深青蓝 #0e7490 指上、put
+    # 深红 #b91c1c 指下, 实心不透明), 落确认根, 位置在柱尖之外再
+    # 偏 QFA_OFF=9 个 QQE 单位 (柱值为正则向外向上、为负向下),
+    # 与信号圈同根并存。数据同走 ENVELOPE_QF1M, 双版都有 (冠军版
+    # 只展示不参与策略)。
+    _sw.append("    var QFA_PATH = 'path://M50 2 L98 48 L66 48 L66 98 L34 98 L34 48 L2 48 Z';")
+    _sw.append("    var QFA_OFF = 9;")
+    _sw.append("    var qfArrows = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; var h = Q.hist[idx]; if (h == null) return null; var y = h >= 0 ? h + QFA_OFF : h - QFA_OFF; return {coord: [ENVELOPE_TIMES1M[idx], y], value: d > 0 ? 'qfFlipC' : 'qfFlipP', symbol: QFA_PATH, symbolSize: 20, symbolRotate: d > 0 ? 0 : 180, label: {show: false}, itemStyle: {color: d > 0 ? '#0e7490' : '#b91c1c', opacity: 1}}; }).filter(function(p){ return p; });")
+    _sw.append("    var qfPtsAll = qfPts.concat(qfArrows);")
     _sw.append("    var ST = {'#2f80ed': 'QQE Up（真蓝）', '#e5484d': 'QQE Down（真红）', '#b0b0b0': '中性（|hist|>3 无主信号确认）', '#e0e0e0': '|hist| ≤ 3'};")
     _sw.append("    return {animation: false,")
     _sw.append("      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; var h = t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); if (qfByIdx[idx]) h += '<br/><b style=\"color:#ff8c00\">QQE转向' + (qfByIdx[idx] > 0 ? '买入' : '卖出') + '</b>（确认根）'; return h; }},")
@@ -4257,7 +4302,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},")
     _sw.append("      yAxis: {type: 'value', axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},")
     _sw.append("      series: [")
-    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markPoint: {symbol: 'circle', symbolSize: 13, label: {show: true, color: '#fff', fontSize: 7, fontWeight: 'bold'}, data: qfPts}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
+    _sw.append("        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markPoint: {symbol: 'circle', symbolSize: 13, label: {show: true, color: '#fff', fontSize: 7, fontWeight: 'bold'}, data: qfPtsAll}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}")
     _sw.append("      ]};")
     _sw.append("  }")
     _sw.append("  function werOpt(){")
