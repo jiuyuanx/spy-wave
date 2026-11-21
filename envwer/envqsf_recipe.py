@@ -21,7 +21,10 @@ QQE_SF_FLIP) 反向开 qf 仓接棒。QQE 由引擎 simulate 内现场自算
   fork 全局 = PARAM_MAP 套 BASE_PARAMS + ER_TH 0.35 / ADX_TH 30 /
   TAKEOVER_SLOPE 0.10 / SL_MODE "atr" / ER_ARRAYS{12:WER} /
   ASYM_SHIFT 1.35 / CE_STATE / CE_CST None / SL_K 0.7875 /
-  SF_SL_K 2.5 / STOPFLIP{"p":0.25,"mid_gate":True} / QQESF_ON True;
+  SF_SL_K 2.5 / STOPFLIP{"p":0.25,"mid_gate":True} / QQESF_ON True /
+  QFOL_ON True + QFOL_MAXWIN 5 / QQESF_HB_ON True (四件套定版,
+  user 2026-11-20 23:04-23:06 令: div16 + 跟随腿 W5 门 + 衰减断段
+  本根豁免 + 转向腿回补, 引擎与研究 fork_qsf_final 同步);
   simulate(dff, ind, 1, trend_entry=True, use_uturn=False,
   use_bo=False, er_cfg=envwer_recipe.CFG) (CFG 与研究 CFG_A 逐项同)。
 组帧/装配/展示 schema 与 envf1_recipe 逐项同形 (defs.set_cef_ctx /
@@ -132,12 +135,16 @@ def _day_payload_warm_qsf(dff, NEWDAY):
     forkQ.SF_SL_K = 2.5
     forkQ.STOPFLIP = {"p": 0.25, "mid_gate": True}
     forkQ.QQESF_ON = True
+    forkQ.QFOL_ON = True
+    forkQ.QFOL_MAXWIN = 5
+    forkQ.QQESF_HB_ON = True
     tr = forkQ.simulate(dff, ind, 1, trend_entry=True, use_uturn=False,
                         use_bo=False, er_cfg=_wr.CFG)
     modes = copy.deepcopy(forkQ.V67_STATS["entry_modes"])
     segs = copy.deepcopy(forkQ.ER_INFO.get("segments", []))
     trig = copy.deepcopy(forkQ.ER_INFO.get("ramp_trig", []))
     flips_q = copy.deepcopy(forkQ.QQESF_INFO.get("flips", []))
+    hb_list = copy.deepcopy(forkQ.QQESF_INFO.get("hb_list", []))
     bad = sum(1 for i, dstr, dd_, rd_, wer_i, _f in trig
               if abs(DOSE1[i] - dd_) > 1e-6 or abs(RAMP1[i] - rd_) > 1e-6)
     assert bad == 0, f"{NEWDAY} ramp_trig mismatches {bad}/{len(trig)}"
@@ -212,6 +219,23 @@ def _day_payload_warm_qsf(dff, NEWDAY):
                           round(float(qf_t["r"]), 2) if qf_t else None])
     qf_arrows.sort()
 
+    # ---- 跟随/回补箭头字段 (四件套): [入场根当日局部下标, 方向,
+    # 该单 r]; 跟随取 recs 中 mode=qfol 的当日单, 回补取 hb_list
+    # 当日执行根 (qhb 单经 by_eb 查 r)。页面字段已备, 冠军侧不消费。
+    fol_arrows = [[int(t["eb"]) - g0, int(t["dir"]),
+                   round(float(t["r"]), 2)]
+                  for t in recs if t["mode"] == "qfol"]
+    fol_arrows.sort()
+    hb_arrows = []
+    for h in hb_list:
+        if h["date"] != NEWDAY:
+            continue
+        eb = int(h["exec_bar"])
+        qhb_t = by_eb.get(eb)
+        hb_arrows.append([eb - g0, int(h["hb_to"]),
+                          round(float(qhb_t["r"]), 2) if qhb_t else None])
+    hb_arrows.sort()
+
     def r2(arr):
         return [None if not np.isfinite(v) else round(float(v), 2)
                 for v in arr]
@@ -236,4 +260,5 @@ def _day_payload_warm_qsf(dff, NEWDAY):
         slope=r4(np.where(np.isfinite(slope), slope, np.nan)[slc]),
         dev=r4(_wr._dev_series(slope[slc])))
     return dict(date=NEWDAY, sday=sday, day=day, n_bars=N, half=half,
-                gap=gap, warm_days=warm_days, qf_arrows=qf_arrows)
+                gap=gap, warm_days=warm_days, qf_arrows=qf_arrows,
+                fol_arrows=fol_arrows, hb_arrows=hb_arrows)

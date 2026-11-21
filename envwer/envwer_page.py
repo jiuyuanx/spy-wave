@@ -38,7 +38,9 @@ STACK_ENTRY_RS = {"edge": ("边缘买入", "边缘卖出"),
 # mode="f1" 取本字典 (含 qf), 表头文案才分 qsf (2026-11-20 主线化)。
 STACK_ENTRY_RS_F1 = dict(STACK_ENTRY_RS,
                          sf=("反手买入", "反手卖出"),
-                         qf=("QQE转向买入", "QQE转向卖出"))
+                         qf=("QQE转向买入", "QQE转向卖出"),
+                         qfol=("QQE跟随买入", "QQE跟随卖出"),
+                         qhb=("QQE回补买入", "QQE回补卖出"))
 # qf 标记样式 (user 2026-11-20 18:36/18:37/18:38 三令定版):
 # 价格图 qf 进场圈与 1m QQE 面板 qf 圈参照突破页 ⑧「F1+ER+QQE转向」
 # 同款 —— 价格圈: 圆 12px、圈内单字母 C/P (白 9px 加粗)、橙边
@@ -79,6 +81,8 @@ PIN_TYPE_STYLE = {
     "er": {"edge": "#2563eb", "width": 2.5, "opacity": 0.8},    # ER 蓝
     "trend": {"edge": "#9333ea", "width": 2.5, "opacity": 0.8},  # 趋势 紫
     "qf": {"edge": QF_BORDER, "width": None, "opacity": 0.8},  # 转向 橙
+    "qfol": {"edge": "#00bcd4", "width": 2.5, "opacity": 0.8},  # 跟随 青
+    "qhb": {"edge": "#000000", "width": 2.5, "opacity": 0.8},  # 回补 黑
 }
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",

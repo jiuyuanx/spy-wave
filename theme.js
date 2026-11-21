@@ -152,7 +152,9 @@ var THEME = {
     sf:    {edge: '#ec4899', width: 2.5,  opacity: 0.8},  // 反手 粉
     er:    {edge: '#2563eb', width: 2.5,  opacity: 0.8},  // ER 蓝
     trend: {edge: '#9333ea', width: 2.5,  opacity: 0.8},  // 趋势 紫
-    qf:    {edge: '#ff8c00', width: null, opacity: 0.8}   // QQE转向 橙 (不变)
+    qf:    {edge: '#ff8c00', width: null, opacity: 0.8},  // QQE转向 橙 (不变)
+    qfol:  {edge: '#00bcd4', width: 2.5,  opacity: 0.8},  // QQE跟随 青 (四件套定版)
+    qhb:   {edge: '#000000', width: 2.5,  opacity: 0.8}   // QQE回补 黑 (四件套定版)
   },
 
   // 按烘焙侧打的类型标记 item.pt 把 pinEdge 规格刷到 spins/pins 数组上

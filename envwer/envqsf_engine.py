@@ -253,6 +253,11 @@ QQESF_ON = False    # _qqesfflip 开关 (默认关, 关时与底盘逐笔等价)
 QQESF_INFO = {}     # _qqesfflip 研究回传: flips/registered/conf/voided/damp_blocked
 QQESF_PEAK_MIN = 12.0        # 衰减翻仓档峰值门槛 (精华版 QQE_PEAK_MIN 同值)
 QQESF_FLIP_DAMP_M = 0.8      # 翻仓减震乘数 (精华版 QQE_FLIP_DAMP_M 同值)
+QQESF_HB_ON = False          # _hb: QQE 转向腿回补开关 (默认关, 关时逐笔等价)
+QFOL_ON = False        # _fol: QQE 跟随入场开关 (默认关, 关时逐笔等价)
+QFOL_MAXWIN = 0        # _fol: 跟随前窗最长门窗宽 (精华版 FOLLOW_MAXWIN); 0 = 无门
+QFOL_GRAY_THR = 9      # _fol: 跟随宽口径灰柱门槛 (精华版 GRAY_THR_FOLLOW 同值)
+QFOL_INFO = {}         # _fol 研究回传: actions/blocked/detected
 
 
 def _qqe_trig_line(peak):
@@ -283,7 +288,8 @@ def _qqe_detect_decay(hist, mask, opp_mask, day):
             if day is not None and j < i and day[j] != day[i]:
                 seg_lo = j + 1
                 break
-            if bool(opp_mask[j]) or caj <= 3 or np.isnan(cj):
+            if bool(opp_mask[j]) or np.isnan(cj) \
+                    or (j < i and caj <= 3):
                 seg_lo = j + 1
                 break
         n_target = 0
@@ -613,10 +619,18 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     SF_INFO.clear()
     QQESF_INFO.clear()
     _qqesf_on = bool(QQESF_ON)
+    _qqesf_hb = bool(QQESF_HB_ON)          # _hb: 回补开关 (默认关)
+    QFOL_INFO.clear()
+    _qfol_on = bool(QFOL_ON)        # _fol: 跟随开关 (另须 _qqesf_on 才有 QQE 数组)
+    _qfol_maxwin = int(QFOL_MAXWIN)
+    if _qfol_on:
+        QFOL_INFO.update(dict(actions=[], blocked=[], detected=0))
     if _qqesf_on:
         QQESF_INFO.update(dict(flips=[], registered=0, conf_opp=0,
                                conf_dec=0, voided=0, damp_blocked=0,
-                               shield_released=0))
+                               shield_released=0,
+                               hb_registered=0, hb_executed=0, hb_voided=0,
+                               hb_list=[], hb_trigs=[]))
     _sf_on = STOPFLIP is not None
     _sf_p = float(STOPFLIP.get("p", 0.0)) if _sf_on else 0.0
     _sf_mid = bool(STOPFLIP.get("mid_gate", False)) if _sf_on else False
@@ -906,6 +920,79 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     # 同一有利波第一峰根、数全策略动作, quiet 口径同 _q_damp) ----
     qsf_pending = None  # 待翻登记: (信号根, 衰减波符号, |hist[信号根]|, 翻向, 登记时仓向, 登记时 entry_bar, 峰值)
 
+    # ---- _hb 回补状态 (精华版 H 回补移植到转向腿; 只在持 qf 仓时
+    # 评估): qhb_marker = qf 翻仓开仓根 |hist| 基准; qhb_from = 翻仓
+    # 前原 sf 方向 (回补开回的方向); qhb_eb = qf 仓开仓根 (同一性
+    # 校验); qhb_pending = 回补待确认 (触发根, |hist[触发根]|, 回补
+    # 方向, qf 开仓根, qf 仓向) ----
+    qhb_marker = 0.0
+    qhb_from = 0
+    qhb_eb = -1
+    qhb_pending = None
+
+    def _hb_true_blue(j):
+        return bool(q_up[j]) and abs(q_hist[j]) >= 4
+
+    def _hb_true_red(j):
+        return bool(q_down[j]) and abs(q_hist[j]) >= 4
+
+    def _hb_gray(j):
+        if j < 0 or j >= n:
+            return False
+        _hj = q_hist[j]
+        if np.isnan(_hj) or abs(_hj) <= 3:
+            return False
+        return not _hb_true_blue(j) and not _hb_true_red(j)
+
+    def _hb_true_blue_w(j, thr=10):
+        """精华版 _q_is_true_blue_w (GRAY_THR_HUIBU=10) 逐字口径。"""
+        if _hb_true_blue(j):
+            return True
+        _hj = q_hist[j]
+        return _hb_gray(j) and not np.isnan(_hj) and _hj > 0 \
+            and abs(_hj) >= thr
+
+    def _hb_true_red_w(j, thr=10):
+        if _hb_true_red(j):
+            return True
+        _hj = q_hist[j]
+        return _hb_gray(j) and not np.isnan(_hj) and _hj < 0 \
+            and abs(_hj) >= thr
+
+    def _hb_trigger(_i, _tdir, _marker):
+        """精华版 H 回补四条重涨触发逐字移植 (判定入口加宽口径真色
+        门; _tdir = 回补方向 = 重涨波符号)。"""
+        _tsgn = _tdir
+        _hc = q_hist[_i]
+        if np.isnan(_hc):
+            return False
+        if not (_hb_true_blue_w(_i) if _tsgn > 0 else _hb_true_red_w(_i)):
+            return False
+        if abs(_hc) > _marker * 1.2:
+            return True
+        if _i >= 1:
+            _hp = q_hist[_i - 1]
+            if not np.isnan(_hp) and _hp * _tsgn > 0 and abs(_hp) > 3:
+                _nd = 2.0 if abs(_hp) <= 5 else 1.2
+                if abs(_hc) > abs(_hp) * _nd:
+                    return True
+        if _i >= 2:
+            _h1, _h2 = q_hist[_i - 2], q_hist[_i - 1]
+            if not np.isnan(_h1) and not np.isnan(_h2) \
+                    and _h1 * _tsgn > 0 and _h2 * _tsgn > 0 \
+                    and abs(_h1) > 3 and abs(_h2) > 3 \
+                    and abs(_h2) > abs(_h1) and abs(_hc) > abs(_h2):
+                _nd1 = 2.0 if abs(_h1) <= 5 else 1.2
+                if abs(_hc) > abs(_h1) * _nd1:
+                    return True
+        if _i >= 1:
+            _hp = q_hist[_i - 1]
+            if not np.isnan(_hp) and _hp * _tsgn > 0 \
+                    and abs(_hp) > 3 \
+                    and abs(_hp) > _marker and abs(_hc) > _marker:
+                return True
+        return False
+
     def _sf_fav_wave_info(_sign, _i):
         """signal_engine._fav_wave_info 移植: 返回 (wl, chop,
         wl_adj, ws, pk_idx); 段内峰值取 LB10 语义的段内回望。"""
@@ -981,6 +1068,68 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
             return False
         QQESF_INFO["damp_blocked"] += 1
         return True
+
+    # ---- _fol: QQE 跟随检测 (精华版 _q_follow_dir 移植: 严格真色
+    # = up/down 状态且 |hist|>=4; 跟随宽口径 = 灰柱 |hist|>=
+    # QFOL_GRAY_THR 按符号算真色, 同精华版 GRAY_THR_FOLLOW 分家;
+    # gap 开盘忽略不移植, 与本 fork 衰减腿口径一致 —— 非信号
+    # 定义本身) ----
+    def _qfol_true_blue(_j):
+        return bool(q_up[_j]) and abs(q_hist[_j]) >= 4
+
+    def _qfol_true_red(_j):
+        return bool(q_down[_j]) and abs(q_hist[_j]) >= 4
+
+    def _qfol_is_gray(_j):
+        _hj = q_hist[_j]
+        if np.isnan(_hj) or abs(_hj) <= 3:
+            return False
+        return not _qfol_true_blue(_j) and not _qfol_true_red(_j)
+
+    def _qfol_true_blue_w(_j):
+        if _qfol_true_blue(_j):
+            return True
+        _hj = q_hist[_j]
+        return _qfol_is_gray(_j) and _hj > 0 and abs(_hj) >= QFOL_GRAY_THR
+
+    def _qfol_true_red_w(_j):
+        if _qfol_true_red(_j):
+            return True
+        _hj = q_hist[_j]
+        return _qfol_is_gray(_j) and _hj < 0 and abs(_hj) >= QFOL_GRAY_THR
+
+    def _qfol_dir(_i):
+        """标准跟随 (精华版规格): 第一根真色 |h|>=6、第二根真色
+        |h|>=8、递增、同日。蓝 -> +1 (call), 红 -> -1 (put);
+        无信号 0。QFOL_MAXWIN>0 时加前窗最长门 (精华版同款):
+        触发根 |hist| 须严格大于前 MAXWIN 根内所有同向严格真色
+        柱, 被挡记 QFOL_INFO["blocked"] 并返回 0。"""
+        if _i < 1 or dates[_i - 1] != dates[_i]:
+            return 0
+        _h1 = q_hist[_i]
+        _h0 = q_hist[_i - 1]
+        if np.isnan(_h1) or np.isnan(_h0):
+            return 0
+        _fd = 0
+        if _qfol_true_red_w(_i) and abs(_h1) >= 8 \
+                and _qfol_true_red_w(_i - 1) and abs(_h0) >= 6 \
+                and abs(_h1) > abs(_h0):
+            _fd = -1
+        elif _qfol_true_blue_w(_i) and abs(_h1) >= 8 \
+                and _qfol_true_blue_w(_i - 1) and abs(_h0) >= 6 \
+                and abs(_h1) > abs(_h0):
+            _fd = 1
+        if _fd != 0 and _qfol_maxwin > 0:
+            _tfn = _qfol_true_blue if _fd > 0 else _qfol_true_red
+            for _j in range(max(0, _i - _qfol_maxwin), _i):
+                if _tfn(_j) and abs(q_hist[_j]) >= abs(_h1):
+                    QFOL_INFO["blocked"].append(
+                        dict(bar=int(_i), date=dates[_i], dir=int(_fd),
+                             hist=float(abs(_h1)),
+                             win_max=float(abs(q_hist[_j])),
+                             win_bar=int(_j)))
+                    return 0
+        return _fd
 
     for i in range(n):
         dstr = dates[i]
@@ -1916,8 +2065,12 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
         # ---- _qqesfflip: QQE 衰减翻仓帮 sf 仓转向 (求值位置: 本根
         # 止损/强制平/ER 出场/进场全处理完之后、本根收尾 —— 翻仓是
         # 本根最后一个仓位动作, 与引擎内其余翻仓 (进场块内 open_pos
-        # FLIP) 同语义)。只动 sf 仓; 只借翻仓档 (峰>=12), 短峰只平/
-        # 跟随/回补等不移植; gap 开盘忽略不移植 (非信号定义本身)。----
+        # FLIP) 同语义)。翻仓档 (峰>=12) 帮 sf 仓转向; 跟随腿
+        # (QFOL_ON+QFOL_MAXWIN=5 前窗最长门) 与回补 (QQESF_HB_ON)
+        # 已随四件套定版一并移植 (user 2026-11-20 23:04-23:06 令,
+        # 与研究 fork_qsf_final 同步); 衰减断段本根豁免 (LB10 回扫
+        # caj<=3 加 j<i) 同在 _qqe_detect_decay。短峰只平不移植;
+        # gap 开盘忽略不移植 (非信号定义本身)。----
         if _qqesf_on and START_DATE <= dstr <= END_DATE:
             # 待翻确认 (本根最前面, 先于本根新登记): 取走上一根登记
             _pend_in = qsf_pending
@@ -1947,6 +2100,9 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                             QQESF_INFO["shield_released"] += 1
                         close_pos(i, c[i], "QQE_SF_FLIP")
                         open_pos(_pto, "qf")
+                        # _hb: 记回补基准 (开仓根 |hist| / 原 sf 向)
+                        qhb_marker = abs(q_hist[i]); qhb_from = int(_ppos)
+                        qhb_eb = i; qhb_pending = None
                         QQESF_INFO["flips"].append(
                             dict(sig_bar=int(_pt), conf_bar=int(i),
                                  date=dstr, sf_entry_bar=int(_sf_eb),
@@ -1960,6 +2116,35 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                         QQESF_INFO["voided"] += 1
                 else:
                     QQESF_INFO["voided"] += 1
+            # ---- _hb 回补待确认 (取走上一根登记; 等一根递增确认:
+            # 次根同色且 |hist| 大于触发根才执行, 不过作废不顺延、
+            # 不跨日; 仓位同一性不符 (盘中已被止损/接管等先行出场
+            # 或换仓) 同样作废) ----
+            if _qqesf_hb:
+                _hb_in = qhb_pending
+                qhb_pending = None
+                if _hb_in is not None:
+                    _ht, _habs, _htdir, _hqeb, _hqpos = _hb_in
+                    if dates[_ht] != dstr:
+                        QQESF_INFO["hb_voided"] += 1  # 待确认不跨日
+                    elif pos_mode == "qf" and pos == _hqpos \
+                            and entry_bar == _hqeb:
+                        _hv2 = q_hist[i]
+                        if not np.isnan(_hv2) and _hv2 * _htdir > 0 \
+                                and abs(_hv2) > _habs:
+                            close_pos(i, c[i], "QQE_SF_HB")
+                            open_pos(_htdir, "qhb")
+                            QQESF_INFO["hb_executed"] += 1
+                            QQESF_INFO["hb_list"].append(
+                                dict(trig_bar=int(_ht), exec_bar=int(i),
+                                     date=dstr, qf_entry_bar=int(_hqeb),
+                                     qf_dir=int(_hqpos),
+                                     hb_to=int(_htdir),
+                                     marker=float(qhb_marker)))
+                        else:
+                            QQESF_INFO["hb_voided"] += 1
+                    else:
+                        QQESF_INFO["hb_voided"] += 1
             # 衰减信号登记: 持 sf 仓且仓位早于本根开仓; 同根红蓝双
             # 触发取蓝 (与精华版一致); 峰>=12 翻仓档 + 减震门
             if pos_mode == "sf" and entry_bar < i:
@@ -1980,6 +2165,72 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                                            abs(q_hist[i]), -pos, pos,
                                            entry_bar, _pk)
                             QQESF_INFO["registered"] += 1
+            # ---- _hb 回补触发评估 (本根收尾最后: 只在持 qf 仓、仓
+            # 位同一性成立、开仓早于本根时; 触发只登记待确认, 次
+            # 根递增确认才执行 —— 见上方待确认处理) ----
+            if _qqesf_hb and qhb_pending is None \
+                    and pos_mode == "qf" and entry_bar == qhb_eb \
+                    and entry_bar < i and qhb_marker > 0:
+                if _hb_trigger(i, qhb_from, qhb_marker):
+                    qhb_pending = (i, abs(q_hist[i]), qhb_from,
+                                   entry_bar, pos)
+                    QQESF_INFO["hb_registered"] += 1
+                    QQESF_INFO["hb_trigs"].append(
+                        dict(bar=int(i), date=dstr,
+                             qf_entry_bar=int(entry_bar),
+                             hb_to=int(qhb_from),
+                             marker=float(qhb_marker),
+                             hist=float(q_hist[i])))
+            # ---- _fol: QQE 跟随入场 (求值位置同衰减腿: 本根收尾,
+            # 待翻确认与衰减登记之后)。接棒规则与衰减翻仓对 sf 仓
+            # 的处理对齐: 反向跟随平 sf 开 qfol (释盾同翻仓路径);
+            # 空仓直接开 qfol; 持 qf/qfol 时反向跟随翻该 QQE 仓、
+            # 同向不动; 其余模式仓 (edge/trend/bo/er/...) 一律不碰。
+            # qfol 出场走引擎现行 qf 同路径 (open_pos 止损锚 SL_K、
+            # 通用止损/趋势接管/日终), 被止损不凑 sf 反手 (mode
+            # 非 edge, 与 qf 同)。跟随不设减震门 (精华版跟随亦无)。
+            # sf 翻仓要求 entry_bar < i, 与衰减登记同门槛。
+            # EOD 门: 跟随不开 EOD 根 (日终前 4 根), 与底盘 in_session
+            # 的 EOD 停开同口径 —— 否则条尾开仓在强制平之后、会带过夜
+            # (衰减翻仓因需持仓 sf、EOD 已平而天然躲过, 跟随从空仓
+            # 开仓无此保护, 2026-10-19 实测跨日单)。----
+            if _qfol_on and _qqesf_on and not eod:
+                _fd = _qfol_dir(i)
+                if _fd != 0:
+                    QFOL_INFO["detected"] += 1
+                    if pos == 0:
+                        open_pos(_fd, "qfol")
+                        QFOL_INFO["actions"].append(
+                            dict(bar=int(i), date=dstr, dir=int(_fd),
+                                 act="open_flat", from_mode=None,
+                                 from_dir=0, shield_released=False))
+                    elif pos_mode == "sf" and entry_bar < i \
+                            and _fd == -pos:
+                        _from_dir = pos
+                        _rel = False
+                        if sf_shield:
+                            sf_shield = False
+                            sf_release_bar = i
+                            _rel = True
+                            SF_INFO["releases"].append(
+                                [i, dstr, "qfolflip", sf_flip_bar])
+                        close_pos(i, c[i], "QQE_FOL_FLIP")
+                        open_pos(_fd, "qfol")
+                        QFOL_INFO["actions"].append(
+                            dict(bar=int(i), date=dstr, dir=int(_fd),
+                                 act="flip_sf", from_mode="sf",
+                                 from_dir=int(_from_dir),
+                                 shield_released=_rel))
+                    elif pos_mode in ("qf", "qfol") and _fd == -pos:
+                        _from_mode = pos_mode
+                        _from_dir = pos
+                        close_pos(i, c[i], "QQE_FOL_FLIP")
+                        open_pos(_fd, "qfol")
+                        QFOL_INFO["actions"].append(
+                            dict(bar=int(i), date=dstr, dir=int(_fd),
+                                 act="flip_q", from_mode=_from_mode,
+                                 from_dir=int(_from_dir),
+                                 shield_released=False))
         prev_strong_up = strong_up
         prev_strong_down = strong_down
     V67_STATS["pos_before"] = np.array(pos_before_list, dtype=int)
