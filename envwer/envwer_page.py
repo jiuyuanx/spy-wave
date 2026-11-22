@@ -32,7 +32,8 @@ CLOSE_BORDER = "#6b7280"  # 终栈平仓圈灰边
 
 STACK_ENTRY_RS = {"edge": ("边缘买入", "边缘卖出"),
                   "er": ("ER买入", "ER卖出"),
-                  "trend": ("趋势买入", "趋势卖出")}
+                  "trend": ("趋势买入", "趋势卖出"),
+                  "ine": ("惯性买入", "惯性卖出")}
 # sf 反手标签只在 F1+WER 模式出现 (冠军版无 sf 仓, 2026-11-20 user 令);
 # qf 转向标签只在 F1+WER+QQE转向 (mode="qsf") 出现, build_trades 仍以
 # mode="f1" 取本字典 (含 qf), 表头文案才分 qsf (2026-11-20 主线化)。
@@ -83,6 +84,7 @@ PIN_TYPE_STYLE = {
     "qf": {"edge": QF_BORDER, "width": None, "opacity": 0.8},  # 转向 橙
     "qfol": {"edge": "#00bcd4", "width": 2.5, "opacity": 0.8},  # 跟随 青
     "qhb": {"edge": "#000000", "width": 2.5, "opacity": 0.8},  # 回补 黑
+    "ine": {"edge": "#000000", "width": 3, "opacity": 0.8},  # 惯性 黑 (user 2026-11-22 令)
 }
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
