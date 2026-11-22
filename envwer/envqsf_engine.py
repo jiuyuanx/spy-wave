@@ -211,10 +211,31 @@ V67_STATS = dict(trend_edges_long=0, trend_edges_short=0,
 
 ER_ARRAYS = {}  # ER 覆盖层: {n: ERn 数组} (runner 按 ind['close'] 注入, 公式同 er_engine)
 ER_DIR_ARRAY = None   # WER 深研 R3b: 逐根方向符号数组 (dir_mode="arr" 时用)
+FLIP_FIRST = False    # A1: 待翻确认优先于止损 (确认根确认成立则不止损, 走正常翻仓)
+SL_FLIP = False       # A2: sf 止损时若衰减翻仓条件成立 (待翻在册或本根可登记) -> 止损变翻仓
+CHASE_ON = False      # B2: sf 止损后同日价格续走至入场价 2.5xATR 反向位 -> 空仓时反向开 sf
+CHASE_K = 2.5
+A_INFO = {"preempt": 0, "slflip": 0}
+CHASE_STATE = {"armed": None}
+CHASED_BARS = []
+ER_DECAY_GATE = None  # ER衰减门: 逐根数组, 值为正在衰减的波方向 (+1/-1/0); runner 注入
+ER_DECAY_INFO = {"gated": 0}
+def _er_decay_blocked(i, d):
+    if ER_DECAY_GATE is not None and int(ER_DECAY_GATE[i]) == d:
+        ER_DECAY_INFO["gated"] += 1
+        return True
+    return False
+INE_TRIG = None       # 惯性单: 逐根触发数组 (+1 底开call / -1 顶开put / 0 无), runner 注入
+INE_TAKEOVER = False  # 惯性单: 接管版开关 (触发时翻掉非趋势持仓)
+INE_SL_K = 1.0        # 惯性单: 止损距离 = INE_SL_K x ATR60 (开仓根定)
+INE_ATR60 = None      # 惯性单: 逐根 ATR60 数组 (止损 1.0x 用), runner 注入
+INE_INFO = {"blocked_edge": 0, "opens": 0, "mid_exit": 0, "trig_skipped": 0}
 ER_GATE_ARRAY = None  # WER 深研 R3c: 逐根质量门数组 (gate_min 给定时用)
 CE_STATE = None  # _wcent: 自由运行 CE 状态数组 (收盘后状态 ±1; runner 注入, 与 compute_ce_dye.run_ce 逐字同源)
 CE_H = None      # _wcent: 自由运行 CE 健康度数组 (hh, ATR 单位; runner 注入)
-CE_CST = None    # _wcent2: 确认后 CE 状态数组 (新状态连续 cf 根才生效; runner 注入; None 回退 CE_STATE)
+CE_CST = None
+QQE_STATE = None  # ERQQE: QQE 影子状态数组 (runner 注入, 与 CE_STATE 同式)
+ER_QQE_ON = False  # ERQQE: 段内 er 仓对齐源改 QQE 状态 (替代 CE f3)    # _wcent2: 确认后 CE 状态数组 (新状态连续 cf 根才生效; runner 注入; None 回退 CE_STATE)
 ER_INFO = {}    # ER 覆盖层回传: segments / counts
 IMB_W = 6               # _imbx: imb 窗口 (引擎定版同值)
 
@@ -253,18 +274,27 @@ QQESF_ON = False    # _qqesfflip 开关 (默认关, 关时与底盘逐笔等价)
 QQESF_INFO = {}     # _qqesfflip 研究回传: flips/registered/conf/voided/damp_blocked
 QQESF_PEAK_MIN = 12.0        # 衰减翻仓档峰值门槛 (精华版 QQE_PEAK_MIN 同值)
 QQESF_FLIP_DAMP_M = 0.8      # 翻仓减震乘数 (精华版 QQE_FLIP_DAMP_M 同值)
+# _sweep (qf_threshold_sweep_20261120): 触发线参数化 + 摘确认开关。
+# 默认值 = 现行定版 (base 0.80 / div 12 / 带次根确认), 默认下与原件逐笔等价。
+QQESF_TRIG_BASE = 0.80       # 衰减触发线底数 (现行 0.80)
+QQESF_TRIG_DIV = 12.0        # 衰减触发线指数除数 (现行 12)
+QQESF_NOCONFIRM = False      # True = 衰减翻仓摘次根确认, 信号根当根翻
+QQESF_DEEP_THETA = None      # _deep: 深衰减免等门槛 rho=|hist|/触发线 <= 此值当根翻; None=关 (全走待确认)
 QQESF_HB_ON = False          # _hb: QQE 转向腿回补开关 (默认关, 关时逐笔等价)
-QFOL_ON = False        # _fol: QQE 跟随入场开关 (默认关, 关时逐笔等价)
+QQESF_SIGLOG = []            # _deep 埋点: 每次登记决策一行 (只记不改路径)
+
+QFOL_ON = False        # _fol: QQE 跟随入场开关 (默认关, 关时与 _deep fork 逐笔等价)
 QFOL_MAXWIN = 0        # _fol: 跟随前窗最长门窗宽 (精华版 FOLLOW_MAXWIN); 0 = 无门
 QFOL_GRAY_THR = 9      # _fol: 跟随宽口径灰柱门槛 (精华版 GRAY_THR_FOLLOW 同值)
 QFOL_INFO = {}         # _fol 研究回传: actions/blocked/detected
 
 
 def _qqe_trig_line(peak):
-    """v68 衰减触发线 (user 2026-11-19 亲定; 除数 16 = 2026-11-20 扫参定版):
-    峰值 x 0.8^(1 + max(0, 峰值-12)/16)。
-    小峰 (<=12) 即峰值x0.8; 大峰指数收紧 (峰25->x0.667、峰40->x0.541)。"""
-    return peak * 0.8 ** (1.0 + max(0.0, float(peak) - 12.0) / 16.0)
+    """v68 衰减触发线 (user 2026-11-19 亲定): 峰值 x 0.8^(1 + max(0, 峰值-12)/12)。
+    小峰 (<=12) 即峰值x0.8; 大峰指数收紧 (峰25->x0.628、峰40->x0.476)。
+    _sweep: 底数/除数改读 QQESF_TRIG_BASE / QQESF_TRIG_DIV (默认同上)。"""
+    return peak * QQESF_TRIG_BASE ** (
+        1.0 + max(0.0, float(peak) - 12.0) / QQESF_TRIG_DIV)
 
 
 def _qqe_detect_decay(hist, mask, opp_mask, day):
@@ -619,7 +649,10 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     SF_INFO.clear()
     QQESF_INFO.clear()
     _qqesf_on = bool(QQESF_ON)
+    _qqesf_noconf = bool(QQESF_NOCONFIRM)  # _sweep: 摘确认开关 (默认关)
     _qqesf_hb = bool(QQESF_HB_ON)          # _hb: 回补开关 (默认关)
+    _qqesf_deep = QQESF_DEEP_THETA  # _deep: None 或 float 门槛
+    QQESF_SIGLOG.clear()            # _deep 埋点重置
     QFOL_INFO.clear()
     _qfol_on = bool(QFOL_ON)        # _fol: 跟随开关 (另须 _qqesf_on 才有 QQE 数组)
     _qfol_maxwin = int(QFOL_MAXWIN)
@@ -895,6 +928,10 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
         elif SL_MODE == "roi":
             _dd = _roi_stop_delta(direction, SL_ROI_T)
             sl_level = entry_px + _dd if _dd is not None else None
+        if mode == "ine" and INE_ATR60 is not None:
+            sl_level = entry_px - INE_SL_K * float(INE_ATR60[i]) if direction == 1 \
+                else entry_px + INE_SL_K * float(INE_ATR60[i])
+            INE_INFO["opens"] += 1
         if SL_MODE == "chand":
             sl_extreme = entry_px
         V67_STATS["entry_modes"][i] = mode
@@ -918,7 +955,9 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     # ---- _qqesfflip 状态与减震 (精华版 _q_flip_blocked 移植; 动作流
     # 用全策略开/平 act_bars —— 本引擎无 QQE 腿, 减震的 op 计数锚在
     # 同一有利波第一峰根、数全策略动作, quiet 口径同 _q_damp) ----
+    slflip_due = None  # A2: 止损带翻待执行 (本根 QQESF 段落点)
     qsf_pending = None  # 待翻登记: (信号根, 衰减波符号, |hist[信号根]|, 翻向, 登记时仓向, 登记时 entry_bar, 峰值)
+    _siglog_idx = {}  # _deep 埋点: sig_bar -> QQESF_SIGLOG 下标
 
     # ---- _hb 回补状态 (精华版 H 回补移植到转向腿; 只在持 qf 仓时
     # 评估): qhb_marker = qf 翻仓开仓根 |hist| 基准; qhb_from = 翻仓
@@ -1006,7 +1045,13 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
             _h = q_hist[_ws - 1]
             if np.isnan(_h):
                 break
-            if _h * _sign < 0 and abs(_h) >= 1:
+            # user 2026-11-21 16:19/16:21 令 (写进引擎): |h|<3 小柱
+            # 不管正反向一律 ignore —— 不断波、不计小柱数; 反号断波
+            # 门槛随之为 |h|>=3, 3<=|h|<=4 仍计小柱 (>8 连断)。
+            if abs(_h) < 3:
+                _ws -= 1
+                continue
+            if _h * _sign < 0:
                 break
             if abs(_h) <= 4:
                 _consec_small += 1
@@ -1646,18 +1691,44 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                 pass
             elif SL_MODE in ("atr", "split", "roi"):
                 _rs = "SL_ROI" if SL_MODE == "roi" else "SL"
-                if pos == 1 and sl_level is not None and l[i] <= sl_level:
+                _sl_hit = sl_level is not None and \
+                    ((pos == 1 and l[i] <= sl_level) or
+                     (pos == -1 and h[i] >= sl_level))
+                _preempt = False
+                if _sl_hit and FLIP_FIRST and pos_mode == "sf" \
+                        and qsf_pending is not None:
+                    _pt2, _pws2, _pha2, _pto2, _ppos2, _peb2, _ppk2 = qsf_pending
+                    if dates[_pt2] == dstr and _peb2 == entry_bar \
+                            and pos == _ppos2:
+                        _hv2 = q_hist[i]
+                        if _hv2 * _pws2 < 0 or abs(_hv2) < _pha2:
+                            _preempt = True
+                            A_INFO["preempt"] += 1
+                if _sl_hit and not _preempt:
                     _sfd = pos; _sfm = pos_mode; _sde = entry_bar
+                    _sepx = entry_px; _seatr = entry_atr
                     close_pos(i, sl_level, _rs)
                     if _sf_on and _rs == "SL":
                         sl_dir_bar = _sfd; sl_mode_bar = _sfm
                         sl_entry_bar = _sde
-                elif pos == -1 and sl_level is not None and h[i] >= sl_level:
-                    _sfd = pos; _sfm = pos_mode; _sde = entry_bar
-                    close_pos(i, sl_level, _rs)
-                    if _sf_on and _rs == "SL":
-                        sl_dir_bar = _sfd; sl_mode_bar = _sfm
-                        sl_entry_bar = _sde
+                    if _sfm == "sf" and CHASE_ON:
+                        CHASE_STATE["armed"] = (dstr, _sfd, _sepx, _seatr)
+                    if _sfm == "sf" and SL_FLIP and _rs == "SL":
+                        _do_slflip = False; _sigb = i; _pk3 = 0.0
+                        if qsf_pending is not None:
+                            _pt3, _pws3, _pha3, _pto3, _ppos3, _peb3, _ppk3 = qsf_pending
+                            if dates[_pt3] == dstr and _peb3 == _sde and _ppos3 == _sfd:
+                                _do_slflip = True; _sigb = _pt3; _pk3 = _ppk3
+                        if not _do_slflip:
+                            _pdict = q_peak_red if _sfd == -1 else q_peak_blue
+                            if i in _pdict and _pdict[i] >= QQESF_PEAK_MIN \
+                                    and not _sf_flip_blocked(_sfd, i, _pdict[i]):
+                                _do_slflip = True; _pk3 = _pdict[i]
+                        if _do_slflip:
+                            slflip_due = (int(-_sfd), int(_sde), int(_sfd),
+                                          float(_pk3), int(_sigb))
+                            if qsf_pending is not None and qsf_pending[5] == _sde:
+                                qsf_pending = None
             elif SL_MODE == "trail":
                 if pos == 1:
                     if not sl_armed and h[i] - entry_px >= SL_TRAIL_X * entry_atr:
@@ -1721,6 +1792,12 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                 sf_shield = False; sf_release_bar = i
                 if START_DATE <= dstr <= END_DATE:
                     SF_INFO["releases"].append([i, dstr, "mid", sf_flip_bar])
+        # ---- 惯性单: 收盘打到高斯中线另一侧 -> 平仓 (屏蔽随之解除) ----
+        if INE_TRIG is not None and pos_mode == "ine" and i > entry_bar \
+                and np.isfinite(mid[i]):
+            if (pos == 1 and c[i] >= mid[i]) or (pos == -1 and c[i] <= mid[i]):
+                close_pos(i, c[i], "INE_MID")
+                INE_INFO["mid_exit"] += 1
         # ---- 强制平 (EOD / EXIT BO / EXIT T; 趋势接管: EXIT T 只被趋势信号压住, 与基线一致) ----
         force_exit = False
         if pos != 0:
@@ -1798,7 +1875,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
         # 段尾根不动作; 槽位被本体仓占用时 pos!=0 天然跳过, 空出后补齐 ----
         if (er_on and er_ce_f3 and seg_active and not seg_ended_bar
                 and in_session and not trend_special and not eod):
-            _cst3 = int(ce_cst[i])
+            _cst3 = int(QQE_STATE[i]) if ER_QQE_ON else int(ce_cst[i])
             if (pos != 0 and pos_mode == "er" and i > entry_bar
                     and _cst3 != 0 and _cst3 == -pos):
                 _s0 = ER_INFO["segments"][-1][0]
@@ -1808,7 +1885,8 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                 ce_flip_bar = i
                 open_pos(-pos, "er")
             elif (pos == 0 and _cst3 != 0
-                    and not (er_last_close is not None and er_last_close[0] == i)):
+                    and not (er_last_close is not None and er_last_close[0] == i)
+                    and not _er_decay_blocked(i, _cst3)):
                 _s0 = ER_INFO["segments"][-1][0]
                 ce_cnt["f3_open"] = ce_cnt.get("f3_open", 0) + 1
                 ER_INFO["ce_events"].append([_s0, dstr, "f3_open", _cst3, i, None])
@@ -1917,7 +1995,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
         # ---- ER 覆盖层: ER 入场 (趋势信号当根让位; 持趋势仓挡; 持普通仓改开) ----
         if er_on and er_trigger and not trend_special:
             if pos == 0:
-                if open_pos(seg_dir, "er"):
+                if not _er_decay_blocked(i, seg_dir) and open_pos(seg_dir, "er"):
                     er_cnt["entries"] += 1
                     er_ext = entry_px
                     er_ext = max(er_ext, float(h[i])) if seg_dir == 1 else min(er_ext, float(l[i]))
@@ -1926,6 +2004,8 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                 er_cnt["blocked_trend_pos"] += 1  # 该段 ER 作废 (入场只在触发根)
             elif pos_mode == "er":
                 pass
+            elif pos_mode == "ine":
+                pass  # 惯性单受保护: ER 本段入场作废, 不换仓
             else:
                 close_pos(i, c[i], "ER_SWAP")
                 er_cnt["swaps"] += 1
@@ -1940,11 +2020,25 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                 and in_session and seg_active and pos == 0
                 and er_last_close is not None and er_last_close[0] == i - 1
                 and er_last_close[1] in ("ER_TP", "SL")):
-            if open_pos(seg_dir, "er"):
+            if not _er_decay_blocked(i, seg_dir) and open_pos(seg_dir, "er"):
                 er_cnt["reentries"] += 1
                 er_ext = entry_px
                 er_ext = max(er_ext, float(h[i])) if seg_dir == 1 else min(er_ext, float(l[i]))
                 can_long = False; can_short = False
+        # ---- B2 追反: sf 止损后同日续走至 2.5xATR 反向位, 空仓反向开 sf ----
+        if CHASE_ON and CHASE_STATE["armed"] is not None:
+            _ad, _adir, _apx, _aatr = CHASE_STATE["armed"]
+            if _ad != dstr:
+                CHASE_STATE["armed"] = None
+            elif pos == 0 and in_session and not eod:
+                _touched = (_adir == 1 and l[i] <= _apx - CHASE_K * _aatr) or \
+                    (_adir == -1 and h[i] >= _apx + CHASE_K * _aatr)
+                if _touched:
+                    if open_pos(-_adir, "sf"):
+                        CHASED_BARS.append(int(i))
+                    CHASE_STATE["armed"] = None
+        if INE_TRIG is not None and int(INE_TRIG[i]) != 0 and pos != 0:
+            INE_INFO["trig_skipped"] += 1
         if enter_trend_long or enter_trend_short:
             tdir = 1 if enter_trend_long else -1
             if control_pos is None:
@@ -1998,15 +2092,27 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                     else:
                         # 空仓直接开
                         open_pos(tdir, "trend")
-        elif enter_rev_long:
+        elif enter_rev_long and pos_mode != "ine":
             open_pos(1, "rev")
-        elif enter_rev_short:
+        elif enter_rev_short and pos_mode != "ine":
             open_pos(-1, "rev")
-        elif enter_bo_long:
+        elif enter_bo_long and pos_mode != "ine":
             open_pos(1, "bo")
-        elif enter_bo_short:
+        elif enter_bo_short and pos_mode != "ine":
             open_pos(-1, "bo")
+        elif INE_TRIG is not None and int(INE_TRIG[i]) != 0 and pos == 0 and not eod:
+            open_pos(int(INE_TRIG[i]), "ine")
+        elif INE_TRIG is not None and INE_TAKEOVER and int(INE_TRIG[i]) != 0 \
+                and pos != 0 and pos_mode != "trend" and pos != int(INE_TRIG[i]) and not eod:
+            _im = pos_mode
+            close_pos(i, c[i], "INE_TAKEOVER")
+            if open_pos(int(INE_TRIG[i]), "ine"):
+                INE_INFO["takeovers"] = INE_INFO.get("takeovers", 0) + 1
+                _tm = INE_INFO.setdefault("takeover_modes", {})
+                _tm[_im] = _tm.get(_im, 0) + 1
         elif can_long and not can_short:
+            if INE_TRIG is not None and pos_mode == "ine":
+                INE_INFO["blocked_edge"] += 1
             if (_sf_on and sl_dir_bar == 1 and sl_mode_bar == "edge"
                     and pos == 0 and START_DATE <= dstr <= END_DATE):
                 if (_sf_mid and sl_entry_bar >= 0
@@ -2017,7 +2123,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
             if _sf_on and sf_shield:
                 if START_DATE <= dstr <= END_DATE:
                     SF_INFO["blocked"].append([i, dstr, 1])
-            elif _sf_on and sl_dir_bar == 1 and pos != 0:
+            elif _sf_on and sl_dir_bar == 1 and pos != 0 and pos_mode != "ine":
                 SF_INFO["skip_pos"] += 1
                 if open_pos(1, "ut" if ut_b else "edge") and er_on \
                         and (seg_active or seg_ended_bar):
@@ -2031,10 +2137,12 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                     sf_shield_date = dstr; sf_flip_bar = i
                     if START_DATE <= dstr <= END_DATE:
                         SF_INFO["flips"].append([i, dstr, 1, -1, sl_mode_bar])
-            elif open_pos(1, "ut" if ut_b else "edge") and er_on \
+            elif pos_mode != "ine" and open_pos(1, "ut" if ut_b else "edge") and er_on \
                     and (seg_active or seg_ended_bar):
                 er_cnt["seg_gauss_entries"] += 1  # _nb: 段窗口内高斯实际开仓
         elif can_short and not can_long:
+            if INE_TRIG is not None and pos_mode == "ine":
+                INE_INFO["blocked_edge"] += 1
             if (_sf_on and sl_dir_bar == -1 and sl_mode_bar == "edge"
                     and pos == 0 and START_DATE <= dstr <= END_DATE):
                 if (_sf_mid and sl_entry_bar >= 0
@@ -2045,7 +2153,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
             if _sf_on and sf_shield:
                 if START_DATE <= dstr <= END_DATE:
                     SF_INFO["blocked"].append([i, dstr, -1])
-            elif _sf_on and sl_dir_bar == -1 and pos != 0:
+            elif _sf_on and sl_dir_bar == -1 and pos != 0 and pos_mode != "ine":
                 SF_INFO["skip_pos"] += 1
                 if open_pos(-1, "ut" if ut_s else "edge") and er_on \
                         and (seg_active or seg_ended_bar):
@@ -2059,26 +2167,48 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                     sf_shield_date = dstr; sf_flip_bar = i
                     if START_DATE <= dstr <= END_DATE:
                         SF_INFO["flips"].append([i, dstr, -1, 1, sl_mode_bar])
-            elif open_pos(-1, "ut" if ut_s else "edge") and er_on \
+            elif pos_mode != "ine" and open_pos(-1, "ut" if ut_s else "edge") and er_on \
                     and (seg_active or seg_ended_bar):
                 er_cnt["seg_gauss_entries"] += 1  # _nb: 段窗口内高斯实际开仓
         # ---- _qqesfflip: QQE 衰减翻仓帮 sf 仓转向 (求值位置: 本根
         # 止损/强制平/ER 出场/进场全处理完之后、本根收尾 —— 翻仓是
         # 本根最后一个仓位动作, 与引擎内其余翻仓 (进场块内 open_pos
-        # FLIP) 同语义)。翻仓档 (峰>=12) 帮 sf 仓转向; 跟随腿
-        # (QFOL_ON+QFOL_MAXWIN=5 前窗最长门) 与回补 (QQESF_HB_ON)
-        # 已随四件套定版一并移植 (user 2026-11-20 23:04-23:06 令,
-        # 与研究 fork_qsf_final 同步); 衰减断段本根豁免 (LB10 回扫
-        # caj<=3 加 j<i) 同在 _qqe_detect_decay。短峰只平不移植;
-        # gap 开盘忽略不移植 (非信号定义本身)。----
+        # FLIP) 同语义)。只动 sf 仓; 只借翻仓档 (峰>=12), 短峰只平/
+        # 跟随/回补等不移植; gap 开盘忽略不移植 (非信号定义本身)。----
         if _qqesf_on and START_DATE <= dstr <= END_DATE:
+            # A2 止损带翻落点: SL 根收尾、槽位仍空才执行 (与正常翻仓同位置)
+            if SL_FLIP and slflip_due is not None:
+                _fto, _fsde, _fsfd, _fpk, _fsig = slflip_due
+                slflip_due = None
+                if pos == 0:
+                    if sf_shield:
+                        sf_shield = False
+                        sf_release_bar = i
+                        SF_INFO["releases"].append(
+                            [i, dstr, "qflip", sf_flip_bar])
+                        QQESF_INFO["shield_released"] += 1
+                    open_pos(_fto, "qf")
+                    qhb_marker = abs(q_hist[i]); qhb_from = int(_fsfd)
+                    qhb_eb = i; qhb_pending = None
+                    QQESF_INFO["flips"].append(
+                        dict(sig_bar=int(_fsig), conf_bar=int(i),
+                             date=dstr, sf_entry_bar=int(_fsde),
+                             sf_dir=int(_fsfd), flip_to=int(_fto),
+                             peak=float(_fpk), conf="sl"))
+                    QQESF_INFO["registered"] += 1
+                    A_INFO["slflip"] += 1
             # 待翻确认 (本根最前面, 先于本根新登记): 取走上一根登记
             _pend_in = qsf_pending
             qsf_pending = None
             if _pend_in is not None:
                 _pt, _pws, _pha, _pto, _ppos, _peb, _ppk = _pend_in
+                _sg = QQESF_SIGLOG[_siglog_idx[int(_pt)]] \
+                    if int(_pt) in _siglog_idx else None
                 if dates[_pt] != dstr:
                     QQESF_INFO["voided"] += 1  # 待翻不跨日
+                    if _sg is not None:
+                        _sg["outcome"] = "void_xday"
+                        _sg["conf_bar"] = int(i)
                 elif pos_mode == "sf" and pos == _ppos \
                         and entry_bar == _peb:
                     _hv = q_hist[i]
@@ -2112,10 +2242,19 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                             QQESF_INFO["conf_opp"] += 1
                         else:
                             QQESF_INFO["conf_dec"] += 1
+                        if _sg is not None:
+                            _sg["outcome"] = "conf_" + _ck
+                            _sg["conf_bar"] = int(i)
                     else:
                         QQESF_INFO["voided"] += 1
+                        if _sg is not None:
+                            _sg["outcome"] = "void_len"
+                            _sg["conf_bar"] = int(i)
                 else:
                     QQESF_INFO["voided"] += 1
+                    if _sg is not None:
+                        _sg["outcome"] = "void_pos"
+                        _sg["conf_bar"] = int(i)
             # ---- _hb 回补待确认 (取走上一根登记; 等一根递增确认:
             # 次根同色且 |hist| 大于触发根才执行, 不过作废不顺延、
             # 不跨日; 仓位同一性不符 (盘中已被止损/接管等先行出场
@@ -2160,11 +2299,61 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                     if (_sig == "red" and pos == -1) or \
                             (_sig == "blue" and pos == 1):
                         if not _sf_flip_blocked(pos, i, _pk):
-                            qsf_pending = (i,
-                                           -1 if _sig == "red" else 1,
-                                           abs(q_hist[i]), -pos, pos,
-                                           entry_bar, _pk)
-                            QQESF_INFO["registered"] += 1
+                            _trig = _qqe_trig_line(_pk)
+                            _rho = abs(q_hist[i]) / _trig \
+                                if _trig > 0 else 1.0
+                            _deep = _qqesf_deep is not None \
+                                and _rho <= _qqesf_deep
+                            _sgn = dict(sig_bar=int(i), date=dstr,
+                                        sf_entry_bar=int(entry_bar),
+                                        sf_dir=int(pos),
+                                        flip_to=int(-pos),
+                                        peak=float(_pk),
+                                        sig_hist=float(abs(q_hist[i])),
+                                        trig=float(_trig),
+                                        rho=float(_rho),
+                                        path="deep" if _deep else "pend",
+                                        outcome=None, conf_bar=None)
+                            QQESF_SIGLOG.append(_sgn)
+                            _siglog_idx[int(i)] = len(QQESF_SIGLOG) - 1
+                            if _qqesf_noconf or _deep:
+                                # _sweep: 摘确认 —— 信号根当根翻。动作与
+                                # 次根确认分支逐项同 (释盾 -> 平 sf ->
+                                # 开 qf -> 记 flips), 只是提前到信号根
+                                # 本根收尾执行, 不再登记待翻。
+                                _pto2 = -pos
+                                _ppos2 = pos
+                                _sf_eb2 = entry_bar
+                                if sf_shield:
+                                    sf_shield = False
+                                    sf_release_bar = i
+                                    SF_INFO["releases"].append(
+                                        [i, dstr, "qflip", sf_flip_bar])
+                                    QQESF_INFO["shield_released"] += 1
+                                close_pos(i, c[i], "QQE_SF_FLIP")
+                                open_pos(_pto2, "qf")
+                                # _hb: 记回补基准 (同确认分支)
+                                qhb_marker = abs(q_hist[i])
+                                qhb_from = int(_ppos2)
+                                qhb_eb = i; qhb_pending = None
+                                QQESF_INFO["flips"].append(
+                                    dict(sig_bar=int(i), conf_bar=int(i),
+                                         date=dstr,
+                                         sf_entry_bar=int(_sf_eb2),
+                                         sf_dir=int(_ppos2),
+                                         flip_to=int(_pto2),
+                                         peak=float(_pk),
+                                         conf="deep" if _deep else "imm"))
+                                QQESF_INFO["registered"] += 1
+                                _sgn["outcome"] = "imm_deep" if _deep \
+                                    else "imm_all"
+                                _sgn["conf_bar"] = int(i)
+                            else:
+                                qsf_pending = (i,
+                                               -1 if _sig == "red" else 1,
+                                               abs(q_hist[i]), -pos, pos,
+                                               entry_bar, _pk)
+                                QQESF_INFO["registered"] += 1
             # ---- _hb 回补触发评估 (本根收尾最后: 只在持 qf 仓、仓
             # 位同一性成立、开仓早于本根时; 触发只登记待确认, 次
             # 根递增确认才执行 —— 见上方待确认处理) ----

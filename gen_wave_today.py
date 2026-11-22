@@ -3841,7 +3841,7 @@ def main():
                 if _mode == "f1":
                     _payload, _perr = _qsf_payload()
                 else:
-                    _payload, _perr = _ewr.day_payload_warm(
+                    _payload, _perr = _eqsf.day_payload_warm_champ(
                         _idf[["t", "open", "high", "low", "close"]], day_str)
                 if _payload is None:
                     raise RuntimeError(f"载荷失败: {_perr}")
