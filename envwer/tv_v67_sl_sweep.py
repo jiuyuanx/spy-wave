@@ -250,8 +250,28 @@ def compute_indicators(df):
     for i in range(n):
         k = min(i + 1, GAUSS_LEN)
         mid[i] = np.sum(c[i - k + 1:i + 1] * w[:k][::-1]) / np.sum(w[:k])
+    # ---- slope 用去跳空缝合价 (user 2026-11-23 令): 中线/通道仍用原始
+    # 收盘, 只有 slope 在 adj 上算 —— adj = close - 累计隔夜跳空 (gap =
+    # 当日首根 open - 前一根 close), 抹掉隔夜台阶对趋势识别的污染
+    # (实测污染约 15 根洗净; 本函数是 Envelope 三臂与 WER 面板的共同
+    # 指标源, 改一处三臂同享; ER/ADX 不缝 —— 研究三年缝了 -505.5,
+    # 跳空对它们多半是真动能; slope 单缝冠军三年 Δ+83.7 噪声级,
+    # 挡 2026-11-23 09:32 假趋势单, user 知情采纳)。
+    _starts = {}
+    for _i, _d in enumerate(dates):
+        if _d not in _starts:
+            _starts[_d] = _i
+    _gap_at = np.zeros(n)
+    for _j, _s in enumerate(sorted(_starts.values())):
+        if _j > 0:
+            _gap_at[_s] = o[_s] - c[_s - 1]
+    _adj_c = c - np.cumsum(_gap_at)
+    _mid_s = np.full(n, np.nan)
+    for i in range(n):
+        k = min(i + 1, GAUSS_LEN)
+        _mid_s[i] = np.sum(_adj_c[i - k + 1:i + 1] * w[:k][::-1]) / np.sum(w[:k])
     slope = np.full(n, np.nan)
-    slope[SLOPE_LEN:] = (mid[SLOPE_LEN:] - mid[:-SLOPE_LEN]) / SLOPE_LEN
+    slope[SLOPE_LEN:] = (_mid_s[SLOPE_LEN:] - _mid_s[:-SLOPE_LEN]) / SLOPE_LEN
     # ---- EMA 动量平移 ----
     ema = np.full(n, np.nan)
     if n > 0:
