@@ -3440,7 +3440,8 @@ def main():
                 "col": _QCOL_CN.get(_hpl["qcol"][_i], "灰"),
                 "why": "<br/>".join(hama_acts.get(_ts, []))}
 
-        def _hama_pin(bar, value, color, rs_txt, rev_edge=False):
+        def _hama_pin(bar, value, color, rs_txt, rev_edge=False,
+                      wait=False):
             _h = _hpl["hist"][bar]
             _yq = (round(_h * 1.15 + (0.5 if _h > 0 else -0.5), 1)
                    if _h is not None else 5)
@@ -3448,6 +3449,15 @@ def main():
             if rev_edge:
                 _ist["borderColor"] = "#111"
                 _ist["borderWidth"] = 2.6
+            if wait:
+                # 等待圈: 淡填同色 + 虚线边, 与实心开仓圈区分 (user 2026-11-23 令:
+                # 等待与确认都要画、要能一眼分清)
+                _hx = color.lstrip("#")
+                _ist = {"color": "rgba(%d,%d,%d,0.22)" % (
+                            int(_hx[0:2], 16), int(_hx[2:4], 16),
+                            int(_hx[4:6], 16)),
+                        "borderColor": color, "borderWidth": 2,
+                        "borderType": "dashed"}
             hama_pins.append({"coord": [hama_times1m[bar], _yq],
                               "value": value, "itemStyle": _ist,
                               "rs": rs_txt})
@@ -3480,6 +3490,15 @@ def main():
                     ("C" if _t["dir"] == 1 else "P")
                 _hama_pin(_t["xs"], _lbl, "#9ca3af",
                           _RSN_CN.get(_t["rsn"], _t["rsn"]))
+        # REV 等待圈: pending 建立根 (trig) 与决策根 (eb-1) 不同根时, 在
+        # trig 补一颗虚线淡圈「等C/等P」, 与 eb-1 的实心开仓圈成对出现。
+        for _t in _htrds:
+            if _t["src"] == "REV" and _t["trig"] < _t["eb"] - 1:
+                _wdr = "call" if _t["dir"] == 1 else "put"
+                _hama_pin(_t["trig"],
+                          "等" + ("C" if _t["dir"] == 1 else "P"),
+                          _dir_color(_wdr, "开"), "衰减反转·等待确认",
+                          wait=True)
         # 每单盈亏标签 (照 STVX scat 行堆叠算法, x = 平仓 1m bar)
         _sx_placed, _sx_data = [], []
         _sx_max_row = 0
