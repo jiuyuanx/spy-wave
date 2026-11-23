@@ -3759,7 +3759,7 @@ def main():
     # (上方旧引擎块保留: 仍供 _env_df/_env_trend_segs/env_min/max 等
     # 页面脚手架, 其单子不再进 Envelope 节。)
     _ENV_MODES = (("champion", "WER终栈⑪", "envelope-wer"),
-                  ("f1", "F1+WER+QQE转向", "envelope-f1"),
+                  ("f1", "反手+QQE", "envelope-f1"),
                   ("imb", "WER失衡版", "envelope-imb"))
     _env_sets = {}    # mode -> build_consts 常量 dict (该版计算成功时)
     _env_fail = {}    # mode -> 错误文本 (该版计算失败时)
@@ -3998,8 +3998,8 @@ def main():
     # ENVELOPE_SETS, 工作变量默认取冠军版; 页内 switchEnvMode 整套
     # 换 (圈/单子表/acts/tip/标题/段染色)。共用常量 (轨道/TIMES1M/
     # TREND_SEGS) 仍只发一份。 ----
-    _WER_TITLES = {"champion": "WER · WER冠军/F1+WER 共用（引擎口径）",
-                   "f1": "WER · WER冠军/F1+WER 共用（引擎口径）",
+    _WER_TITLES = {"champion": "WER · WER冠军/反手+QQE 共用（引擎口径）",
+                   "f1": "WER · WER冠军/反手+QQE 共用（引擎口径）",
                    "imb": "WER · WER失衡版（窗口 8 · 引擎口径）"}
 
     def _env_set_js(_C, _m):
@@ -4246,7 +4246,7 @@ return _origEnvTip(ps, barInfo);
     # _verBtns3 已先行快照, 不含这两个按钮, 免被版本按钮刷色覆盖)
     _sw.append("  var emw = document.createElement('span');")
     _sw.append("  emw.id = 'envModeWrap'; emw.style.display = 'none';")
-    _sw.append("  [['champion','WER冠军'],['f1','F1+WER+QQE转向'],['imb','WER失衡版']].forEach(function(it){")
+    _sw.append("  [['champion','WER冠军'],['f1','反手+QQE'],['imb','WER失衡版']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.envmode = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
@@ -4273,8 +4273,8 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var wrap = document.createElement('div');")
     _sw.append("  wrap.id = 'werPanel';")
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
-    _wer_title = ("WER · WER冠军/F1+WER 共用（引擎口径）" if _env_int_ok
-                  else "WER · WER冠军/F1+WER（计算失败）")
+    _wer_title = ("WER · WER冠军/反手+QQE 共用（引擎口径）" if _env_int_ok
+                  else "WER · WER冠军/反手+QQE（计算失败）")
     _sw.append("  wrap.innerHTML = '<div id=\"werTitle\" style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")

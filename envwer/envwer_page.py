@@ -445,8 +445,8 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         "<td colspan=\"9\">合计</td><td>—</td><td></td>"
         "<td>~%s</td><td></td></tr>" % money(tot))
     if mode == "qsf":
-        _hdr_title = "Envelope版信号单（F1+WER+QQE转向 · Gamma理论预估，-100口径）"
-        _hdr_desc = ("F1+WER+QQE转向：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋"
+        _hdr_title = "Envelope版信号单（反手+QQE · Gamma理论预估，-100口径）"
+        _hdr_desc = ("反手+QQE：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋"
                      "ER 段/F3S 段内管理 · QQE 衰减翻仓转向（确认根砍 sf 反手仓、"
                      "反向接棒：信号圈橙边＋主图深蓝/深紫箭头） · dose/ramp/brk5 · "
                      "本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · ")
