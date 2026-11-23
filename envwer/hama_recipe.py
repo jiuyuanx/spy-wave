@@ -28,6 +28,10 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
   价格止损 99xATR 占位 (STOP_K=99)。
 - 午间斜率门: 12:00 起每半小时检查点, |近30根位移| >= 0.75xATR
   才开下半小时, 14:30 解除 (MID_ON, 全因果)。
+- 开仓窗口: 09:35–15:54 (定版去除尾限, user 2026-11-23 采纳):
+  全部进场路尾限由 15:30 放开到 15:54 (相对 Δ+951.20pp 三年
+  全正, 15:30 后新开 994 笔/+813.71pp); 换身份与挡单标注仍
+  15:30, 与 sim.py ENTRY_END 定版口径一致。
 - FOMC 决议日全天不做 (日期表与 sim.py 同)。
 - 结算: 30% 杠杆真 0DTE 公式 (Call ROI% = 30*dSPY + 2.4*dSPY^2,
   put 镜像, 下限 -100)。
@@ -529,7 +533,7 @@ def _run(c):
                     events.append((gi, "段首峰值比<0.5·信号被挡"))
                 if ((_first and _pr_ok) or (conj and incr and _hy)) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
-                        and "09:35" <= hm <= "15:30" and MID_ON[gi]:
+                        and "09:35" <= hm <= "15:54" and MID_ON[gi]:
                     dr = _bge
                     eb = gi + 1
                     if eb <= i1:
@@ -556,7 +560,7 @@ def _run(c):
                                 _qc = True
                                 events.append((gi, "衰减已确认"))
                             if _qc and bg_r[gi] == -_wv \
-                                    and "09:35" <= hm <= "15:30" \
+                                    and "09:35" <= hm <= "15:54" \
                                     and MID_ON[gi]:
                                 _ed = -_wv
                                 eb = gi + 1
@@ -588,7 +592,7 @@ def _run(c):
                                         and abs(hist[gi]) < abs(hist[gi - 1])
                                         < abs(hist[gi - 2])
                                         and bg_r[gi] == _ed
-                                        and "09:35" <= hm <= "15:30"
+                                        and "09:35" <= hm <= "15:54"
                                         and MID_ON[gi]):
                                     eb = gi + 1
                                     if eb <= i1:
@@ -640,7 +644,7 @@ def _run(c):
                                 and _hb_trigger(gi, _s, hb_arm[_s],
                                                 HB_ENTRY_MULT)
                                 and abs(hama1_shade[gi]) >= HS_MIN
-                                and "09:35" <= hm <= "15:30"
+                                and "09:35" <= hm <= "15:54"
                                 and MID_ON[gi]):
                             eb = gi + 1
                             if eb <= i1:
