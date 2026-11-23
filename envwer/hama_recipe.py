@@ -72,6 +72,22 @@ def _load_frame(upto_day, today_bars=None):
     给了 today_bars (gen 当日帧, 列 t/open/high/low/close) 时用它补
     当日 (同日以 today_bars 为准)。返回 sim.py 同schema 的 DataFrame
     (dstr/hm/open/high/low/close, 已按时序排好、只留 09:30-15:59)。"""
+    if today_bars is not None and len(today_bars):
+        # gen 实盘/工作流路径: 直接用 gen 自家暖帧 (warmup+当日, API 组帧),
+        # 不读本机缓存 (GitHub Actions 环境无缓存文件, 2026-11-23 实测
+        # FileNotFoundError)。暖帧约 10 自然日, 高于 sslhq 等价闸的
+        # K=3 交易日收敛线, 当日逐笔与全帧口径一致。
+        t0 = pd.to_datetime(today_bars["t"])
+        c = pd.DataFrame({
+            "dstr": t0.dt.strftime("%Y-%m-%d").to_numpy(),
+            "hm": t0.dt.strftime("%H:%M").to_numpy(),
+            "open": today_bars["open"].to_numpy(float),
+            "high": today_bars["high"].to_numpy(float),
+            "low": today_bars["low"].to_numpy(float),
+            "close": today_bars["close"].to_numpy(float)})
+        c = c[(c["hm"] >= "09:30") & (c["hm"] <= "15:59")].copy()
+        c = c.sort_values(["dstr", "hm"]).reset_index(drop=True)
+        return c
     parts = []
     p23 = os.path.join(_CACHE_DIR, "spy_1m_2023.pkl")
     if os.path.exists(p23):
