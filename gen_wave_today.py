@@ -3375,10 +3375,10 @@ def main():
     hama_times1m, hama_ohlc, hama_qqe = [], [], []
     hama_line_segs, hama_ssl_fills = [], []
     hama_inner = ("<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
-                  "hama版信号单（30%杠杆真0DTE口径）</div>"
+                  "Hama版信号单（30%杠杆真0DTE口径）</div>"
                   "<div style=\"font-size:13px;color:#e5484d;font-weight:bold\">"
-                  "⚠ hama版计算失败，本节暂无数据。</div>")
-    hama_title_txt = f"{day_str} (hama版) | 计算失败"
+                  "⚠ Hama版计算失败，本节暂无数据。</div>")
+    hama_title_txt = f"{day_str} (Hama版) | 计算失败"
     hama_title_echart = f"{day_str} ({{hama|hama}}版) | 计算失败"
     try:
         import sys as _sys_h
@@ -3559,7 +3559,7 @@ def main():
             f"<td>~{'+' if _htot_usd >= 0 else '-'}${abs(_htot_usd):,.0f}</td><td></td></tr>")
         hama_inner = (
             "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
-            "hama版信号单（SSL×HAMA×QQE，30%杠杆真0DTE口径）</div>"
+            "Hama版信号单（SSL×HAMA×QQE，30%杠杆真0DTE口径）</div>"
             "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
             "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
             "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
@@ -3572,7 +3572,7 @@ def main():
             "午间斜率门，FOMC 日不做；非实际成交</div>")
         _hsum = _hpl["sum"]
         _htot2 = _hsum * 1000.0
-        hama_title_txt = (f"{day_str} (hama版) | {gap_txt} | 全天hama | "
+        hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | 全天Hama | "
                           f"{'+' if _hsum >= 0 else '-'}${abs(_htot2):,.0f} "
                           f"({_hsum:+.1f}%)")
         _hpnl_e = (("{pnl_pos|+" if _hsum >= 0 else "{pnl_neg|-")
@@ -3814,7 +3814,9 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      if (!_hasL2('HAMA3')) { _ld2.push({name: 'HAMA3', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%2366d95e%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
     _sw.append("      if (!_hasL2('SSL')) { _ld2.push({name: 'SSL', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
     _sw.append("      if (!_hasL2('1mK线')) { _ld2.push({name: '1mK线', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%231a9e54%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
-    _sw.append("      if (_chgL2) ch.setOption({legend: {data: _ld2}});")
+    _sw.append("      if (!window._LEG_ALL) window._LEG_ALL = _ld2.slice();")
+    _sw.append("      var _lt = isHAMA ? window._LEG_ALL.filter(function(d){ var n = (typeof d==='string' ? d : d.name); return ['1mK线','1m曲线','QQE','HAMA','HAMA3','SSL'].indexOf(n) >= 0; }) : window._LEG_ALL;")
+    _sw.append("      if (_lt.length !== _ld2.length || _chgL2) ch.setOption({legend: {data: _lt}});")
     _sw.append("    }")
     _sw.append("  } catch(e) {}")
     _sw.append("  var _chHost = document.getElementById('c');")
@@ -3849,7 +3851,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var sel = document.getElementById('daypick');")
     _sw.append("  if (!sel) return;")
     _sw.append("  var wrap = document.createElement('span');")
-    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['stvx','ST VX版'],['hama','hama']].forEach(function(it){")
+    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['stvx','ST VX版'],['hama','Hama']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
