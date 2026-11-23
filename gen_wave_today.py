@@ -3412,8 +3412,11 @@ def main():
         _hev = {}
         for _t in _htrds:
             _hev.setdefault(_t["xs"], {})["close"] = _t
-            _hev.setdefault(_t["trig"], {})["open"] = _t
-            hama_acts.setdefault(hama_times1m[_t["trig"]], []).append(
+            # 开仓标记一律挂决策根 (eb-1): STD/REVF 的 trig 即 eb-1 不受影响;
+            # REV 的 trig 是 pending 建立根, 与真正开仓根可差数根, 挂 trig 会
+            # 让圈跑到开仓之前 (2026-11-23 两笔 REV 分别差 11/6 根)。
+            _hev.setdefault(_t["eb"] - 1, {})["open"] = _t
+            hama_acts.setdefault(hama_times1m[_t["eb"] - 1], []).append(
                 f"开{'call' if _t['dir'] == 1 else 'put'}@{_t['ep']:.2f} "
                 f"{_SRC_CN.get(_t['src'], _t['src'])}".replace("'", ""))
             hama_acts.setdefault(hama_times1m[_t["xs"]], []).append(
@@ -3466,7 +3469,7 @@ def main():
             if "open" in _e:
                 _t = _e["open"]
                 _dr = "call" if _t["dir"] == 1 else "put"
-                _hama_pin(_t["trig"],
+                _hama_pin(_t["eb"] - 1,
                           "开" + ("C" if _t["dir"] == 1 else "P"),
                           _dir_color(_dr, "开"),
                           _SRC_CN.get(_t["src"], _t["src"]),
