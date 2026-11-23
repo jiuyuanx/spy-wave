@@ -14,7 +14,7 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
   >=10%, 反长作废) + 背景确认双齐才进; 深度衰减 (<=50% 峰 + 三根
   递减) 免 QQE 确认 (REVF)。
 - 出场: 自己波衰减 (次根确认 DECAY / 加速 DECAYF) / D4 连减 4 根
-  且 |hist|<20 / 衰减单波浪管理 (回补门槛 HB + 新波反向 FLIP) /
+  且 |hist|<16 / 衰减单波浪管理 (回补门槛 HB + 新波反向 FLIP) /
   顺势单背景破 BG / 反色 FLIP / 日终 EOD; 转灰 exit 已删 (定版)。
   价格止损 99xATR 占位 (STOP_K=99)。
 - 午间斜率门: 12:00 起每半小时检查点, |近30根位移| >= 0.75xATR
@@ -405,7 +405,7 @@ def _run(c):
                             elif _hv * dr > 0 and abs(_hv) > _th:
                                 events.append((gi, "衰减确认失败·取消"))
                                 dec_pend = None
-                        if rsn is None and abs(hist[gi]) < 20 \
+                        if rsn is None and abs(hist[gi]) < 16 \
                                 and gi - 3 >= i0:
                             _d4 = all(hist[_j] * dr > 0
                                       for _j in range(gi - 3, gi + 1)) and \
