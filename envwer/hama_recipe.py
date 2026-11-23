@@ -363,6 +363,7 @@ def _run(c):
         ii = day_idx[d]
         i0, i1 = int(ii[0]), int(ii[-1])
         trades = []
+        events = []  # 仪表化: 非成交事件 (pending 设置/确认/取消, 午间门挡单)
         if d not in FOMC:
             pos = None
             prev_conj = False
@@ -402,6 +403,7 @@ def _run(c):
                                 rsn = "DECAY"
                                 dec_pend = None
                             elif _hv * dr > 0 and abs(_hv) > _th:
+                                events.append((gi, "衰减确认失败·取消"))
                                 dec_pend = None
                         if rsn is None and abs(hist[gi]) < 20 \
                                 and gi - 3 >= i0:
@@ -434,6 +436,8 @@ def _run(c):
                                     rsn = "DECAYF"
                                 else:
                                     dec_pend = (gi, abs(hist[gi]))
+                                    events.append(
+                                        (gi, "衰减信号·待次根确认"))
                         if rsn is not None:
                             xb = gi + 1 if gi + 1 <= i1 else gi
                             xp = O[xb] if gi + 1 <= i1 else C[gi]
@@ -477,6 +481,11 @@ def _run(c):
                 _first = edge or (hm == "09:35" and conj_s)
                 if HY_ALL:
                     _first = _first and _hy
+                if not MID_ON[gi] \
+                        and (_first or (conj and incr and _hy)) \
+                        and abs(hama1_shade[gi]) >= HS_MIN \
+                        and "09:35" <= hm <= "15:30":
+                    events.append((gi, "午间斜率门关·信号被挡"))
                 if (_first or (conj and incr and _hy)) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
                         and "09:35" <= hm <= "15:30" and MID_ON[gi]:
@@ -489,6 +498,8 @@ def _run(c):
                                "ep": float(O[eb]), "stop": stop,
                                "grey": bool(qcol[gi] == 0), "src": "STD"}
                         dec_pend = None
+                        if rev_pend is not None:
+                            events.append((gi, "标准进场·翻仓等待取消"))
                         rev_pend = None
                 # ---- REV 反转进场通道 ----
                 if pos is None:
@@ -496,11 +507,13 @@ def _run(c):
                         _t0, _th, _wv, _qc = rev_pend
                         _hv = hist[gi]
                         if _hv * _wv > 0 and abs(_hv) > _th:
+                            events.append((gi, "翻仓确认失败·取消"))
                             rev_pend = None
                         else:
                             if not _qc and (_hv * _wv < 0
                                             or abs(_hv) <= 0.9 * _th):
                                 _qc = True
+                                events.append((gi, "衰减已确认"))
                             if _qc and bg_r[gi] == -_wv \
                                     and "09:35" <= hm <= "15:30" \
                                     and MID_ON[gi]:
@@ -518,6 +531,11 @@ def _run(c):
                                     dec_pend = None
                                 rev_pend = None
                             else:
+                                if _qc and bg_r[gi] == -_wv \
+                                        and "09:35" <= hm <= "15:30" \
+                                        and not MID_ON[gi]:
+                                    events.append(
+                                        (gi, "午间斜率门关·翻仓信号被挡"))
                                 rev_pend = (_t0, _th, _wv, _qc)
                     if pos is None:
                         for _wv, _sg in ((1, dec_up.get(gi)),
@@ -545,7 +563,19 @@ def _run(c):
                                                "marker": float(abs(hist[eb]))}
                                         dec_pend = None
                                 else:
-                                    rev_pend = (gi, abs(hist[gi]), _wv, False)
+                                    if abs(hist[gi]) <= 0.5 * _sg \
+                                            and abs(hist[gi]) < \
+                                            abs(hist[gi - 1]) \
+                                            < abs(hist[gi - 2]) \
+                                            and bg_r[gi] == _ed \
+                                            and "09:35" <= hm <= "15:30" \
+                                            and not MID_ON[gi]:
+                                        events.append(
+                                            (gi, "午间斜率门关·信号被挡"))
+                                    rev_pend = (gi, abs(hist[gi]), _wv,
+                                                False)
+                                    events.append(
+                                        (gi, "衰减翻仓信号·待次根确认"))
                                 break
             if pos is not None:  # 日终兜底
                 gi = i1
@@ -593,6 +623,7 @@ def _run(c):
             "trades": [{k: (int(v) - int(i0)
                             if k in ("trig", "eb", "xb", "xs") else v)
                         for k, v in t.items()} for t in trades],
+            "events": [[int(_g) - int(i0), _x] for _g, _x in events],
             "comp": round((comp - 1) * 100, 2),
             "sum": round(sum(t["r"] for t in trades), 2),
             "n": len(trades),

@@ -3372,6 +3372,7 @@ def main():
     hama_scat_js = "[]"
     hama_mark_area_js = "[]"
     hama_acts = {}
+    hama_tip = {}
     hama_times1m, hama_ohlc, hama_qqe = [], [], []
     hama_line_segs, hama_ssl_fills = [], []
     hama_inner = ("<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
@@ -3418,6 +3419,23 @@ def main():
             hama_acts.setdefault(hama_times1m[_t["xs"]], []).append(
                 f"平{'call' if _t['dir'] == 1 else 'put'}@{_t['xp']:.2f} "
                 f"{_RSN_CN.get(_t['rsn'], _t['rsn'])}".replace("'", ""))
+
+        # 非成交事件 (pending/午间门, recipe 仪表化输出) 并入 acts,
+        # 与开/平行同根合并; 再据合并后的 acts 建悬浮窗 TIP (每 1m bar
+        # 一条: 开/收 + 自家 1m QQE 值与颜色 + 全部说明行)。
+        for _ebi, _etxt in _hpl.get("events", []):
+            hama_acts.setdefault(hama_times1m[_ebi], []).append(
+                str(_etxt).replace("'", ""))
+        _QCOL_CN = {1: "蓝", -1: "红", 0: "灰"}
+        for _i in range(_hn):
+            _ts = hama_times1m[_i]
+            _hv = _hpl["hist"][_i]
+            hama_tip[_ts] = {
+                "o": round(float(_hb[_i][1]), 2),
+                "c": round(float(_hb[_i][4]), 2),
+                "qqe": round(float(_hv), 1) if _hv is not None else 0,
+                "col": _QCOL_CN.get(_hpl["qcol"][_i], "灰"),
+                "why": "<br/>".join(hama_acts.get(_ts, []))}
 
         def _hama_pin(bar, value, color, rs_txt, rev_edge=False):
             _h = _hpl["hist"][bar]
@@ -3674,6 +3692,7 @@ def main():
     _sw.append("const HAMA_MARKAREA = " + hama_mark_area_js + ";")
     _sw.append("const HAMA_INNER = " + json.dumps(hama_inner, ensure_ascii=False) + ";")
     _sw.append("const HAMA_ACTS = " + json.dumps(hama_acts, ensure_ascii=False) + ";")
+    _sw.append("const HAMA_TIP = " + json.dumps(hama_tip, ensure_ascii=False) + ";")
     _sw.append("const HAMA_TIMES1M = " + json.dumps(hama_times1m) + ";")
     _sw.append("const HAMA_OHLC = " + json.dumps(hama_ohlc) + ";")
     _sw.append("const HAMA_QQE = " + json.dumps(hama_qqe) + ";")
@@ -3697,6 +3716,18 @@ s += '<br/><span style=\\'color:' + THEME.envelope.upper + '\\'>上' + e.up + '<
 if (e.why) s += '<br/>' + e.why;
 else s += '<br/><span style=\\'color:#888\\'>无Envelope动作</span>';
 return s;
+}
+}
+if (typeof curVer3 !== 'undefined' && curVer3 === 'hama' && typeof HAMA_TIP !== 'undefined') {
+var t2 = ps[0].axisValue;
+var h = HAMA_TIP[t2];
+if (h) {
+var qc2 = {'蓝': '#2563eb', '红': '#dc2626', '灰': '#9ca3af'}[h.col] || '#9ca3af';
+var s2 = '<b>' + t2 + '</b><br/>开' + h.o + ' 收' + h.c;
+s2 += '<br/>QQE <span style=\\'color:' + qc2 + '\\'><b>' + h.qqe + '</b></span>（' + h.col + '）';
+if (h.why) s2 += '<br/>' + h.why;
+else s2 += '<br/><span style=\\'color:#888\\'>无Hama动作</span>';
+return s2;
 }
 }
 } catch (err) {}
