@@ -504,7 +504,7 @@ def _run(c):
                 # ---- REV 反转进场通道 ----
                 if pos is None:
                     if rev_pend is not None:
-                        _t0, _th, _wv, _qc = rev_pend
+                        _t0, _th, _wv, _qc, _hd = rev_pend
                         _hv = hist[gi]
                         if _hv * _wv > 0 and abs(_hv) > _th:
                             events.append((gi, "翻仓确认失败·取消"))
@@ -524,6 +524,7 @@ def _run(c):
                                         if _ed == 1 else \
                                         float(O[eb] + STOP_K * atr1m[gi])
                                     pos = {"dir": _ed, "trig": _t0, "eb": eb,
+                                           "trig0": _hd,
                                            "ep": float(O[eb]), "stop": stop,
                                            "grey": bool(qcol[_t0] == 0),
                                            "src": "REV", "wave": True,
@@ -536,7 +537,7 @@ def _run(c):
                                         and not MID_ON[gi]:
                                     events.append(
                                         (gi, "午间斜率门关·翻仓信号被挡"))
-                                rev_pend = (_t0, _th, _wv, _qc)
+                                rev_pend = (_t0, _th, _wv, _qc, _hd)
                     if pos is None:
                         for _wv, _sg in ((1, dec_up.get(gi)),
                                          (-1, dec_dn.get(gi))):
@@ -572,8 +573,15 @@ def _run(c):
                                             and not MID_ON[gi]:
                                         events.append(
                                             (gi, "午间斜率门关·信号被挡"))
+                                    # 链头 _hd2: 覆盖同向在挂 pending 时继承
+                                    # 其链头 (展示用: 等待圈画在链头第一根,
+                                    # user 2026-11-23 令; 机制字段不变)
+                                    _hd2 = gi
+                                    if rev_pend is not None \
+                                            and rev_pend[2] == _wv:
+                                        _hd2 = rev_pend[4]
                                     rev_pend = (gi, abs(hist[gi]), _wv,
-                                                False)
+                                                False, _hd2)
                                     events.append(
                                         (gi, "衰减翻仓信号·待次根确认"))
                                 break
@@ -621,7 +629,8 @@ def _run(c):
             "hist": _arr(hist),
             "qcol": _arr(qcol, rnd=False),
             "trades": [{k: (int(v) - int(i0)
-                            if k in ("trig", "eb", "xb", "xs") else v)
+                            if k in ("trig", "trig0", "eb", "xb", "xs")
+                            else v)
                         for k, v in t.items()} for t in trades],
             "events": [[int(_g) - int(i0), _x] for _g, _x in events],
             "comp": round((comp - 1) * 100, 2),

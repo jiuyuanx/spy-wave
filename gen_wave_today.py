@@ -3430,14 +3430,51 @@ def main():
             hama_acts.setdefault(hama_times1m[_ebi], []).append(
                 str(_etxt).replace("'", ""))
         _QCOL_CN = {1: "蓝", -1: "红", 0: "灰"}
+
+        def _hdir(v, pos_c, neg_c, zero_txt="黄色"):
+            # 方向词带色 (user 2026-11-23 令: 悬浮窗写 SSL/HAMA 方向与
+            # 背景满足与否, 字体给颜色)
+            if v is None or v == 0:
+                return "<span style='color:#d97706'>%s</span>" % zero_txt
+            if v > 0:
+                return ("<span style='color:%s'><b>多头</b></span>"
+                        % pos_c)
+            return ("<span style='color:%s'><b>空头</b></span>" % neg_c)
+
+        def _shade_tc(sh):
+            if sh is None or sh == 0:
+                return "#d97706"
+            if sh > 0:
+                return "#00b300" if sh >= 2 else "#2fbf2f"
+            return "#ff0000" if sh <= -2 else "#ff4020"
+
         for _i in range(_hn):
             _ts = hama_times1m[_i]
             _hv = _hpl["hist"][_i]
+            _sh1 = _hpl["hama_shade"][_i]
+            _sh3 = _hpl["hama3_shade"][_i]
+            _bgv = _hpl["bg"][_i]
+            if _bgv == 1:
+                _bg_txt = ("<span style='color:#2563eb'>"
+                           "<b>满足多头</b></span>")
+            elif _bgv == -1:
+                _bg_txt = ("<span style='color:#dc2626'>"
+                           "<b>满足空头</b></span>")
+            else:
+                _bg_txt = "<span style='color:#888'>不满足多空</span>"
+            _bgx = ("SSL " + _hdir(_hpl["ssl_st"][_i], "#089981",
+                                   "#f23645", "无向")
+                    + " · HAMA1m " + _hdir(_sh1, _shade_tc(_sh1),
+                                           _shade_tc(_sh1))
+                    + " · HAMA3m " + _hdir(_sh3, _shade_tc(_sh3),
+                                           _shade_tc(_sh3))
+                    + "<br/>背景 " + _bg_txt)
             hama_tip[_ts] = {
                 "o": round(float(_hb[_i][1]), 2),
                 "c": round(float(_hb[_i][4]), 2),
                 "qqe": round(float(_hv), 1) if _hv is not None else 0,
                 "col": _QCOL_CN.get(_hpl["qcol"][_i], "灰"),
+                "bgx": _bgx,
                 "why": "<br/>".join(hama_acts.get(_ts, []))}
 
         def _hama_pin(bar, value, color, rs_txt, rev_edge=False,
@@ -3490,12 +3527,14 @@ def main():
                     ("C" if _t["dir"] == 1 else "P")
                 _hama_pin(_t["xs"], _lbl, "#9ca3af",
                           _RSN_CN.get(_t["rsn"], _t["rsn"]))
-        # REV 等待圈: pending 建立根 (trig) 与决策根 (eb-1) 不同根时, 在
-        # trig 补一颗虚线淡圈「等C/等P」, 与 eb-1 的实心开仓圈成对出现。
+        # REV 等待圈: 画在 pending 链头第一根 (trig0, recipe 随单记录;
+        # 链中途的重复登记只刷新 trig 不动 trig0, user 2026-11-23 令画头
+        # 一根), 虚线淡圈「等C/等P」, 与 eb-1 的实心开仓圈成对出现。
         for _t in _htrds:
-            if _t["src"] == "REV" and _t["trig"] < _t["eb"] - 1:
+            _wb = _t.get("trig0", _t["trig"])
+            if _t["src"] == "REV" and _wb < _t["eb"] - 1:
                 _wdr = "call" if _t["dir"] == 1 else "put"
-                _hama_pin(_t["trig"],
+                _hama_pin(_wb,
                           "等" + ("C" if _t["dir"] == 1 else "P"),
                           _dir_color(_wdr, "开"), "衰减反转·等待确认",
                           wait=True)
@@ -3747,6 +3786,7 @@ if (h) {
 var qc2 = {'蓝': '#2563eb', '红': '#dc2626', '灰': '#9ca3af'}[h.col] || '#9ca3af';
 var s2 = '<b>' + t2 + '</b><br/>开' + h.o + ' 收' + h.c;
 s2 += '<br/>QQE <span style=\\'color:' + qc2 + '\\'><b>' + h.qqe + '</b></span>（' + h.col + '）';
+if (h.bgx) s2 += '<br/>' + h.bgx;
 if (h.why) s2 += '<br/>' + h.why;
 else s2 += '<br/><span style=\\'color:#888\\'>无Hama动作</span>';
 return s2;
