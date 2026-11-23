@@ -3492,7 +3492,7 @@ def main():
             _vp = _t["r"]
             _sx_data.append(
                 '{"value":["%s",%.2f],"lbl":"%s","label":{"color":THEME.tradeLabelColor(%s)}}'
-                % (hama_times1m[_cbi], _yy, f"{_vp:+.1f}%", repr(_vp)))
+                % (hama_times1m[_cbi], _yy, f"{_vp:+.1f}%", repr(float(_vp))))
         hama_scat_js = "[" + ",".join(_sx_data) + "]"
         if _sx_data:
             y_max_js = max(y_max_js, round(
