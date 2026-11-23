@@ -456,6 +456,22 @@ def _day_payloads_both(dff, NEWDAY):
             hb_arrows.append([eb - g0, int(h["hb_to"]),
                               round(float(qhb_t["r"]), 2) if qhb_t else None])
         hb_arrows.sort()
+        if imb:
+            # 失衡版段内 QQE 是 cond 引擎, 不写 QQESF_INFO flips/hb_list
+            # (上面 flips_q/hb_list 恒空); qf/hb 箭头改从 recs 派生
+            # (2026-11-23 修: 此前 pay_i 写死 [] 且此处恒空, 日页失衡版
+            # QQE 面板无信号圈)。qf 单 eb = 翻仓确认根, 被翻掉的单 =
+            # xb == eb 的那笔, 口径与上方 qsf flips 派生一致。
+            qf_arrows = sorted(
+                [int(t["eb"]) - g0, int(t["dir"]),
+                 round(float(by_xb[int(t["eb"])]["r"]), 2)
+                 if int(t["eb"]) in by_xb else None,
+                 round(float(t["r"]), 2)]
+                for t in recs if t["mode"] == "qf")
+            hb_arrows = sorted(
+                [int(t["eb"]) - g0, int(t["dir"]),
+                 round(float(t["r"]), 2)]
+                for t in recs if t["mode"] == "qhb")
         return sday, qf_arrows, fol_arrows, hb_arrows
 
     sday_q, qf_q, fol_q, hb_q = run_arm(True, True)
@@ -512,6 +528,6 @@ def _day_payloads_both(dff, NEWDAY):
     day_i["werchamp"] = r4(WER8[slc])
     day_i["effstack"] = r3(_eff_imb_full[slc])
     pay_i = dict(date=NEWDAY, sday=sday_i, day=day_i, n_bars=N, half=half,
-                 gap=gap, warm_days=warm_days, qf_arrows=[],
-                 fol_arrows=[], hb_arrows=[])
+                 gap=gap, warm_days=warm_days, qf_arrows=qf_i,
+                 fol_arrows=fol_i, hb_arrows=hb_i)
     return pay_q, pay_c, pay_i
