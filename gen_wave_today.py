@@ -3360,6 +3360,230 @@ def main():
     # TITLES3 的 envelope 初始标题 = 默认版 (冠军); 页内切换时 JS 同步换
     env_title_txt = _env_set_consts["champion"]["ENVELOPE_TITLE"]
     env_title_echart = _env_set_consts["champion"]["ENVELOPE_TITLEE"]
+    # ---- hama 版 (SSL x HAMA x QQE, 1m 策略; 2026-11-23 user 规格
+    # 修正: 不是页尾独立节, 而是与 ST VX 等平级的版本按钮。页骨架照
+    # ST VX (标题/逐笔表/按钮切换), 主图换 1m 蜡烛 + 1m 轴 (390 槽,
+    # 参考 Envelope 版 1m 化), 去 Supertrend, 加 HAMA/SSL 线 (画法照
+    # 研究 build_html.py 的 chanSeries/pushHama), QQE 面板换 hama
+    # 自家 1m QQE。数据 = envwer/hama_recipe.day_payload (研究定版
+    # sim 移植, 30% 杠杆真 0DTE); 标题收益率 = 逐笔 ROI 相加
+    # (hama 口径)。计算失败回退空数据集 + 标题标注, 页面不挂。----
+    hama_pins, hama_spins = [], []
+    hama_scat_js = "[]"
+    hama_mark_area_js = "[]"
+    hama_acts = {}
+    hama_times1m, hama_ohlc, hama_qqe = [], [], []
+    hama_line_segs, hama_ssl_fills = [], []
+    hama_inner = ("<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+                  "hama版信号单（30%杠杆真0DTE口径）</div>"
+                  "<div style=\"font-size:13px;color:#e5484d;font-weight:bold\">"
+                  "⚠ hama版计算失败，本节暂无数据。</div>")
+    hama_title_txt = f"{day_str} (hama版) | 计算失败"
+    hama_title_echart = f"{day_str} ({{hama|hama}}版) | 计算失败"
+    try:
+        import sys as _sys_h
+        _hama_dir2 = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "envwer")
+        if _hama_dir2 not in _sys_h.path:
+            _sys_h.path.insert(0, _hama_dir2)
+        import hama_recipe as _hama_r
+        _hpl, _herr = _hama_r.day_payload(
+            day_str, today_bars=None if WAVE_DATE else _idf)
+        if _hpl is None:
+            raise RuntimeError(f"hama 载荷失败: {_herr}")
+        _hb = _hpl["bars"]
+        _hn = len(_hb)
+        hama_times1m = [b[0] for b in _hb]
+        _hclose = [b[4] for b in _hb]
+        hama_ohlc = [[b[1], b[4], b[3], b[2]] for b in _hb]
+        _hqcol_c = {1: "#2563eb", -1: "#dc2626", 0: "#9ca3af"}
+        hama_qqe = [{"value": _hv,
+                     "itemStyle": {"color": _hqcol_c.get(_qc, "#9ca3af")}}
+                    for _hv, _qc in zip(_hpl["hist"], _hpl["qcol"])]
+        _RSN_CN = {"DECAY": "衰减出场", "DECAYF": "衰减加速出场",
+                   "D4": "连减4根出场", "GREY": "QQE转灰",
+                   "FLIP": "新波反向", "HB": "回补门槛平仓", "BG": "背景破",
+                   "SL": "止损", "EOD": "日终平仓"}
+        _SRC_CN = {"STD": "顺势凑齐", "REV": "衰减反转·等确认",
+                   "REVF": "衰减反转·加速"}
+        _htrds = _hpl["trades"]
+        # 事件按 1m bar 归并: 同根平+开 (翻仓) 合成一个翻标记 (同 STVX)
+        _hev = {}
+        for _t in _htrds:
+            _hev.setdefault(_t["xs"], {})["close"] = _t
+            _hev.setdefault(_t["trig"], {})["open"] = _t
+            hama_acts.setdefault(hama_times1m[_t["trig"]], []).append(
+                f"开{'call' if _t['dir'] == 1 else 'put'}@{_t['ep']:.2f} "
+                f"{_SRC_CN.get(_t['src'], _t['src'])}".replace("'", ""))
+            hama_acts.setdefault(hama_times1m[_t["xs"]], []).append(
+                f"平{'call' if _t['dir'] == 1 else 'put'}@{_t['xp']:.2f} "
+                f"{_RSN_CN.get(_t['rsn'], _t['rsn'])}".replace("'", ""))
+
+        def _hama_pin(bar, value, color, rs_txt, rev_edge=False):
+            _h = _hpl["hist"][bar]
+            _yq = (round(_h * 1.15 + (0.5 if _h > 0 else -0.5), 1)
+                   if _h is not None else 5)
+            _ist = {"color": color}
+            if rev_edge:
+                _ist["borderColor"] = "#111"
+                _ist["borderWidth"] = 2.6
+            hama_pins.append({"coord": [hama_times1m[bar], _yq],
+                              "value": value, "itemStyle": _ist,
+                              "rs": rs_txt})
+            hama_spins.append({"coord": [hama_times1m[bar],
+                                         round(_hclose[bar], 2)],
+                               "value": value,
+                               "itemStyle": dict(_ist), "rs": rs_txt})
+
+        for _bar in sorted(_hev):
+            _e = _hev[_bar]
+            if "close" in _e and "open" in _e:
+                _nt = _e["open"]
+                _ndr = "call" if _nt["dir"] == 1 else "put"
+                _hama_pin(_bar, "翻" + ("C" if _nt["dir"] == 1 else "P"),
+                          _dir_color(_ndr, "翻"),
+                          _SRC_CN.get(_nt["src"], _nt["src"]),
+                          rev_edge=_nt["src"] in ("REV", "REVF"))
+                continue
+            if "open" in _e:
+                _t = _e["open"]
+                _dr = "call" if _t["dir"] == 1 else "put"
+                _hama_pin(_t["trig"],
+                          "开" + ("C" if _t["dir"] == 1 else "P"),
+                          _dir_color(_dr, "开"),
+                          _SRC_CN.get(_t["src"], _t["src"]),
+                          rev_edge=_t["src"] in ("REV", "REVF"))
+            if "close" in _e:
+                _t = _e["close"]
+                _lbl = ("止损" if _t["rsn"] == "SL" else "平") + \
+                    ("C" if _t["dir"] == 1 else "P")
+                _hama_pin(_t["xs"], _lbl, "#9ca3af",
+                          _RSN_CN.get(_t["rsn"], _t["rsn"]))
+        # 每单盈亏标签 (照 STVX scat 行堆叠算法, x = 平仓 1m bar)
+        _sx_placed, _sx_data = [], []
+        _sx_max_row = 0
+        for _t in _htrds:
+            _cbi = _t["xb"]
+            _row = 0
+            while any(abs(_cbi - _oc) < 15 and _or == _row
+                      for (_oc, _or) in _sx_placed):
+                _row += 1
+            _sx_placed.append((_cbi, _row))
+            _sx_max_row = max(_sx_max_row, _row)
+            _yy = round(_base + _row * _row_h, 2)
+            _vp = _t["r"]
+            _sx_data.append(
+                '{"value":["%s",%.2f],"lbl":"%s","label":{"color":THEME.tradeLabelColor(%s)}}'
+                % (hama_times1m[_cbi], _yy, f"{_vp:+.1f}%", repr(_vp)))
+        hama_scat_js = "[" + ",".join(_sx_data) + "]"
+        if _sx_data:
+            y_max_js = max(y_max_js, round(
+                _base + (_sx_max_row + 1) * _row_h + _rng * 0.05, 2))
+        hama_mark_area_js = "[" + ",".join(
+            "[{xAxis:'%s',itemStyle:{color:THEME.pnlBgColorST(%s)}},{xAxis:'%s'}]"
+            % (hama_times1m[_t["eb"]], round(_t["r"], 2),
+               hama_times1m[_t["xb"]])
+            for _t in _htrds) + "]"
+        # ---- HAMA/SSL 线段 (build_html.py chanSeries/pushHama 逐式) ----
+        _SHADE_C = {0: "#facc15", 1: "#66d95e", 2: "#2fbf2f", 3: "#00b300",
+                    -1: "#ff8c42", -2: "#ff4020", -3: "#ff0000"}
+        _SSL_C = {1: "#089981", -1: "#f23645", 0: "#9ca3af"}
+
+        def _runs_of(arr):
+            _out, _s = [], 0
+            for _i in range(1, _hn + 1):
+                if _i == _hn or arr[_i] != arr[_s]:
+                    _out.append((_s, _i - 1, arr[_s]))
+                    _s = _i
+            return _out
+
+        def _seg_data(vals, a, b):
+            _d = [None] * _hn
+            for _i in range(a, b + 1):
+                _d[_i] = vals[_i]
+            return _d
+
+        for (_a, _b, _sv) in _runs_of(_hpl["ssl_st"]):
+            _ext = min(_b + 1, _hn - 1)
+            hama_line_segs.append({"name": "SSL", "w": 1.6,
+                                   "c": _SSL_C[_sv],
+                                   "d": _seg_data(_hpl["ssl_mah"], _a, _ext)})
+            hama_line_segs.append({"name": "SSL", "w": 1.6,
+                                   "c": _SSL_C[_sv],
+                                   "d": _seg_data(_hpl["ssl_mal"], _a, _ext)})
+            if _sv != 0:
+                _base_d = _seg_data(_hpl["ssl_mal"], _a, _b)
+                _delt_d = [None] * _hn
+                for _i in range(_a, _b + 1):
+                    if _hpl["ssl_mah"][_i] is not None and \
+                            _hpl["ssl_mal"][_i] is not None:
+                        _delt_d[_i] = round(_hpl["ssl_mah"][_i]
+                                            - _hpl["ssl_mal"][_i], 2)
+                hama_ssl_fills.append({
+                    "b": _base_d, "d": _delt_d,
+                    "c": "rgba(8,153,129,0.10)" if _sv == 1
+                    else "rgba(242,54,69,0.10)"})
+        for (_a, _b, _sv) in _runs_of(_hpl["hama_shade"]):
+            hama_line_segs.append({
+                "name": "HAMA", "w": 2.6, "c": _SHADE_C[_sv],
+                "d": _seg_data(_hpl["hama"], _a, min(_b + 1, _hn - 1))})
+        for (_a, _b, _sv) in _runs_of(_hpl["hama3_shade"]):
+            hama_line_segs.append({
+                "name": "HAMA3", "w": 1.6, "c": _SHADE_C[_sv],
+                "d": _seg_data(_hpl["hama3_line"], _a,
+                               min(_b + 1, _hn - 1))})
+        # ---- 逐笔表 (照 _est_table_inner 同表头; 口径 = 每笔 $100k
+        # 定额、合计逐笔相加, 与标题同口径) ----
+        _hrows = []
+        _htot_usd = 0.0
+        for _k, _t in enumerate(_htrds, 1):
+            _pnl = 100000.0 * _t["r"] / 100.0
+            _htot_usd += _pnl
+            _ec = "#1a9e54" if _pnl >= 0 else "#e5484d"
+            _hrows.append(
+                f"<tr><td>{_k}</td><td>{hama_times1m[_t['eb']]}</td>"
+                f"<td>开{'Call' if _t['dir'] == 1 else 'Put'}</td><td>—</td>"
+                f"<td>—</td><td>{_t['ep']:.2f}</td>"
+                f"<td>{hama_times1m[_t['xb']]}</td><td>—</td>"
+                f"<td>{_t['xp']:.2f}</td>"
+                f"<td style=\"color:#888888;font-weight:bold\">—</td>"
+                f"<td style=\"color:#888888\">—</td>"
+                f"<td style=\"color:{_ec}\">~{'+' if _pnl >= 0 else '-'}${abs(_pnl):,.0f}</td>"
+                f"<td style=\"color:{_ec}\">~{_t['r']:+.1f}%</td></tr>")
+        # 合计用载荷 sum (未四舍五入 ROI 逐笔相加, 与标题/sim_out 同
+        # 口径; 逐笔行 r 已四舍五入到 2dp, 行合计与总计可差几美元)
+        _htot_usd = _hpl["sum"] * 1000.0
+        _hrows.append(
+            f"<tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计"
+            f"</td><td>—</td><td></td>"
+            f"<td>~{'+' if _htot_usd >= 0 else '-'}${abs(_htot_usd):,.0f}</td><td></td></tr>")
+        hama_inner = (
+            "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">"
+            "hama版信号单（SSL×HAMA×QQE，30%杠杆真0DTE口径）</div>"
+            "<div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" "
+            "style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\">"
+            "<tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th>"
+            "<th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th>"
+            "<th>预估收益</th><th>预估收益率</th></tr>"
+            + "".join(_hrows) + "</table></div>"
+            "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
+            "预估=30%杠杆真0DTE公式ROI×$100k/笔、合计逐笔相加（非复利）；"
+            "背景=SSL 1m+HAMA 1m/3m 与 QQE 同色即进场，衰减反转 REV、出场 DECAY/D4/HB/FLIP/BG，"
+            "午间斜率门，FOMC 日不做；非实际成交</div>")
+        _hsum = _hpl["sum"]
+        _htot2 = _hsum * 1000.0
+        hama_title_txt = (f"{day_str} (hama版) | {gap_txt} | 全天hama | "
+                          f"{'+' if _hsum >= 0 else '-'}${abs(_htot2):,.0f} "
+                          f"({_hsum:+.1f}%)")
+        _hpnl_e = (("{pnl_pos|+" if _hsum >= 0 else "{pnl_neg|-")
+                   + f"${abs(_htot2):,.0f} ({_hsum:+.1f}%)" + "}")
+        hama_title_echart = (day_str + " ({hama|hama}版) | " + gap_e
+                             + " | 全天{hama|hama} | " + _hpnl_e)
+        print(f"  hama: {_hpl['n']} 单, 当日收益率(逐笔相加) {_hsum:+.2f}%",
+              flush=True)
+    except Exception as _he2:  # noqa: BLE001
+        print(f"  WARN hama 计算失败, 本版为空: {_he2}", flush=True)
+
     _qqe_acts = {t: (v.get("acts") or []) for t, v in bar_info.items()}
     _vh_acts = {tstrs[bi]: acts for bi, acts in vh_acts_by_bar.items()}
     _sw = []
@@ -3444,6 +3668,17 @@ def main():
     _sw.append("const STVX_MAINDN_F = " + json.dumps(stvx_main_dn_f) + ";")
     _sw.append("const STVX_MAINFILL = " + stvx_main_fill_js + ";")
     _sw.append("const STVX_MAINFLIPS = " + stvx_main_flips_js + ";")
+    _sw.append("const HAMA_PINS = " + json.dumps(hama_pins, ensure_ascii=False) + ";")
+    _sw.append("const HAMA_SPINS = " + json.dumps(hama_spins, ensure_ascii=False) + ";")
+    _sw.append("const HAMA_SCAT = " + hama_scat_js + ";")
+    _sw.append("const HAMA_MARKAREA = " + hama_mark_area_js + ";")
+    _sw.append("const HAMA_INNER = " + json.dumps(hama_inner, ensure_ascii=False) + ";")
+    _sw.append("const HAMA_ACTS = " + json.dumps(hama_acts, ensure_ascii=False) + ";")
+    _sw.append("const HAMA_TIMES1M = " + json.dumps(hama_times1m) + ";")
+    _sw.append("const HAMA_OHLC = " + json.dumps(hama_ohlc) + ";")
+    _sw.append("const HAMA_QQE = " + json.dumps(hama_qqe) + ";")
+    _sw.append("const HAMA_LINE_SEGS = " + json.dumps(hama_line_segs) + ";")
+    _sw.append("const HAMA_SSL_FILLS = " + json.dumps(hama_ssl_fills) + ";")
     _sw.append("var ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
     _sw.append("const ENVELOPE_SLPDEV = " + json.dumps(slpdev_panel) + ";")
     _sw.append("const ENVELOPE_QQE1M = " + json.dumps(env_qqe1m) + ";")
@@ -3473,17 +3708,21 @@ return _origEnvTip(ps, barInfo);
                + ", qqe: " + json.dumps(qqe_title_txt, ensure_ascii=False)
                + ", ce: " + json.dumps(ce_title_txt, ensure_ascii=False)
                + ", envelope: " + json.dumps(env_title_txt, ensure_ascii=False)
-               + ", stvx: " + json.dumps(stvx_title_txt, ensure_ascii=False) + "};")
+               + ", stvx: " + json.dumps(stvx_title_txt, ensure_ascii=False)
+               + ", hama: " + json.dumps(hama_title_txt, ensure_ascii=False) + "};")
     _sw.append("const TITLES3E = {vh: " + json.dumps(vh_title_echart, ensure_ascii=False)
                + ", qqe: " + json.dumps(qqe_title_echart, ensure_ascii=False)
                + ", ce: " + json.dumps(ce_title_echart, ensure_ascii=False)
                + ", envelope: " + json.dumps(env_title_echart, ensure_ascii=False)
-               + ", stvx: " + json.dumps(stvx_title_echart, ensure_ascii=False) + "};")
-    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},stvx:{color:'#00a0a0',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
+               + ", stvx: " + json.dumps(stvx_title_echart, ensure_ascii=False)
+               + ", hama: " + json.dumps(hama_title_echart, ensure_ascii=False) + "};")
+    _sw.append("const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},stvx:{color:'#00a0a0',fontWeight:'bold'},hama:{color:'#7c3aed',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};")
     _sw.append("const VH_INNER = " + json.dumps(vh_inner, ensure_ascii=False) + ";")
     _sw.append("const QQE_INNER = " + json.dumps(qqe_inner, ensure_ascii=False) + ";")
     _sw.append("var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();")
     _sw.append("var curVer3 = 'live';")
+    _sw.append("var QQE_DEF_DATA = null; var K3_DEF_DATA = null;")
+    _sw.append("(function(){ try { var _o0 = ch.getOption(); if (_o0 && _o0.series) { for (var _si0 = 0; _si0 < _o0.series.length; _si0++) { if (_o0.series[_si0].name === 'QQE' && QQE_DEF_DATA === null) QQE_DEF_DATA = _o0.series[_si0].data; if (_o0.series[_si0].name === '3mK线' && K3_DEF_DATA === null) K3_DEF_DATA = _o0.series[_si0].data; } } } catch(e) {} })();")
     _sw.append("window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };")
     _sw.append("window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && window._fitChartH) window._fitChartH(); });")
     _sw.append("function switchVersion3(v){")
@@ -3495,9 +3734,10 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var isCE = (v === 'ce');")
     _sw.append("  var isENVELOPE = (v === 'envelope');")
     _sw.append("  var isSTVX = (v === 'stvx');")
-    _sw.append("  var pinsData = isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isSTVX ? STVX_PINS : (useVH ? pins : QQE_PINS)));")
-    _sw.append("  var spinsData = isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isSTVX ? STVX_SPINS : (useVH ? spins : QQE_SPINS)));")
-    _sw.append("  var scatData = isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (useVH ? VH_SCAT : QQE_SCAT)));")
+    _sw.append("  var isHAMA = (v === 'hama');")
+    _sw.append("  var pinsData = isHAMA ? HAMA_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isSTVX ? STVX_PINS : (useVH ? pins : QQE_PINS))));")
+    _sw.append("  var spinsData = isHAMA ? HAMA_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isSTVX ? STVX_SPINS : (useVH ? spins : QQE_SPINS))));")
+    _sw.append("  var scatData = isHAMA ? HAMA_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (useVH ? VH_SCAT : QQE_SCAT))));")
     _sw.append("  var scatFS = (isCE || useVH) ? 11 : 8;")
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }")
     # Envelope 进场圈按单子类型的边缘色/透明度 (user 2026-11-20 19:15
@@ -3505,14 +3745,14 @@ return _origEnvTip(ps, barInfo);
     # 的圈 (平仓圈/他节圈) 不碰, 与 applyColors 同口子。
     _sw.append("  if (typeof THEME !== 'undefined' && THEME.applyPinEdges) { THEME.applyPinEdges(spinsData); THEME.applyPinEdges(pinsData); }")
     _sw.append("  ch.setOption({")
-    _sw.append("    title: {text: isLive ? TITLES3.live : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isSTVX ? TITLES3E.stvx : (isVH ? TITLES3E.vh : TITLES3E.qqe)))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
+    _sw.append("    title: {text: isLive ? TITLES3.live : (isHAMA ? TITLES3E.hama : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isSTVX ? TITLES3E.stvx : (isVH ? TITLES3E.vh : TITLES3E.qqe))))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},")
     _sw.append("    series: [")
     # 冠军版 (envwer 成功时): 1m 曲线在 envelope 下恢复显示 (WER 段
     # 染色线叠加其上); 失败时保持原条件 (染色段数据已置空)。
     _env_1m_expr = ("line1m"
                     if _env_int_ok else
                     "(isENVELOPE && ENVELOPE_TREND_SEGS.length) ? [] : line1m")
-    _sw.append("      {name: '1m曲线', data: " + _env_1m_expr + ", lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
+    _sw.append("      {name: '1m曲线', xAxisIndex: isHAMA ? 0 : 3, data: isHAMA ? [] : " + _env_1m_expr + ", lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},")
     if _env_int_ok and not _env_trend_segs:
         _sw.append("      {id: 'env-trend-seg-0', name: 'WER段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},")
     for _si, _sg in enumerate(_env_trend_segs):
@@ -3522,9 +3762,9 @@ return _origEnvTip(ps, barInfo);
             _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: []}," % (_si, _si, _sg["theme"]))
         else:
             _sw.append("      {id: 'env-trend-seg-%d', name: '1m趋势段%d', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: %s, width: THEME.envelope.trendWidth}, data: isENVELOPE ? ENVELOPE_TREND_SEGS[%d].data : []}," % (_si, _si, _sg["theme"], _si))
-    _sw.append("      {name: 'QQE', markPoint: {data: pinsData}},")
+    _sw.append("      {name: 'QQE', data: isHAMA ? HAMA_QQE : (QQE_DEF_DATA ? QQE_DEF_DATA : undefined), markPoint: {data: pinsData}},")
     _sw.append("      {name: '每单盈亏', data: scatData, label: {show: isENVELOPE ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : []}},")
-    _sw.append("      {name: '3mK线', markArea: {silent: true, data: isENVELOPE ? [] : (isCE ? CE_MARKAREA : (isSTVX ? STVX_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
+    _sw.append("      {name: '3mK线', data: isHAMA ? [] : (K3_DEF_DATA ? K3_DEF_DATA : undefined), markArea: {silent: true, data: (isENVELOPE || isHAMA) ? [] : (isCE ? CE_MARKAREA : (isSTVX ? STVX_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
     _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},")
     _sw.append("      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},")
     _sw.append("      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : []},")
@@ -3535,7 +3775,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {id: 'stvx-upper-f', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.3}, z: 4, data: isSTVX ? STVX_UPPER_F : []},")
     _sw.append("      {id: 'stvx-lower', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_LOWER : []},")
     _sw.append("      {id: 'stvx-lower-f', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.3}, z: 4, data: isSTVX ? STVX_LOWER_F : []},")
-    _sw.append("      {name: '成交点', data: (isENVELOPE || isSTVX) ? [] : filldots},")
+    _sw.append("      {name: '成交点', data: (isENVELOPE || isSTVX || isHAMA) ? [] : filldots},")
     # ST VX 主轨 (2026-11-17 user 令): 美术照 ST VH 节 st慢版——本体未压带
     # 最终带的上下两条轨线都画全成实线轨道 (上轨 #f23645 / 下轨 #089981,
     # 宽2, z5; 不再只画活动侧) + 价格与活动带间半透明填充
@@ -3549,7 +3789,13 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []},")
     _sw.append("      {id: 'stvx-maindn-f', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2, opacity: 0.3}, z: 5, data: isSTVX ? STVX_MAINDN_F : []},")
     _sw.append("      {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []},")
-    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isSTVX) ? false : true, '9mK线': isENVELOPE ? false : true, '9m QQE': isENVELOPE ? false : true, '3mK线': isENVELOPE ? false : true, 'QQE': isENVELOPE ? false : true, '80%衰减线': isENVELOPE ? false : true, '翻仓线': isENVELOPE ? false : true, '回补门槛': isENVELOPE ? false : true}}, xAxis: [{data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isENVELOPE ? ENVELOPE_TIMES1M : times}, {min: isENVELOPE ? -1/6 : -0.5, max: isENVELOPE ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : null, max: isENVELOPE ? " + env_max_js + " : " + str(y_max_js) + "}, {show: isENVELOPE ? false : true}], grid: [{height: isENVELOPE ? '88%' : ('38%')}, {height: isENVELOPE ? '0%' : '42%'}]")
+    _sw.append("      {id: 'hama-kline', name: '1mK线', type: 'candlestick', xAxisIndex: 0, yAxisIndex: 0, itemStyle: {color: '#1a9e54', color0: '#e5484d', borderColor: '#1a9e54', borderColor0: '#e5484d'}, data: isHAMA ? HAMA_OHLC : [], markArea: {silent: true, data: isHAMA ? HAMA_MARKAREA : []}},")
+    for _hk in range(len(hama_line_segs)):
+        _sw.append("      {id: 'hama-ls-%d', name: HAMA_LINE_SEGS[%d].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[%d].w, color: HAMA_LINE_SEGS[%d].c}, itemStyle: {color: HAMA_LINE_SEGS[%d].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[%d].d : []}," % (_hk, _hk, _hk, _hk, _hk, _hk))
+    for _hk in range(len(hama_ssl_fills)):
+        _sw.append("      {id: 'hama-sslf-b-%d', name: 'SSL', type: 'line', stack: 'hamaSsl%d', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: 0}, data: isHAMA ? HAMA_SSL_FILLS[%d].b : []}," % (_hk, _hk, _hk))
+        _sw.append("      {id: 'hama-sslf-d-%d', name: 'SSL', type: 'line', stack: 'hamaSsl%d', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: 0}, areaStyle: {color: HAMA_SSL_FILLS[%d].c}, data: isHAMA ? HAMA_SSL_FILLS[%d].d : []}," % (_hk, _hk, _hk, _hk))
+    _sw.append("    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isSTVX || isHAMA) ? false : true, '9mK线': (isENVELOPE || isHAMA) ? false : true, '9m QQE': (isENVELOPE || isHAMA) ? false : true, '3mK线': (isENVELOPE || isHAMA) ? false : true, 'QQE': isENVELOPE ? false : true, '80%衰减线': (isENVELOPE || isHAMA) ? false : true, '翻仓线': (isENVELOPE || isHAMA) ? false : true, '回补门槛': (isENVELOPE || isHAMA) ? false : true}}, xAxis: [{data: isHAMA ? HAMA_TIMES1M : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isHAMA ? HAMA_TIMES1M : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isHAMA ? HAMA_TIMES1M : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {min: (isENVELOPE || isHAMA) ? -1/6 : -0.5, max: (isENVELOPE || isHAMA) ? 779/6 : 129.5}], yAxis: [{min: isENVELOPE ? " + env_min_js + " : null, max: isENVELOPE ? " + env_max_js + " : " + str(y_max_js) + "}, {show: isENVELOPE ? false : true}], grid: [{height: isENVELOPE ? '88%' : ('38%')}, {height: isENVELOPE ? '0%' : '42%'}]")
     _sw.append("  });")
     # Envelope 版隐藏主图 dataZoom 滑条 (2026-11-19 user 令: 省空间;
     # 缩放走鼠标/双指 inside + 子面板联动, 切回其他版本自动恢复)。
@@ -3564,15 +3810,19 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      var _chgL2 = false;")
     _sw.append("      if (!_hasL2('主轨')) { _ld2.push({name: '主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
     _sw.append("      if (!_hasL2('影子主轨')) { _ld2.push({name: '影子主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%239333ea%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}); _chgL2 = true; }")
+    _sw.append("      if (!_hasL2('HAMA')) { _ld2.push({name: 'HAMA', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%232fbf2f%22 stroke-width=%223%22/></svg>'}); _chgL2 = true; }")
+    _sw.append("      if (!_hasL2('HAMA3')) { _ld2.push({name: 'HAMA3', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%2366d95e%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
+    _sw.append("      if (!_hasL2('SSL')) { _ld2.push({name: 'SSL', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
+    _sw.append("      if (!_hasL2('1mK线')) { _ld2.push({name: '1mK线', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%231a9e54%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }")
     _sw.append("      if (_chgL2) ch.setOption({legend: {data: _ld2}});")
     _sw.append("    }")
     _sw.append("  } catch(e) {}")
     _sw.append("  var _chHost = document.getElementById('c');")
     _sw.append("  if (_chHost) { if (isENVELOPE) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }")
     _sw.append("  var tw = document.getElementById('tblWrap');")
-    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isSTVX ? STVX_INNER : (isVH ? VH_INNER : QQE_INNER)))); }")
+    _sw.append("  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isHAMA ? HAMA_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isSTVX ? STVX_INNER : (isVH ? VH_INNER : QQE_INNER))))); }")
     _sw.append("  if (window._werSync) window._werSync(isENVELOPE);")
-    _sw.append("  var actsData = isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (isSTVX ? STVX_ACTS : (useVH ? VH_ACTS : QQE_ACTS)));")
+    _sw.append("  var actsData = isHAMA ? HAMA_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (isSTVX ? STVX_ACTS : (useVH ? VH_ACTS : QQE_ACTS))));")
     _sw.append("  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }")
     _sw.append("  document.title = TITLES3[v];")
     _sw.append("  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }")
@@ -3599,7 +3849,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var sel = document.getElementById('daypick');")
     _sw.append("  if (!sel) return;")
     _sw.append("  var wrap = document.createElement('span');")
-    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['stvx','ST VX版']].forEach(function(it){")
+    _sw.append("  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['stvx','ST VX版'],['hama','hama']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
@@ -3961,41 +4211,9 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } if (qwrap) { if (!qqeCh) { qqeCh = echarts.init(document.getElementById('qqe1mCh')); qqeCh.setOption(qqeOpt()); } else { qqeCh.resize(); } werBindQqe(); } werSyncZoom(); }")
     _sw.append("  };")
     _sw.append("})();")
-    _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','stvx'].indexOf(_v) >= 0 ? _v : 'live'; })());")
+    _sw.append("switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','stvx','hama'].indexOf(_v) >= 0 ? _v : 'live'; })());")
     _sw.append("</script>")
     html = html.replace("</body>", "\n".join(_sw) + "</body>", 1)
-
-    # ---- hama 节 (SSL x HAMA x QQE, user 2026-11-23 令同步 gen):
-    # envwer/hama_recipe (研究定版 sim.py vendored 移植, 30% 杠杆真
-    # 0DTE 结算) 全帧一遍跑 (2023-11 起暖机) 按日切片出当日载荷,
-    # render_section 照研究 build_html.py 单日版画法 (SSL 状态色通道
-    # + 淡填充 / HAMA 粗细线 NSDT 渐变染色 / QQE 面板同步圈 / 逐笔
-    # 清单)。自包含节追加在页尾, 其余节一律不动。失败口径同
-    # Envelope: 只标该节错误 (红字可见)、不回退、不拖累整页。----
-    try:
-        _hama_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "envwer")
-        if _hama_dir not in _sys.path:
-            _sys.path.insert(0, _hama_dir)
-        import hama_recipe as _hama
-        _hpayload, _herr = _hama.day_payload(
-            day_str, today_bars=None if WAVE_DATE else _idf)
-        _hama_section = _hama.render_section(day_str, _hpayload, _herr)
-        if _hpayload is None:
-            print(f"  ERROR hama 计算失败, 该节标注错误 (不回退旧口径): "
-                  f"{_herr}", flush=True)
-        else:
-            print(f"  hama: {_hpayload['n']} 单, 当日收益率(逐笔相加) "
-                  f"{_hpayload['sum']:+.2f}%", flush=True)
-    except Exception as _he:  # noqa: BLE001
-        import traceback
-        traceback.print_exc()
-        _hama_section = ('<div id="hamaSec"><div class="hamaTitle">hama</div>'
-                         '<div style="color:#dc2626;font-size:13px">'
-                         f'hama 计算失败: {type(_he).__name__}: {_he}'
-                         '</div></div>')
-        print(f"  ERROR hama 计算失败: {_he}", flush=True)
-    html = html.replace("</body>", _hama_section + "\n</body>", 1)
 
     open(out, "w").write(html)
     print(f"wrote {out} ({len(times)} bars, {len(qpins)+len(spins)} pins, pos={pos_txt})")
