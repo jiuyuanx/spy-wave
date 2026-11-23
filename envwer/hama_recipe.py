@@ -9,7 +9,9 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
 - 背景: SSL 1m (SMA200 通道状态) + HAMA 1m + HAMA 3m (WMA55(hl2),
   EMA20/25 平滑 HA 定色, NSDT 渐变染色); 进场侧 HAMA3 黄色不卡
   (BG3_SOFT), 免费首次进场须严格背景三件全同色; 背景与 QQE 同色
-  那根即进场 (无等待期), 段内再进走 W5 前窗最长门。
+  那根即进场 (无等待期), 段内再进走 W5 前窗最长门。段首单另有
+  峰值衰减过滤 (定版 FIRST_PR=0.5, user 2026-11-23 采纳): 当根
+  |hist| / 同向 LB3 峰值 < 0.5 不开 (只挡段首路, W5 再进不受影响)。
 - 衰减反转进场 REV: 对方波衰减 trigger + QQE 确认 (过零/再衰减
   >=10%, 反长作废) + 背景确认双齐才进; 深度衰减 (<=50% 峰 + 三根
   递减) 免 QQE 确认 (REVF)。
@@ -49,6 +51,7 @@ OUT_FROM = "2024-01-02"
 
 # ---- 定版参数 (sim.py 默认 + REV_ON=1) ----
 STOP_K = 99.0
+FIRST_PR = 0.5
 REV_FAST = True
 HY_W = 0
 HY_ALL = False
@@ -481,12 +484,28 @@ def _run(c):
                 _first = edge or (hm == "09:35" and conj_s)
                 if HY_ALL:
                     _first = _first and _hy
+                # 段首单峰值衰减过滤 (定版 0.5, 同 sim.py FIRST_PR): 当根
+                # |hist| 占同向 LB3 峰值 (当根及前 2 根、只算同日、
+                # sign(hist)==进场方向、灰柱按符号算) 的比值 < 0.5 ->
+                # 段首路不开; 窗口内除当根外无同号 bar 时比值=1.0 自然
+                # 通过。只挡 _first 路, W5 再进 (conj and incr) 不受影响。
+                _pr_ok = True
+                if FIRST_PR > 0 and _first:
+                    _pk = abs(hist[gi])
+                    for _j in range(max(i0, gi - 2), gi):
+                        if hist[_j] * _bge > 0:
+                            _pk = max(_pk, abs(hist[_j]))
+                    _pr_ok = _pk <= 0 or (abs(hist[gi]) / _pk) >= FIRST_PR
                 if not MID_ON[gi] \
-                        and (_first or (conj and incr and _hy)) \
+                        and ((_first and _pr_ok) or (conj and incr and _hy)) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
                         and "09:35" <= hm <= "15:30":
                     events.append((gi, "午间斜率门关·信号被挡"))
-                if (_first or (conj and incr and _hy)) \
+                if _first and not _pr_ok and not (conj and incr and _hy) \
+                        and abs(hama1_shade[gi]) >= HS_MIN \
+                        and "09:35" <= hm <= "15:30" and MID_ON[gi]:
+                    events.append((gi, "段首峰值比<0.5·信号被挡"))
+                if ((_first and _pr_ok) or (conj and incr and _hy)) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
                         and "09:35" <= hm <= "15:30" and MID_ON[gi]:
                     dr = _bge
