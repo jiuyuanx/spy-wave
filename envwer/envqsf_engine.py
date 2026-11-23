@@ -213,6 +213,7 @@ ER_ARRAYS = {}  # ER 覆盖层: {n: ERn 数组} (runner 按 ind['close'] 注入,
 ER_DIR_ARRAY = None   # WER 深研 R3b: 逐根方向符号数组 (dir_mode="arr" 时用)
 FLIP_FIRST = False    # A1: 待翻确认优先于止损 (确认根确认成立则不止损, 走正常翻仓)
 SL_FLIP = False       # A2: sf 止损时若衰减翻仓条件成立 (待翻在册或本根可登记) -> 止损变翻仓
+TAIL945_OFF = False   # user 2026-11-22 定版: 仅反手QQE臂摘 close_min<945 会话门 (开尾盘), 由 arm/recipe 按臂设置; 冠军/无反手保持门在
 CHASE_ON = False      # B2: sf 止损后同日价格续走至入场价 2.5xATR 反向位 -> 空仓时反向开 sf
 CHASE_K = 2.5
 A_INFO = {"preempt": 0, "slflip": 0}
@@ -231,6 +232,57 @@ INE_SL_K = 1.0        # 惯性单: 止损距离 = INE_SL_K x ATR60 (开仓根定
 INE_ATR60 = None      # 惯性单: 逐根 ATR60 数组 (止损 1.0x 用), runner 注入
 INE_INFO = {"blocked_edge": 0, "opens": 0, "mid_exit": 0, "trig_skipped": 0}
 ER_GATE_ARRAY = None  # WER 深研 R3c: 逐根质量门数组 (gate_min 给定时用)
+ER_BRK_UP = None      # _brkdrop: 价格突破 (沉降窗) 上破 ATR 数逐根数组, runner 注入
+ER_BRK_DN = None      # _brkdrop: 下破 ATR 数逐根数组, runner 注入
+ER_BRK_K = 0.0        # _brkdrop: 每超 1 ATR (越过 ER_BRK_F 起算) 降门槛量 (0=关, 逐笔等价)
+ER_BRK_CAP = 0.0      # _brkdrop: 降幅封顶
+ER_BRK_F = 1.5        # _brkdrop: 突破下限, BRK 不超过此值不降门槛
+ER_BRK_INFO = {"trig": 0, "helped": 0, "trig_bars": [], "helped_bars": []}  # _brkdrop 埋点
+ER_SLP_S5 = None      # _slopedrop: 窗口斜率5 (净位移/(5*ATR), 带价格方向符号) 逐根数组
+ER_SLP_DS5 = None     # _slopedrop: 斜率5 逐根变化数组
+ER_SLP_MODE = 0       # _slopedrop: 0=关 | 1=斜率路 | 2=斜率变化路
+ER_SLP_F = 0.0        # _slopedrop: 起算线 (同向信号不超过此值不降门槛)
+ER_SLP_K = 0.0        # _slopedrop: 每超 1 单位降门槛量
+ER_SLP_CAP = 0.16     # _slopedrop: 降幅封顶
+ER_SLP_INFO = {"trig": 0, "helped": 0, "trig_bars": [], "helped_bars": []}  # _slopedrop 埋点
+ER_IMB_SEG = None     # _imbdrop: 失衡段 (D6 base+极端拖尾, 因果) 逐根布尔数组
+ER_IMB_DROP = 0.0     # _imbdrop: 失衡段内 ER 进段门槛额外降幅 (0=关, 逐笔等价)
+ER_IMB_INFO = {"bars": 0}  # _imbdrop 埋点: 实际降到门槛的根数
+ER_EFF_LOG = None     # _imbdrop: 逐根有效门槛记录数组 (调用方预分配 NaN 数组)
+ER_ENTRY_LEVEL = False  # 进段电平触发: True=去掉"前根WER<当根门槛"上穿腿 (默认关, 逐笔等价)
+ER_ENTRY_MIN_S = 580    # 进段最早时刻 (当日分钟数, 原写死 580=09:40; user 2026-11-23 令测 570=09:30)
+ER_QQE_COND = False  # 段内 QQE 条件版: 跟随/衰减/回补当根现算替代 f3 状态对齐 (默认关)
+ER_SL_CLOSE = False  # er 单止损改收盘确认: 收盘越过止损位才出、按收盘价出 (默认关)
+ER_IMB_EXIT = 0.0     # 失衡段内出段线: >0 时 ER_IMB_SEG 内的根出段线用此值替代 er_end (默认关, user 2026-11-22 令 0.2)
+ER_COND_SL_K = 0.0    # 段内 QQE 条件版开仓止损倍数覆盖: >0 时 cond 开仓的 _k 用此值 (99=实质无止损; 默认关, user 2026-11-22 令先 99)
+ER_COND_SL_ONCE = [None]  # cond 开仓一次性止损覆盖传递槽 (open_pos 入口即取走清空, 防泄漏)
+ER_COND_OPENS = []    # cond 开仓原因记录 [(bar, "fol"/"decay"/"hb")], 调用方每跑前清空 (页面 tooltip 用)
+ER_SEG_SL_K = 0.0     # 段内全单 (er 模式) 止损倍数覆盖: >0 时段首/swap/cond 全部 er 开仓用此值 (0=关)
+ER_COND_FAST = 0      # cond 快速通道: 持仓所骑波 |hist| 连续递减 >=N 根当根直接翻仓 (0=关; user 2026-11-23 令: 4 根连递减必须翻)
+ER_COND_FAST_PEAK = 0.0  # 快速通道波峰门: 本波波峰 |hist| >= 此值才触发 (0=不设门)
+ER_COND_COLLAPSE = 0.0   # cond 塌陷通道: 持仓波 |hist| <= 波峰 x 此比例当根直接翻仓 (0=关; user 2026-11-23 例: 0.50 / 0.40)
+ER_COND_FOL_NOGRAY = False  # cond 跟随灰色不跟: 触发根须严格真色状态 (up/down), 灰柱再长也不触发跟随 (user 2026-11-23 令测)
+ER_COND_COLLAPSE_DEC = 0    # 塌陷附加门: 含本根在内连续 N 根 |hist| 严格递减才翻 (0=不加门; user 2026-11-23 令测 N=3)
+ER_COND_FOL_GRAYMIN = 0.0   # cond 跟随灰柱门槛: 触发根是灰柱时 |h| 须 >= 此值才跟 (0=现行 ~9/10; user 2026-11-23 令测 12)
+ER_COND_LONGHB = False      # cond 长波回补: 精华版长波信号 (波长>=15 + 重涨条2/条3 + 真色门) 持反向仓当根翻 (user 2026-11-23 令加测)
+ER_COND_LONGHB_LEN = 15     # 长波回补波长门 (user 2026-11-23 令测 12)
+ER_COND_LONGHB_FAV = False  # 长波回补波长口径: True=按 _fav_wave_info 断段起点数波龄 (页面波号同款), False=wave_len_gw (user 2026-11-23 令测 fav)
+ER_COND_FOL_PREV = 0.0      # cond 跟随前根门: 触发根前一根须同向且 |h| > 此值 (0=关; user 2026-11-23 令测 6/8)
+ER_COND_COLLAPSE_CLOSE = 0.0  # cond 塌陷只平版: |hist| <= 波峰 x 此比例只平不开仓, 平后武装衰减空仓开 (0=关; user 2026-11-23 令测)
+ER_BIGBAR_K = 0.0           # 大根门: (high-low) >= K x 事前ATR(atr[i-1]) 的根不开 er 单 (含翻仓开仓腿; 0=关; user 2026-11-23 定事前口径)
+ER_ENTRY_SAMEBAR = False    # 段入场同根执行: 段激活当根就在激活点直接入场/swap (不等次根入场块; user 2026-11-23 令测)
+ER_SEG_KILL_EDGE = False    # 段激活当根先平方向不对的 edge 仓 (只平; 进不进由 ER_ENTRY_SAMEBAR 决定; user 2026-11-23 令测)
+F3_REVAL_MODE = 0     # _reval 冲突复核: 0=关 (逐笔等价); 1=只管 f3 flip 分支; 2=flip+f3_open 都管 (user 2026-11-23 令)
+F3_REVAL_TRIG = "qs3"  # _reval 复核触发: "qs3"=QS3 两根式跟随 (灰9/无W5, gen_shadow 逐字); "cond"=_cond_fol 单根跟随
+F3_REVAL_INFO = {"flip_block": 0, "flip_pass": 0,
+                 "open_block": 0, "open_pass": 0}  # _reval 埋点
+ER_COND_INFO = {"decay_sig": 0, "decay_flip": 0, "hb_set": 0,
+                "hb_fire": 0, "fol_flip": 0, "fol_open": 0, "fast_flip": 0,
+                "collapse_flip": 0, "longhb_flip": 0, "collapse_close": 0,
+                "flat_decay_set": 0, "flat_decay_open": 0,
+                "pend_decay_set": 0, "pend_decay_confirm": 0,
+                "pend_decay_void": 0, "pend_hb_set": 0,
+                "pend_hb_confirm": 0, "pend_hb_void": 0, "preempt": 0}
 CE_STATE = None  # _wcent: 自由运行 CE 状态数组 (收盘后状态 ±1; runner 注入, 与 compute_ce_dye.run_ce 逐字同源)
 CE_H = None      # _wcent: 自由运行 CE 健康度数组 (hh, ATR 单位; runner 注入)
 CE_CST = None
@@ -732,7 +784,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     # 精华版同法 (qqe_mod 对帧收盘自算), 衰减检测逐字移植 ----
     q_hist = q_up = q_down = None
     q_peak_red = q_peak_blue = {}
-    if _qqesf_on:
+    if _qqesf_on or ER_QQE_COND or F3_REVAL_MODE > 0:
         import sys as _sys
         _wd = os.path.expanduser("~/workspace/wave-deploy-main")
         if _wd not in _sys.path:
@@ -901,6 +953,12 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     def open_pos(direction, mode):
         nonlocal pos, pos_mode, entry_px, entry_atr, entry_bar, entry_date, entry_seg_cur, ut_trade_dir
         nonlocal sl_level, sl_extreme, sl_armed
+        if (mode == "er" and ER_BIGBAR_K > 0.0 and i > 0 and atr[i - 1] > 0
+                and (h[i] - l[i]) >= ER_BIGBAR_K * atr[i - 1]):
+            ER_COND_SL_ONCE[0] = None
+            ER_COND_INFO["bigbar_block"] = ER_COND_INFO.get("bigbar_block", 0) + 1
+            return False
+        _once_k = ER_COND_SL_ONCE[0]; ER_COND_SL_ONCE[0] = None
         if direction == 1:
             if pos == 1:
                 return False
@@ -923,6 +981,10 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
             _k = SL_SPLIT_TREND if mode == "trend" else SL_SPLIT_EDGE
         if mode in ("sf", "imb"):
             _k = SF_SL_K  # _v3s: 反手单止损单独放宽 (user 22:26), 其余单不变; _imbx: imb 单同锚
+        if _once_k is not None:
+            _k = _once_k  # _cond: 条件版 QQE 开仓止损覆盖 (ER_COND_SL_K, 如 99)
+        if mode == "er" and ER_SEG_SL_K > 0:
+            _k = ER_SEG_SL_K  # _imb: 失衡版段内全单止损覆盖 (段方向单也 99, user 2026-11-23 令)
         if SL_MODE in ("atr", "split", "trail", "breakeven", "time", "chand"):
             sl_level = entry_px - _k * entry_atr if direction == 1 else entry_px + _k * entry_atr
         elif SL_MODE == "roi":
@@ -965,6 +1027,11 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
     # 校验); qhb_pending = 回补待确认 (触发根, |hist[触发根]|, 回补
     # 方向, qf 开仓根, qf 仓向) ----
     qhb_marker = 0.0
+    _cond_hb = None  # _cond: (marker, from_dir, entry_bar) 衰减翻仓回补基准
+    _cond_pend_decay = None  # (sig_bar, wave_sign, sig_abs, from_pos, entry_bar)
+    _cond_pend_hb = None     # (trig_bar, trig_abs, from_dir, entry_bar, pos)
+    _cond_arm = None         # 塌陷只平武装: (wave_dir, close_bar) 衰减翻仓可空仓开
+    _cond_flat_pend = None   # 空仓衰减登记: (sig_bar, wave_dir, sig_abs)
     qhb_from = 0
     qhb_eb = -1
     qhb_pending = None
@@ -1176,6 +1243,196 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                     return 0
         return _fd
 
+    def _cond_fol(_i):
+        """段内条件版跟随 (⑨ 式): 单根真色 |h|>=8 (灰柱须 >=10 才算
+        真色, ⑨ 口径) 且严格大于前 5 根内所有同色真色柱 -> 方向。"""
+        if _i < 1 or dates[_i - 1] != dates[_i]:
+            return 0
+        _h = q_hist[_i]
+        if np.isnan(_h) or abs(_h) < 8:
+            return 0
+        _d = 1 if _h > 0 else -1
+        if ER_COND_FOL_PREV > 0:
+            _hp0 = q_hist[_i - 1]
+            if np.isnan(_hp0) or _hp0 * _d <= 0 \
+                    or abs(_hp0) <= ER_COND_FOL_PREV:
+                return 0  # 前根门: 前一根同向且够长才跟
+        if ER_COND_FOL_NOGRAY and not (bool(q_up[_i]) if _d > 0
+                                       else bool(q_down[_i])):
+            return 0  # 灰色不跟: 触发根不是严格真色状态
+        if ER_COND_FOL_GRAYMIN > 0 and not (bool(q_up[_i]) if _d > 0
+                                            else bool(q_down[_i])) \
+                and abs(_h) < ER_COND_FOL_GRAYMIN:
+            return 0  # 灰柱跟随门槛: 灰柱 |h| 不够 GRAYMIN 不跟
+        _strict = _qfol_true_blue(_i) if _d > 0 else _qfol_true_red(_i)
+        if not _strict and abs(_h) < 10:
+            return 0
+        _tf = _qfol_true_blue if _d > 0 else _qfol_true_red
+        for _j in range(max(0, _i - 5), _i):
+            if _tf(_j) and abs(q_hist[_j]) >= abs(_h):
+                return 0
+        return _d
+
+    def _cond_fast_ok(_i):
+        """快速通道 (user 2026-11-23): 持仓所骑波 (与持仓同向的 hist 波)
+        |hist| 连续递减 >= ER_COND_FAST 根 -> 当根直接翻仓, 不看衰减线、
+        x0.9 缩幅与次根确认。ER_COND_FAST_PEAK>0 时另须本波波峰 >= 门槛。
+        波不跨日。"""
+        if _i < 1 or pos == 0:
+            return False
+        _sgn = 1 if pos > 0 else -1
+        _dec = 0
+        _j = _i
+        while _j >= 1 and dates[_j] == dates[_i] \
+                and dates[_j - 1] == dates[_i]:
+            _hj = q_hist[_j]
+            _hp = q_hist[_j - 1]
+            if (np.isnan(_hj) or np.isnan(_hp) or _hj * _sgn <= 0
+                    or _hp * _sgn <= 0 or abs(_hj) >= abs(_hp)):
+                break
+            _dec += 1
+            _j -= 1
+            if _dec >= ER_COND_FAST:
+                break
+        if _dec < ER_COND_FAST:
+            return False
+        if ER_COND_FAST_PEAK > 0:
+            _pk = 0.0
+            _j = _i
+            while _j >= 0 and dates[_j] == dates[_i]:
+                _hj = q_hist[_j]
+                if np.isnan(_hj) or _hj * _sgn <= 0:
+                    break
+                _pk = max(_pk, abs(_hj))
+                _j -= 1
+            if _pk < ER_COND_FAST_PEAK:
+                return False
+        return True
+
+    def _cond_collapse_ok(_i, _ratio=None):
+        """塌陷通道 (user 2026-11-23): 持仓所骑波 |hist| 已跌到波峰
+        (本波迄今峰值) 的 ER_COND_COLLAPSE 以下 -> 当根直接翻仓。
+        本根须仍在本波内 (同号), 波不跨日。"""
+        if _i < 0 or pos == 0:
+            return False
+        _sgn = 1 if pos > 0 else -1
+        _h = q_hist[_i]
+        if np.isnan(_h) or _h * _sgn <= 0:
+            return False
+        _pk = 0.0
+        _j = _i
+        while _j >= 0 and dates[_j] == dates[_i]:
+            _hj = q_hist[_j]
+            if np.isnan(_hj) or _hj * _sgn <= 0:
+                break
+            _pk = max(_pk, abs(_hj))
+            _j -= 1
+        if not (_pk > 0 and abs(_h) <= (_ratio if _ratio is not None
+                                        else ER_COND_COLLAPSE) * _pk):
+            return False
+        if ER_COND_COLLAPSE_DEC >= 2:
+            # 含本根在内连续 DEC 根 |hist| 严格递减 (同波同日)
+            _a = abs(_h)
+            for _k in range(1, ER_COND_COLLAPSE_DEC):
+                _j2 = _i - _k
+                if _j2 < 0 or dates[_j2] != dates[_i]:
+                    return False
+                _h2 = q_hist[_j2]
+                if np.isnan(_h2) or _h2 * _sgn <= 0 or abs(_h2) <= _a:
+                    return False
+                _a = abs(_h2)
+        return True
+
+    def _wave_len_gw(_j, _sign):
+        """精华版 wave_len_gw 移植: 从 _j 往回数 _sign 方向波长;
+        |h|<3 断波, |h|<=3 同向小柱最多容忍连续 2 根, 不跨日, 回望 30。"""
+        _n = 0
+        _cs = 0
+        for _k in range(_j, max(-1, _j - 30), -1):
+            if _k < 0 or dates[_k] != dates[_j]:
+                break
+            _hh = q_hist[_k]
+            if np.isnan(_hh) or abs(_hh) < 3:
+                break
+            if _hh * _sign > 0 and abs(_hh) > 3:
+                _n += 1
+                _cs = 0
+            elif abs(_hh) <= 3 and _hh * _sign >= 0:
+                _cs += 1
+                if _cs > 2:
+                    break
+            else:
+                break
+        return _n
+
+    def _cond_long_sig(_i):
+        """精华版长波信号 (长波回补/长波跟随共用): 本根所属波长 >=15,
+        且重涨满足条2 (比前根长, 自适应倍数: 前根<3->2.0 / <5->1.2 /
+        其余 1.0) 或条3 (三根全递增, 第三根比第一根同倍数); 触发根须
+        真色 (2026-11-20 长波真色门)。返回波方向或 0。"""
+        if _i < 2 or dates[_i - 1] != dates[_i] or dates[_i - 2] != dates[_i]:
+            return 0
+        _hc = q_hist[_i]
+        if np.isnan(_hc) or abs(_hc) <= 3:
+            return 0
+        _sign = 1 if _hc > 0 else -1
+        if not (bool(q_up[_i]) if _sign > 0 else bool(q_down[_i])):
+            return 0
+        if ER_COND_LONGHB_FAV:
+            _fav = _sf_fav_wave_info(_sign, _i)
+            if _i - _fav[3] + 1 < ER_COND_LONGHB_LEN:
+                return 0
+        elif _wave_len_gw(_i, _sign) < ER_COND_LONGHB_LEN:
+            return 0
+
+        def _mult(_b):
+            return 2.0 if _b < 3 else (1.2 if _b < 5 else 1.0)
+        _hp = q_hist[_i - 1]
+        if not np.isnan(_hp) and _hp * _sign > 0 and abs(_hp) > 3 \
+                and abs(_hc) > abs(_hp) * _mult(abs(_hp)):
+            return _sign
+        _h1, _h2 = q_hist[_i - 2], q_hist[_i - 1]
+        if not np.isnan(_h1) and not np.isnan(_h2) \
+                and _h1 * _sign > 0 and _h2 * _sign > 0 \
+                and abs(_h1) > 3 and abs(_h2) > 3 \
+                and abs(_h2) > abs(_h1) and abs(_hc) > abs(_h2) \
+                and abs(_hc) > abs(_h1) * _mult(abs(_h1)):
+            return _sign
+        return 0
+
+    def _reval_true_w(_j, _d):
+        """gen_shadow QS3 有效色逐字口径: 严格真色 = up/down 状态且
+        |h|>=4; 灰柱 (|h|>3 且非严格真色) |h|>=9 按符号算真色。"""
+        _hj = q_hist[_j]
+        if np.isnan(_hj) or abs(_hj) <= 3:
+            return False
+        _tb = bool(q_up[_j]) and abs(_hj) >= 4
+        _tr = bool(q_down[_j]) and abs(_hj) >= 4
+        if _d > 0:
+            if _tb:
+                return True
+            return (not _tr) and _hj > 0 and abs(_hj) >= 9
+        if _tr:
+            return True
+        return (not _tb) and _hj < 0 and abs(_hj) >= 9
+
+    def _reval_pass(_i, _d):
+        """_reval 冲突复核: 当前根在方向 _d 上触发跟随才放行。
+        "qs3" = gen_shadow._qfol_dir 两根式逐字 (当根有效色 |h|>=8、
+        前根有效色 |h|>=6、递增、同日; 无 W5 前窗门);
+        "cond" = _cond_fol(_i) == _d。"""
+        if F3_REVAL_TRIG == "cond":
+            return _cond_fol(_i) == _d
+        if _i < 1 or dates[_i - 1] != dates[_i]:
+            return False
+        _h1 = q_hist[_i]
+        _h0 = q_hist[_i - 1]
+        if np.isnan(_h1) or np.isnan(_h0):
+            return False
+        return _reval_true_w(_i, _d) and abs(_h1) >= 8 \
+            and _reval_true_w(_i - 1, _d) and abs(_h0) >= 6 \
+            and abs(_h1) > abs(_h0)
+
     for i in range(n):
         dstr = dates[i]
         if dstr >= START_DATE and pos != 0 and (entry_date or "") < START_DATE:
@@ -1189,7 +1446,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
         eod = (close_min >= _day_last[dstr] - 3) and (close_min <= _day_last[dstr])
         # EOD bar 上不许开新仓 (正常日靠 close_min<945 挡，早收日 EOD bar 的 close_min 才 778-781，
         # 不加 not eod 会在最后一根 bar 上开仓、带过周末)。
-        in_session = (570 <= s <= 955) and (close_min < 945) and (not eod)
+        in_session = (570 <= s <= 955) and (TAIL945_OFF or close_min < 945) and (not eod)
         ready = bool(ready_arr[i])
         # ---- Gaussian wick-touch 信号 (与 v39/v64 一致) ----
         long_sig = short_sig = False
@@ -1531,9 +1788,56 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                         _to_i = er_to - _ramp_drop
                     elif _ramp_drop > _dose_drop:
                         _to_i = er_to - _ramp_drop
-                    if (in_session and s >= 580 and i >= er_k + 1
+                    # _brkdrop: 价格突破降门槛 (ER_BRK_K=0 时恒 0, 与现行逐笔等价);
+                    # 方向 = 近 er_n 根净位移符号 (与段方向同式), 只认同向突破
+                    _brk_drop = 0.0
+                    _to_before = _to_i
+                    if ER_BRK_K > 0.0 and ER_BRK_UP is not None and i >= er_n:
+                        _sgn0 = float(np.sign(c[i] - c[i - er_n]))
+                        if _sgn0 > 0:
+                            _ba = float(ER_BRK_UP[i])
+                        elif _sgn0 < 0:
+                            _ba = float(ER_BRK_DN[i])
+                        else:
+                            _ba = 0.0
+                        if _ba > ER_BRK_F:
+                            _brk_drop = min(ER_BRK_CAP,
+                                            ER_BRK_K * (_ba - ER_BRK_F))
+                    if _brk_drop > 0.0:
+                        _to_i = max(_to_i - _brk_drop, er_eff_floor)
+                        _brk_drop = _to_before - _to_i
+                    # _slopedrop: 斜率/斜率变化降门槛 (MODE=0 时恒 0, 逐笔等价);
+                    # 同向信号 (按净 er_n 位移符号对齐) 超起算线 ER_SLP_F 才给剂量
+                    _slp_drop = 0.0
+                    _to_before_s = _to_i
+                    if ER_SLP_MODE and ER_SLP_S5 is not None and i >= er_n:
+                        _sgn1 = float(np.sign(c[i] - c[i - er_n]))
+                        if _sgn1 != 0.0:
+                            _sv = float(ER_SLP_S5[i]) * _sgn1 \
+                                if ER_SLP_MODE == 1 \
+                                else float(ER_SLP_DS5[i]) * _sgn1
+                            if _sv > ER_SLP_F:
+                                _slp_drop = min(ER_SLP_CAP,
+                                                ER_SLP_K * (_sv - ER_SLP_F))
+                    if _slp_drop > 0.0:
+                        _to_i = max(_to_i - _slp_drop, er_eff_floor)
+                        _slp_drop = _to_before_s - _to_i
+                    # _imbdrop: 失衡段降门槛 (ER_IMB_DROP=0 时恒 0, 逐笔等价);
+                    # 失衡段内有效门槛再降 ER_IMB_DROP, 下限 er_eff_floor 不变
+                    _imb_drop = 0.0
+                    if ER_IMB_DROP > 0.0 and ER_IMB_SEG is not None \
+                            and ER_IMB_SEG[i]:
+                        _to_before_i = _to_i
+                        _to_i = max(_to_i - ER_IMB_DROP, er_eff_floor)
+                        _imb_drop = _to_before_i - _to_i
+                        if _imb_drop > 0.0:
+                            ER_IMB_INFO["bars"] += 1
+                    if ER_EFF_LOG is not None:
+                        ER_EFF_LOG[i] = _to_i
+                    if (in_session and s >= ER_ENTRY_MIN_S and i >= er_k + 1
                             and not np.isnan(er_arr[i]) and er_arr[i] >= _to_i
-                            and not np.isnan(er_arr[i - 1]) and er_arr[i - 1] < _to_i):
+                            and (ER_ENTRY_LEVEL or (not np.isnan(er_arr[i - 1])
+                                 and er_arr[i - 1] < _to_i))):
                         _win = er_arr[i - er_k:i]
                         if np.all(np.isfinite(_win)) and float(np.min(_win)) < er_from:
                             if er_dead_thr is not None and not np.any(_win < er_dead_thr):
@@ -1563,9 +1867,35 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                                 if _dd != 0:
                                     seg_active = True; seg_dir = _dd; seg_date = dstr
                                     seg_below = 0
+                                    if (ER_SEG_KILL_EDGE and pos != 0
+                                            and pos_mode == "edge"
+                                            and pos != seg_dir):
+                                        close_pos(i, c[i], "ER_KILL")
+                                        ER_COND_INFO["seg_kill"] = ER_COND_INFO.get("seg_kill", 0) + 1
                                     if er_brk > 0:
                                         # 突破门版: 触发根只武装, 等段内首个突破根才置 er_trigger 入场
-                                        seg_pending = True; seg_trigger_bar = i
+                                        if ER_ENTRY_SAMEBAR and not trend_special:
+                                            # _samebar: 激活当根绕过突破门直接入场 (user 2026-11-23 令)
+                                            if pos == 0:
+                                                if not _er_decay_blocked(i, seg_dir) and open_pos(seg_dir, "er"):
+                                                    er_cnt["entries"] += 1
+                                                    er_ext = entry_px
+                                                    er_ext = max(er_ext, float(h[i])) if seg_dir == 1 else min(er_ext, float(l[i]))
+                                                    can_long = False; can_short = False
+                                            elif pos_mode == "trend":
+                                                er_cnt["blocked_trend_pos"] += 1
+                                            elif pos_mode in ("er", "ine"):
+                                                pass
+                                            else:
+                                                close_pos(i, c[i], "ER_SWAP")
+                                                er_cnt["swaps"] += 1
+                                                if open_pos(seg_dir, "er"):
+                                                    er_cnt["entries"] += 1
+                                                    er_ext = entry_px
+                                                    er_ext = max(er_ext, float(h[i])) if seg_dir == 1 else min(er_ext, float(l[i]))
+                                                can_long = False; can_short = False
+                                        else:
+                                            seg_pending = True; seg_trigger_bar = i
                                     elif er_ce_method == "C":
                                         # _wcent C: 当根 CE 已同向直接入场; 否则挂起等对齐
                                         if int(ce_st[i]) == _dd:
@@ -1576,7 +1906,39 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                                             ce_cnt["pend"] += 1
                                     else:
                                         er_trigger = True
+                                        if ER_ENTRY_SAMEBAR and not trend_special:
+                                            er_trigger = False
+                                            if pos == 0:
+                                                if not _er_decay_blocked(i, seg_dir) and open_pos(seg_dir, "er"):
+                                                    er_cnt["entries"] += 1
+                                                    er_ext = entry_px
+                                                    er_ext = max(er_ext, float(h[i])) if seg_dir == 1 else min(er_ext, float(l[i]))
+                                                    can_long = False; can_short = False
+                                            elif pos_mode == "trend":
+                                                er_cnt["blocked_trend_pos"] += 1
+                                            elif pos_mode in ("er", "ine"):
+                                                pass
+                                            else:
+                                                close_pos(i, c[i], "ER_SWAP")
+                                                er_cnt["swaps"] += 1
+                                                if open_pos(seg_dir, "er"):
+                                                    er_cnt["entries"] += 1
+                                                    er_ext = entry_px
+                                                    er_ext = max(er_ext, float(h[i])) if seg_dir == 1 else min(er_ext, float(l[i]))
+                                                can_long = False; can_short = False
                                     er_cnt["trigger"] += 1
+                                    if _brk_drop > 0.0:
+                                        ER_BRK_INFO["trig"] += 1
+                                        ER_BRK_INFO["trig_bars"].append(i)
+                                        if float(er_arr[i]) < _to_before - 1e-12:
+                                            ER_BRK_INFO["helped"] += 1
+                                            ER_BRK_INFO["helped_bars"].append(i)
+                                    if _slp_drop > 0.0:
+                                        ER_SLP_INFO["trig"] += 1
+                                        ER_SLP_INFO["trig_bars"].append(i)
+                                        if float(er_arr[i]) < _to_before_s - 1e-12:
+                                            ER_SLP_INFO["helped"] += 1
+                                            ER_SLP_INFO["helped_bars"].append(i)
                                     ER_INFO["dose_drops"].append(er_to - _to_i)
                                     if er_ramp_on:
                                         ER_INFO["ramp_trig"].append(
@@ -1606,7 +1968,7 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                                         ER_INFO["ce_events"].append(
                                             [i, dstr, "redirect", _ce_act, _dd, None])
                 else:
-                    if (in_session and s >= 580 and i >= er_bw
+                    if (in_session and s >= ER_ENTRY_MIN_S and i >= er_bw
                             and not np.isnan(er_arr[i]) and er_arr[i] >= er_th):
                         _dd = int(np.sign(c[i] - c[i - er_n]))
                         if _dd != 0:
@@ -1619,6 +1981,9 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
             else:
                 ER_INFO["segments"][-1][1] = i
                 _end_line = er_end if er_branch == "surge" else er_th
+                if ER_IMB_EXIT > 0.0 and ER_IMB_SEG is not None \
+                        and ER_IMB_SEG[i]:
+                    _end_line = ER_IMB_EXIT
                 if er_ce_method == "E" and int(ce_cst[i]) == -seg_dir:
                     # _wcent E: 自由运行 CE 状态翻到与段方向相反 -> 出段 (与 WER
                     # 出段先到先出; 同根两者同到仍只出一次)。注: 用的是自由 CE
@@ -1694,6 +2059,10 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                 _sl_hit = sl_level is not None and \
                     ((pos == 1 and l[i] <= sl_level) or
                      (pos == -1 and h[i] >= sl_level))
+                if ER_SL_CLOSE and pos_mode == "er" \
+                        and sl_level is not None:
+                    _sl_hit = (pos == 1 and c[i] <= sl_level) or \
+                        (pos == -1 and c[i] >= sl_level)
                 _preempt = False
                 if _sl_hit and FLIP_FIRST and pos_mode == "sf" \
                         and qsf_pending is not None:
@@ -1704,10 +2073,32 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
                         if _hv2 * _pws2 < 0 or abs(_hv2) < _pha2:
                             _preempt = True
                             A_INFO["preempt"] += 1
+                if _sl_hit and not _preempt and ER_QQE_COND \
+                        and pos_mode == "er":
+                    if _cond_pend_decay is not None:
+                        _psb3, _pws3, _psa3, _pfp3, _peb3 = _cond_pend_decay
+                        if dates[_psb3] == dstr and _peb3 == entry_bar \
+                                and pos == _pfp3:
+                            _hv3 = q_hist[i]
+                            if not np.isnan(_hv3) and (
+                                    _hv3 * _pws3 < 0
+                                    or abs(_hv3) < _psa3):
+                                _preempt = True
+                    if not _preempt and _cond_pend_hb is not None:
+                        _ptb3, _pta3, _pfd3, _peb4, _ppt3 = _cond_pend_hb
+                        if dates[_ptb3] == dstr and _peb4 == entry_bar \
+                                and pos == _ppt3:
+                            _hv3 = q_hist[i]
+                            if not np.isnan(_hv3) and _hv3 * _pfd3 > 0 \
+                                    and abs(_hv3) > _pta3:
+                                _preempt = True
+                    if _preempt:
+                        ER_COND_INFO["preempt"] += 1
                 if _sl_hit and not _preempt:
                     _sfd = pos; _sfm = pos_mode; _sde = entry_bar
                     _sepx = entry_px; _seatr = entry_atr
-                    close_pos(i, sl_level, _rs)
+                    close_pos(i, c[i] if (ER_SL_CLOSE and _sfm == "er")
+                              else sl_level, _rs)
                     if _sf_on and _rs == "SL":
                         sl_dir_bar = _sfd; sl_mode_bar = _sfm
                         sl_entry_bar = _sde
@@ -1873,27 +2264,221 @@ def simulate(df, ind, tf_min, trend_entry=True, use_uturn=True, use_bo=True,
         # (pos==0) -> 按 CE 状态开 (不限入段/止损后/被接管后, 止损后同向
         # 也开); ER 仓平仓根本身不补 (次根起); 趋势信号根让位、EOD 根与
         # 段尾根不动作; 槽位被本体仓占用时 pos!=0 天然跳过, 空出后补齐 ----
-        if (er_on and er_ce_f3 and seg_active and not seg_ended_bar
+        # ---- _cond 段内 QQE 条件版 (ER_QQE_COND 开时替代 _f3 状态
+        # 对齐): 无状态机, 每根现算三条件 + 定版确认纪律 —— 衰减翻仓
+        # 信号先登记 _cond_pend_decay, 次根确认 (异号认 / 同号更短认 /
+        # 变长作废) 才翻仓并记回补基准; 回补触发先登记 _cond_pend_hb,
+        # 次根同向递增才翻回, 不递增作废且回补登记一并作废; 确认根上
+        # 待翻仓遇止损按 A1 口径抢先 (止损块 _preempt); 跟随当根执行
+        # (⑨ 式单根真色前 5 根同色最长 |h|>=8), 衰减单独不开仓。 ----
+        if (er_on and er_ce_f3 and ER_QQE_COND and seg_active
+                and not seg_ended_bar and in_session and not trend_special
+                and not eod):
+            if _cond_hb is not None and not (pos != 0 and pos_mode == "er"
+                    and entry_bar == _cond_hb[2]):
+                _cond_hb = None
+            if _cond_pend_decay is not None and not (
+                    pos != 0 and pos_mode == "er"
+                    and entry_bar == _cond_pend_decay[4]
+                    and pos == _cond_pend_decay[3]):
+                _cond_pend_decay = None
+            if _cond_pend_hb is not None and not (
+                    pos != 0 and pos_mode == "er"
+                    and entry_bar == _cond_pend_hb[3]
+                    and pos == _cond_pend_hb[4]):
+                _cond_pend_hb = None
+                _cond_hb = None
+            if _cond_arm is not None and (pos != 0
+                    or dates[_cond_arm[1]] != dstr):
+                _cond_arm = None
+                _cond_flat_pend = None
+            if _cond_pend_decay is not None:
+                _psb, _pws, _psa, _pfp, _peb = _cond_pend_decay
+                _cond_pend_decay = None
+                if dates[_psb] == dstr:
+                    _hv = q_hist[i]
+                    if not np.isnan(_hv) and (_hv * _pws < 0
+                            or abs(_hv) < _psa):
+                        ER_COND_INFO["pend_decay_confirm"] += 1
+                        ER_COND_INFO["decay_flip"] += 1
+                        ER_COND_INFO["hb_set"] += 1
+                        ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                        if open_pos(-_pfp, "er"):
+                            ER_COND_OPENS.append((i, "decay"))
+                            er_ext = entry_px
+                            er_ext = max(er_ext, float(h[i])) \
+                                if -_pfp == 1 else min(er_ext, float(l[i]))
+                            _cond_hb = (abs(_hv), _pfp, entry_bar)
+                    else:
+                        ER_COND_INFO["pend_decay_void"] += 1
+            if _cond_pend_hb is not None and pos != 0 \
+                    and pos_mode == "er" \
+                    and entry_bar == _cond_pend_hb[3] \
+                    and pos == _cond_pend_hb[4]:
+                _ptb, _pta, _pfd, _peb2, _ppt = _cond_pend_hb
+                _cond_pend_hb = None
+                if dates[_ptb] == dstr:
+                    _hv = q_hist[i]
+                    if not np.isnan(_hv) and _hv * _pfd > 0 \
+                            and abs(_hv) > _pta:
+                        ER_COND_INFO["pend_hb_confirm"] += 1
+                        ER_COND_INFO["hb_fire"] += 1
+                        _cond_hb = None
+                        ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                        if open_pos(_pfd, "er"):
+                            ER_COND_OPENS.append((i, "hb"))
+                            er_ext = entry_px
+                            er_ext = max(er_ext, float(h[i])) \
+                                if _pfd == 1 else min(er_ext, float(l[i]))
+                    else:
+                        ER_COND_INFO["pend_hb_void"] += 1
+                        _cond_hb = None
+            # 塌陷只平 (user 2026-11-23): 波塌到峰值比例以下只平不开;
+            # 平后武装 _cond_arm, 衰减翻仓信号成立时可空仓开 (空仓支)
+            _ccls_fired = False
+            if (ER_COND_COLLAPSE_CLOSE > 0 and pos != 0
+                    and pos_mode == "er" and i > entry_bar
+                    and _cond_collapse_ok(i, ER_COND_COLLAPSE_CLOSE)):
+                _cdir = pos
+                close_pos(i, c[i], "CCLS")
+                ER_COND_INFO["collapse_close"] += 1
+                _cond_arm = (_cdir, i)
+                _ccls_fired = True
+            # 长波回补 (精华版长波信号): 持仓与长波反向 -> 当根翻
+            _lhb_fired = False
+            if (ER_COND_LONGHB and pos != 0 and pos_mode == "er"
+                    and i > entry_bar):
+                _ls = _cond_long_sig(i)
+                if _ls != 0 and pos * _ls < 0:
+                    _ofd = pos
+                    ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                    if open_pos(_ls, "er"):
+                        ER_COND_OPENS.append((i, "longhb"))
+                        ER_COND_INFO["longhb_flip"] += 1
+                        ER_COND_INFO["hb_set"] += 1
+                        _cond_hb = (abs(q_hist[i]), _ofd, entry_bar)
+                        _cond_pend_decay = None
+                        _cond_pend_hb = None
+                        _lhb_fired = True
+            _fast_fired = False
+            _fast_kind = None
+            if pos != 0 and pos_mode == "er" and i > entry_bar:
+                if ER_COND_FAST > 0 and _cond_fast_ok(i):
+                    _fast_kind = "fast"
+                elif ER_COND_COLLAPSE > 0 and _cond_collapse_ok(i):
+                    _fast_kind = "collapse"
+            if _fast_kind is not None:
+                _ofd = pos
+                ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                if open_pos(-_ofd, "er"):
+                    ER_COND_OPENS.append((i, _fast_kind))
+                    ER_COND_INFO["fast_flip" if _fast_kind == "fast"
+                                 else "collapse_flip"] += 1
+                    ER_COND_INFO["hb_set"] += 1
+                    er_ext = entry_px
+                    er_ext = max(er_ext, float(h[i])) \
+                        if -_ofd == 1 else min(er_ext, float(l[i]))
+                    _cond_hb = (abs(q_hist[i]), _ofd, entry_bar)
+                    _cond_pend_decay = None
+                    _cond_pend_hb = None
+                    _fast_fired = True
+            if (not _fast_fired and pos != 0 and pos_mode == "er"
+                    and _cond_hb is not None
+                    and _cond_pend_hb is None and i > entry_bar
+                    and _hb_trigger(i, _cond_hb[1], _cond_hb[0])):
+                _cond_pend_hb = (i, abs(q_hist[i]), _cond_hb[1],
+                                 entry_bar, pos)
+                ER_COND_INFO["pend_hb_set"] += 1
+            elif pos != 0 and pos_mode == "er" and i > entry_bar:
+                _pd = q_peak_red if pos == -1 else q_peak_blue
+                if i in _pd and _pd[i] >= 12.0:
+                    ER_COND_INFO["decay_sig"] += 1
+                    ER_COND_INFO["pend_decay_set"] += 1
+                    _cond_pend_decay = (i, pos, abs(q_hist[i]), pos,
+                                        entry_bar)
+                else:
+                    _fd = _cond_fol(i)
+                    if _fd != 0 and _fd == -pos:
+                        _cond_hb = None
+                        _cond_pend_decay = None
+                        _cond_pend_hb = None
+                        ER_COND_INFO["fol_flip"] += 1
+                        ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                        if open_pos(_fd, "er"):
+                            ER_COND_OPENS.append((i, "fol"))
+                            er_ext = entry_px
+                            er_ext = max(er_ext, float(h[i])) if _fd == 1 \
+                                else min(er_ext, float(l[i]))
+            elif pos == 0:
+                _flat_acted = False
+                if ER_COND_COLLAPSE_CLOSE > 0 and _cond_arm is not None:
+                    if _cond_flat_pend is not None:
+                        _fsb, _fwd, _fsa = _cond_flat_pend
+                        _cond_flat_pend = None
+                        if dates[_fsb] == dstr:
+                            _hv = q_hist[i]
+                            if not np.isnan(_hv) and (_hv * _fwd < 0
+                                    or abs(_hv) < _fsa):
+                                ER_COND_INFO["flat_decay_open"] += 1
+                                ER_COND_INFO["decay_flip"] += 1
+                                ER_COND_INFO["hb_set"] += 1
+                                ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                                if open_pos(-_fwd, "er"):
+                                    ER_COND_OPENS.append((i, "decay"))
+                                    _cond_hb = (abs(_hv), _fwd, entry_bar)
+                                    _cond_arm = None
+                                    _flat_acted = True
+                    else:
+                        _pd = q_peak_blue if _cond_arm[0] > 0 else q_peak_red
+                        if i in _pd and _pd[i] >= 12.0:
+                            _cond_flat_pend = (i, _cond_arm[0],
+                                               abs(q_hist[i]))
+                            ER_COND_INFO["flat_decay_set"] += 1
+                if not _flat_acted:
+                    _fd = _cond_fol(i)
+                    if _fd != 0 and not (er_last_close is not None
+                            and er_last_close[0] == i):
+                        ER_COND_INFO["fol_open"] += 1
+                        ER_COND_SL_ONCE[0] = ER_COND_SL_K if ER_COND_SL_K > 0.0 else None
+                        if open_pos(_fd, "er"):
+                            ER_COND_OPENS.append((i, "fol"))
+                            _cond_arm = None
+                            _cond_flat_pend = None
+                            er_ext = entry_px
+                            er_ext = max(er_ext, float(h[i])) if _fd == 1 \
+                                else min(er_ext, float(l[i]))
+        if (er_on and er_ce_f3 and not ER_QQE_COND and seg_active
+                and not seg_ended_bar
                 and in_session and not trend_special and not eod):
             _cst3 = int(QQE_STATE[i]) if ER_QQE_ON else int(ce_cst[i])
             if (pos != 0 and pos_mode == "er" and i > entry_bar
                     and _cst3 != 0 and _cst3 == -pos):
-                _s0 = ER_INFO["segments"][-1][0]
-                ce_cnt["flip"] = ce_cnt.get("flip", 0) + 1
-                ce_flip_map[_s0] = ce_flip_map.get(_s0, 0) + 1
-                ER_INFO["ce_events"].append([_s0, dstr, "flip", pos, -pos, i])
-                ce_flip_bar = i
-                open_pos(-pos, "er")
+                if F3_REVAL_MODE >= 1 and not _reval_pass(i, _cst3):
+                    F3_REVAL_INFO["flip_block"] += 1
+                else:
+                    if F3_REVAL_MODE >= 1:
+                        F3_REVAL_INFO["flip_pass"] += 1
+                    _s0 = ER_INFO["segments"][-1][0]
+                    ce_cnt["flip"] = ce_cnt.get("flip", 0) + 1
+                    ce_flip_map[_s0] = ce_flip_map.get(_s0, 0) + 1
+                    ER_INFO["ce_events"].append([_s0, dstr, "flip", pos, -pos, i])
+                    ce_flip_bar = i
+                    open_pos(-pos, "er")
             elif (pos == 0 and _cst3 != 0
                     and not (er_last_close is not None and er_last_close[0] == i)
                     and not _er_decay_blocked(i, _cst3)):
-                _s0 = ER_INFO["segments"][-1][0]
-                ce_cnt["f3_open"] = ce_cnt.get("f3_open", 0) + 1
-                ER_INFO["ce_events"].append([_s0, dstr, "f3_open", _cst3, i, None])
-                if open_pos(_cst3, "er"):
-                    er_ext = entry_px
-                    er_ext = max(er_ext, float(h[i])) if _cst3 == 1 \
-                        else min(er_ext, float(l[i]))
+                if F3_REVAL_MODE >= 2 and not _reval_pass(i, _cst3):
+                    F3_REVAL_INFO["open_block"] += 1
+                else:
+                    if F3_REVAL_MODE >= 2:
+                        F3_REVAL_INFO["open_pass"] += 1
+                    _s0 = ER_INFO["segments"][-1][0]
+                    ce_cnt["f3_open"] = ce_cnt.get("f3_open", 0) + 1
+                    ER_INFO["ce_events"].append([_s0, dstr, "f3_open", _cst3, i, None])
+                    if open_pos(_cst3, "er"):
+                        er_ext = entry_px
+                        er_ext = max(er_ext, float(h[i])) if _cst3 == 1 \
+                            else min(er_ext, float(l[i]))
         # ---- ER 覆盖层: ER 单出场 (B: 50% 回落止盈先判后更; 段尾根平) ----
         if er_on and pos != 0 and pos_mode == "er" and i > entry_bar:
             _er_closed = False

@@ -88,7 +88,8 @@ PIN_TYPE_STYLE = {
 }
 STACK_CLOSE_RS = {"SL": "止损", "FLIP": "翻仓", "ER_END": "ER段结束",
                   "PREEMPT": "slope抢占平仓", "SEG_END": "段结束平仓",
-                  "EOD": "日终平仓", "TREND_EXIT": "趋势出段"}
+                  "EOD": "日终平仓", "TREND_EXIT": "趋势出段",
+                  "CCLS": "塌陷只平"}
 SLOPE_CLOSE_RS = {"FLIP": "中线转向翻仓", "SEG_END": "段结束平仓",
                   "EOD": "日终平仓"}
 
@@ -454,6 +455,12 @@ def build_consts(vals, times3, line1m, times1m, gap_txt, gap_rich,
         _hdr_desc = ("F1+WER：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋"
                      "ER 段/F3S 段内管理 · dose/ramp/brk5 · "
                      "本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · ")
+    elif mode == "imb":
+        _hdr_title = "Envelope版信号单（WER失衡版 · Gamma理论预估，-100口径）"
+        _hdr_desc = ("WER失衡版：WER 窗口 8＋失衡段（重心/价格突破）内门槛降 0.2 · "
+                     "电平触发 · 09:35 起进段 · 段内 QQE 条件版（跟随/衰减翻仓/"
+                     "回补/长波回补/快速通道） · 塌陷只平 40% · 大根门事前 ATR 5 · "
+                     "QQE 单 99×ATR 止损 · 本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · ")
     else:
         _hdr_title = "Envelope版信号单（WER终栈⑪ · Gamma理论预估，-100口径）"
         _hdr_desc = ("WER 冠军版（终栈⑪）：ER 段＋F3S 段内管理 · dose/ramp/brk5 · "

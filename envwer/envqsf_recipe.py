@@ -63,6 +63,20 @@ def day_payload_warm_champ(dff, NEWDAY):
         return None, f"{type(e).__name__}: {e}"
 
 
+def day_payload_warm_imb(dff, NEWDAY):
+    """暖机版 WER失衡版 day_payload (user 2026-11-23 令上线: 失衡版
+    三年定版配置 = ER 窗口 8 + 电平触发 + 09:35 进段 + 失衡段内门槛
+    降 0.2/出段线 0.2 + 段内 QQE 条件版 (灰 12 / 塌陷只平 40% /
+    fav 长波回补 / 快速通道 4 连递减) + 大根门事前 ATR 5 + QQE 单
+    99 止损; 与研究 fork run_imb_bigpre_3y 的 P5 配置逐项同式)。"""
+    try:
+        return _both(dff, NEWDAY)[2], None
+    except Exception as e:  # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        return None, f"{type(e).__name__}: {e}"
+
+
 def _both(dff, NEWDAY):
     key = (NEWDAY, len(dff), str(dff["t"].iloc[0]), str(dff["t"].iloc[-1]))
     if key not in _MEMO:
@@ -196,6 +210,60 @@ def _day_payloads_both(dff, NEWDAY):
         WERAS1 = np.full(NF, np.nan)
     EFF1, DOSE1, RAMP1 = _wr.eff_parts(WERAS1)
 
+    # ---- WER失衡版: WER 8 窗 (同式) + D6 失衡掩码 (整帧逐日算,
+    # 与研究 run_imb_bigpre_3y 的 IMB 构造逐字同式: 重心 G 近 5 根
+    # z 量加权 |G|>=0.60 / 价格突破 BRK 前第 5-13 根 9 收盘按
+    # 0.1xATR/根沉降 |BRK|>=1.5 / 极端位 >=1.80 只接段拖尾) ----
+    if NF >= 8:
+        win8 = sliding_window_view(dc, 8)
+        wn8 = 0.98 ** np.arange(7, -1, -1, dtype=float)
+        wd8 = 0.96 ** np.arange(7, -1, -1, dtype=float)
+        den8 = np.abs(win8) @ wd8
+        vals8 = np.where(den8 > 0, np.abs(win8 @ wn8) / np.where(den8 > 0, den8, 1.0), 0.0)
+        WER8 = np.full(NF, np.nan)
+        WER8[8:] = vals8[1:]
+    else:
+        WER8 = np.full(NF, np.nan)
+    EFF8, DOSE8, RAMP8 = _wr.eff_parts(WER8)
+    _cF = np.asarray(ind["close"], dtype=float)
+    _oF = np.asarray(dff["open"], dtype=float)
+    _midF = np.asarray(ind["mid"], dtype=float)
+    _upF = np.asarray(ind["upper"], dtype=float)
+    _loF = np.asarray(ind["lower"], dtype=float)
+    _atrF = np.asarray(ind["atr"], dtype=float)
+    IMB = np.zeros(NF, dtype=bool)
+    for _d in frame_days:
+        _gi = np.where(dates_f == _d)[0]
+        gs, ge = int(_gi[0]), int(_gi[-1]) + 1
+        nn = ge - gs
+        c = _cF[gs:ge]; o = _oF[gs:ge]; mid = _midF[gs:ge]
+        up = _upF[gs:ge]; lo = _loF[gs:ge]; atr = _atrF[gs:ge]
+        hw = up - mid
+        z = np.where(hw > 0, (c - mid) / np.where(hw > 0, hw, 1.0), 0.0)
+        wgt = 1.0 + np.where(hw > 0, np.abs(c - o) / np.where(hw > 0, hw, 1.0), 0.0)
+        G = np.zeros(nn)
+        for j in range(nn):
+            a = max(0, j - 4)
+            G[j] = float(np.sum(wgt[a:j + 1] * z[a:j + 1]) / np.sum(wgt[a:j + 1]))
+        BRK = np.zeros(nn)
+        for j in range(12, nn):
+            a = atr[j]
+            if a <= 0:
+                continue
+            m = np.arange(j - 12, j - 3)
+            dist = (j - m) * 0.1 * a
+            bu = (c[j] - float(np.max(c[m] - dist))) / a
+            bd = (float(np.min(c[m] + dist)) - c[j]) / a
+            BRK[j] = bu if bu >= bd else -bd
+        medhw = np.array([np.median(hw[max(0, j - 59):j + 1]) for j in range(nn)])
+        dext = np.where(z >= 0, c - lo, up - c) / np.where(medhw > 0, medhw, np.inf)
+        extreme = dext >= 1.80
+        base = (np.abs(G) >= 0.60) | (np.abs(BRK) >= 1.5)
+        seg = np.zeros(nn, dtype=bool)
+        for j in range(nn):
+            seg[j] = base[j] or (extreme[j] and j > 0 and seg[j - 1])
+        IMB[gs:ge] = seg
+
     # ---- 影子状态 / 惯性触发 / G4 门 (本帧原生算) ----
     sm_arr = dff["t"].dt.hour.values * 60 + dff["t"].dt.minute.values
     QS = _qs.compute_state(dates_f, sm_arr, ind, forkQ)
@@ -252,12 +320,46 @@ def _day_payloads_both(dff, NEWDAY):
         DAYCTX1[_d] = (_gi, {int(g): int(j) for j, g in enumerate(_gi)})
     defs.set_f3_ctx(DAYCTX1, [NEWDAY], dates_f)
 
-    def run_arm(sf_on, qqe_on):
+    def run_arm(sf_on, qqe_on, imb=False):
         forkQ.SF_SL_K = 2.5
-        forkQ.STOPFLIP = {"p": 0.25, "mid_gate": True} if sf_on else None
-        forkQ.QQESF_ON = bool(qqe_on)
-        forkQ.QFOL_ON = bool(qqe_on)
-        forkQ.QQESF_HB_ON = bool(qqe_on)
+        if imb:
+            # WER失衡版定版配置 (user 2026-11-23; 与研究 P5 逐项同式)
+            forkQ.TAIL945_OFF = False
+            forkQ.STOPFLIP = None
+            forkQ.QQESF_ON = False
+            forkQ.QFOL_ON = False
+            forkQ.QQESF_HB_ON = False
+            forkQ.ER_QQE_COND = True
+            forkQ.ER_ENTRY_LEVEL = True
+            forkQ.ER_IMB_SEG = IMB
+            forkQ.ER_IMB_DROP = 0.2
+            forkQ.ER_IMB_EXIT = 0.2
+            forkQ.ER_IMB_INFO = {"bars": 0}
+            forkQ.ER_SL_CLOSE = False
+            forkQ.ER_COND_SL_K = 99.0
+            forkQ.ER_SEG_SL_K = 0.0
+            forkQ.ER_COND_FAST = 4
+            forkQ.ER_COND_FAST_PEAK = 0.0
+            forkQ.ER_ENTRY_MIN_S = 575
+            forkQ.ER_COND_FOL_GRAYMIN = 12.0
+            forkQ.ER_COND_COLLAPSE_CLOSE = 0.40
+            forkQ.ER_COND_LONGHB = True
+            forkQ.ER_COND_LONGHB_FAV = True
+            forkQ.ER_COND_LONGHB_LEN = 15
+            forkQ.ER_BIGBAR_K = 5.0
+            forkQ.ER_ENTRY_SAMEBAR = False
+            forkQ.ER_SEG_KILL_EDGE = False
+            forkQ.F3_REVAL_MODE = 0
+            forkQ.ER_ARRAYS = {8: WER8}
+            forkQ.ER_EFF_LOG = np.full(NF, np.nan)
+            forkQ.ER_COND_INFO = {k: 0 for k in forkQ.ER_COND_INFO}
+            forkQ.ER_COND_OPENS = []
+        else:
+            forkQ.TAIL945_OFF = bool(sf_on and qqe_on)  # user 2026-11-22: 仅反手QQE臂开尾盘
+            forkQ.STOPFLIP = {"p": 0.25, "mid_gate": True} if sf_on else None
+            forkQ.QQESF_ON = bool(qqe_on)
+            forkQ.QFOL_ON = bool(qqe_on)
+            forkQ.QQESF_HB_ON = bool(qqe_on)
         forkQ.INE_INFO = {"blocked_edge": 0, "opens": 0, "mid_exit": 0,
                           "trig_skipped": 0}
         forkQ.ER_DECAY_INFO = {"gated": 0}
@@ -265,19 +367,28 @@ def _day_payloads_both(dff, NEWDAY):
         forkQ.CHASE_STATE = {"armed": None}
         forkQ.CHASED_BARS = []
         tr = forkQ.simulate(dff, ind, 1, trend_entry=True, use_uturn=False,
-                            use_bo=False, er_cfg=_wr.CFG)
+                            use_bo=False,
+                            er_cfg=dict(_wr.CFG, n=8) if imb else _wr.CFG)
         modes = copy.deepcopy(forkQ.V67_STATS["entry_modes"])
+        if imb:
+            _k2m = {"fol": "qfol", "decay": "qf", "hb": "qhb",
+                    "longhb": "qhb", "fast": "qf"}
+            for _b, _kind in forkQ.ER_COND_OPENS:
+                if _kind in _k2m:
+                    modes[int(_b)] = _k2m[_kind]
         segs = copy.deepcopy(forkQ.ER_INFO.get("segments", []))
         trig = copy.deepcopy(forkQ.ER_INFO.get("ramp_trig", []))
         flips_q = copy.deepcopy(forkQ.QQESF_INFO.get("flips", []))
         hb_list = copy.deepcopy(forkQ.QQESF_INFO.get("hb_list", []))
+        _DOSEX, _RAMPX = (DOSE8, RAMP8) if imb else (DOSE1, RAMP1)
         bad = sum(1 for i, dstr, dd_, rd_, wer_i, _f in trig
-                  if abs(DOSE1[i] - dd_) > 1e-6 or abs(RAMP1[i] - rd_) > 1e-6)
+                  if abs(_DOSEX[i] - dd_) > 1e-6 or abs(_RAMPX[i] - rd_) > 1e-6)
         assert bad == 0, f"{NEWDAY} ramp_trig mismatches {bad}/{len(trig)}"
-        cross = [s0 for s0, s1, _ in [(s[0], s[1], s[2]) for s in segs]
-                 if not (WERAS1[s0] >= EFF1[s0] - 1e-12
-                         and (s0 == 0 or WERAS1[s0 - 1] < EFF1[s0]))]
-        assert not cross, f"{NEWDAY} seg crossing FAIL {cross[:5]}"
+        if not imb:
+            cross = [s0 for s0, s1, _ in [(s[0], s[1], s[2]) for s in segs]
+                     if not (WERAS1[s0] >= EFF1[s0] - 1e-12
+                             and (s0 == 0 or WERAS1[s0 - 1] < EFF1[s0]))]
+            assert not cross, f"{NEWDAY} seg crossing FAIL {cross[:5]}"
         recs_all = W.to_recs(tr, modes, dates_f)
         recs = [t for t in recs_all if t["ed"] == NEWDAY]
         fills_by_day, cnt = defs.classify_fills(recs, segs, "f1", "375")
@@ -349,6 +460,24 @@ def _day_payloads_both(dff, NEWDAY):
 
     sday_q, qf_q, fol_q, hb_q = run_arm(True, True)
     sday_c, qf_c, fol_c, hb_c = run_arm(False, False)
+    sday_i, qf_i, fol_i, hb_i = run_arm(False, False, imb=True)
+    _eff_imb_full = np.array(forkQ.ER_EFF_LOG, dtype=float)
+    # 失衡版全局复原 (防污染同进程后续日期的 qsf/冠军臂)
+    forkQ.ER_QQE_COND = False
+    forkQ.ER_ENTRY_LEVEL = False
+    forkQ.ER_IMB_SEG = None
+    forkQ.ER_IMB_DROP = 0.0
+    forkQ.ER_IMB_EXIT = 0.0
+    forkQ.ER_COND_SL_K = 0.0
+    forkQ.ER_COND_FAST = 0
+    forkQ.ER_ENTRY_MIN_S = 580
+    forkQ.ER_COND_FOL_GRAYMIN = 0.0
+    forkQ.ER_COND_COLLAPSE_CLOSE = 0.0
+    forkQ.ER_COND_LONGHB = False
+    forkQ.ER_COND_LONGHB_FAV = False
+    forkQ.ER_BIGBAR_K = 0.0
+    forkQ.ER_ARRAYS = {12: WERAS1}
+    forkQ.ER_EFF_LOG = None
 
     def r2(arr):
         return [None if not np.isfinite(v) else round(float(v), 2)
@@ -379,4 +508,10 @@ def _day_payloads_both(dff, NEWDAY):
     pay_c = dict(date=NEWDAY, sday=sday_c, day=day, n_bars=N, half=half,
                  gap=gap, warm_days=warm_days, qf_arrows=qf_c,
                  fol_arrows=fol_c, hb_arrows=hb_c)
-    return pay_q, pay_c
+    day_i = dict(day)
+    day_i["werchamp"] = r4(WER8[slc])
+    day_i["effstack"] = r3(_eff_imb_full[slc])
+    pay_i = dict(date=NEWDAY, sday=sday_i, day=day_i, n_bars=N, half=half,
+                 gap=gap, warm_days=warm_days, qf_arrows=[],
+                 fol_arrows=[], hb_arrows=[])
+    return pay_q, pay_c, pay_i

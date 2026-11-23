@@ -3759,7 +3759,8 @@ def main():
     # (上方旧引擎块保留: 仍供 _env_df/_env_trend_segs/env_min/max 等
     # 页面脚手架, 其单子不再进 Envelope 节。)
     _ENV_MODES = (("champion", "WER终栈⑪", "envelope-wer"),
-                  ("f1", "F1+WER+QQE转向", "envelope-f1"))
+                  ("f1", "F1+WER+QQE转向", "envelope-f1"),
+                  ("imb", "WER失衡版", "envelope-imb"))
     _env_sets = {}    # mode -> build_consts 常量 dict (该版计算成功时)
     _env_fail = {}    # mode -> 错误文本 (该版计算失败时)
     _env_int_ok = False
@@ -3840,6 +3841,9 @@ def main():
             try:
                 if _mode == "f1":
                     _payload, _perr = _qsf_payload()
+                elif _mode == "imb":
+                    _payload, _perr = _eqsf.day_payload_warm_imb(
+                        _idf[["t", "open", "high", "low", "close"]], day_str)
                 else:
                     _payload, _perr = _eqsf.day_payload_warm_champ(
                         _idf[["t", "open", "high", "low", "close"]], day_str)
@@ -3847,7 +3851,9 @@ def main():
                     raise RuntimeError(f"载荷失败: {_perr}")
                 _sday, _day = _payload["sday"], _payload["day"]
                 _runs = _ewp.norm_runs(_sday, _day)
-                _itrades = _ewp.build_trades(_sday, _runs, mode=_mode)
+                _itrades = _ewp.build_trades(
+                    _sday, _runs,
+                    mode="f1" if _mode in ("f1", "imb") else _mode)
                 _roi_sum = sum(t["roi"] for t in _itrades) * 100
                 _exp = _sday["total_slope"] + _sday["total_stack"]
                 assert abs(_roi_sum - _exp) < 0.15, "ROI 合计与管线对不上, 停"
@@ -3927,7 +3933,7 @@ def main():
         env_mid = _C["ENVELOPE_MID_1M"]
         wer_panel = _C["ENVELOPE_WER"]
         slpdev_panel = _C["ENVELOPE_SLPDEV"]
-        if len(_env_sets) == 2:
+        if "champion" in _env_sets and "f1" in _env_sets:
             _Co = _env_sets["f1" if _shared_mode == "champion" else "champion"]
             for _k in ("ENVELOPE_UPPER_1M", "ENVELOPE_LOWER_1M",
                        "ENVELOPE_CHANMID_1M", "ENVELOPE_MID_1M",
@@ -3956,7 +3962,9 @@ def main():
             "ENVELOPE_ACTS": {}, "ENVELOPE_TIP": {},
             "ENVELOPE_TITLE": f"{day_str} (Envelope版) | 计算失败（{_mname}）",
             "ENVELOPE_TITLEE": f"{day_str} ({{envelope|Envelope}}版) | 计算失败",
-            "ENVELOPE_SLOPE_DYE": [], "ENVELOPE_QF1M": []}
+            "ENVELOPE_SLOPE_DYE": [], "ENVELOPE_QF1M": [],
+            "ENVELOPE_WER": {"wer": [], "eff": [], "areas": [],
+                             "entries": [], "exits": []}}
 
     _env_set_consts = {}
     for _mode, _mname, _logtag in _ENV_MODES:
@@ -3990,7 +3998,11 @@ def main():
     # ENVELOPE_SETS, 工作变量默认取冠军版; 页内 switchEnvMode 整套
     # 换 (圈/单子表/acts/tip/标题/段染色)。共用常量 (轨道/TIMES1M/
     # TREND_SEGS) 仍只发一份。 ----
-    def _env_set_js(_C):
+    _WER_TITLES = {"champion": "WER · WER冠军/F1+WER 共用（引擎口径）",
+                   "f1": "WER · WER冠军/F1+WER 共用（引擎口径）",
+                   "imb": "WER · WER失衡版（窗口 8 · 引擎口径）"}
+
+    def _env_set_js(_C, _m):
         return ("{PINS: " + json.dumps(_C["ENVELOPE_PINS"], ensure_ascii=False)
                 + ", SPINS: " + json.dumps(_C["ENVELOPE_SPINS"], ensure_ascii=False)
                 + ", SCAT_1M: " + json.dumps(_C["ENVELOPE_SCAT_1M"], ensure_ascii=False)
@@ -4002,10 +4014,12 @@ def main():
                 + ", TITLEE: " + json.dumps(_C["ENVELOPE_TITLEE"], ensure_ascii=False)
                 + ", SLOPE_DYE: " + json.dumps(_C["ENVELOPE_SLOPE_DYE"], ensure_ascii=False)
                 + ", QF1M: " + json.dumps(_C.get("ENVELOPE_QF1M", []), ensure_ascii=False)
+                + ", WER: " + json.dumps(_C["ENVELOPE_WER"], ensure_ascii=False)
+                + ", WTITLE: " + json.dumps(_WER_TITLES[_m], ensure_ascii=False)
                 + "}")
-    _sw.append("const ENVELOPE_SETS = {champion: "
-               + _env_set_js(_env_set_consts["champion"])
-               + ", f1: " + _env_set_js(_env_set_consts["f1"]) + "};")
+    _sw.append("const ENVELOPE_SETS = {" + ", ".join(
+        f"{_m}: " + _env_set_js(_env_set_consts[_m], _m)
+        for _m, _mn, _lt in _ENV_MODES) + "};")
     _sw.append("var ENVELOPE_PINS = ENVELOPE_SETS.champion.PINS;")
     _sw.append("var ENVELOPE_SPINS = ENVELOPE_SETS.champion.SPINS;")
     _sw.append("var ENVELOPE_SCAT_1M = ENVELOPE_SETS.champion.SCAT_1M;")
@@ -4056,7 +4070,7 @@ def main():
     _sw.append("const STVX_MAINDN_F = " + json.dumps(stvx_main_dn_f) + ";")
     _sw.append("const STVX_MAINFILL = " + stvx_main_fill_js + ";")
     _sw.append("const STVX_MAINFLIPS = " + stvx_main_flips_js + ";")
-    _sw.append("const ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
+    _sw.append("var ENVELOPE_WER = " + json.dumps(wer_panel) + ";")
     _sw.append("const ENVELOPE_SLPDEV = " + json.dumps(slpdev_panel) + ";")
     _sw.append("const ENVELOPE_QQE1M = " + json.dumps(env_qqe1m) + ";")
     _sw.append("const ENVELOPE3M_TREND_SEGS = " + json.dumps(_env3_trend_segs) + ";")
@@ -4207,6 +4221,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  window._envMode = m;")
     _sw.append("  try { localStorage.setItem('waveEnvMode', m); } catch(e) {}")
     _sw.append("  ENVELOPE_PINS = S.PINS; ENVELOPE_SPINS = S.SPINS; ENVELOPE_SCAT_1M = S.SCAT_1M; ENVELOPE_MARKAREA_1M = S.MARKAREA_1M; ENVELOPE_INNER = S.INNER; ENVELOPE_ACTS = S.ACTS; ENVELOPE_TIP = S.TIP; ENVELOPE_SLOPE_DYE = S.SLOPE_DYE; ENVELOPE_QF1M = S.QF1M || [];")
+    _sw.append("  if (S.WER) { ENVELOPE_WER = S.WER; window._envWerTitle = S.WTITLE; if (window._werRefresh) window._werRefresh(); }")
     _sw.append("  TITLES3.envelope = S.TITLE; TITLES3E.envelope = S.TITLEE;")
     _sw.append("  if (window._qqeRefresh) window._qqeRefresh();")
     _sw.append("  if (window._envModeBtns) window._envModeBtns.forEach(function(b){ var on = (b.dataset.envmode === m); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; });")
@@ -4231,7 +4246,7 @@ return _origEnvTip(ps, barInfo);
     # _verBtns3 已先行快照, 不含这两个按钮, 免被版本按钮刷色覆盖)
     _sw.append("  var emw = document.createElement('span');")
     _sw.append("  emw.id = 'envModeWrap'; emw.style.display = 'none';")
-    _sw.append("  [['champion','WER冠军'],['f1','F1+WER+QQE转向']].forEach(function(it){")
+    _sw.append("  [['champion','WER冠军'],['f1','F1+WER+QQE转向'],['imb','WER失衡版']].forEach(function(it){")
     _sw.append("    var b = document.createElement('button');")
     _sw.append("    b.type = 'button'; b.textContent = it[1]; b.dataset.envmode = it[0];")
     _sw.append("    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';")
@@ -4260,7 +4275,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  wrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';")
     _wer_title = ("WER · WER冠军/F1+WER 共用（引擎口径）" if _env_int_ok
                   else "WER · WER冠军/F1+WER（计算失败）")
-    _sw.append("  wrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
+    _sw.append("  wrap.innerHTML = '<div id=\"werTitle\" style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">" + _wer_title + "</div><div id=\"werCh\" style=\"width:100%;height:150px\"></div>';")
     _sw.append("  host.parentNode.insertBefore(wrap, host.nextSibling);")
     _sw.append("  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;")
     # ---- 1m QQE 面板 (2026-11-19 user 令): 股票图与 WER 图之间,
@@ -4570,6 +4585,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("    if (slpCh) slpCh.on('mouseout', function(){ werHideTip(qqeCh); });")
     _sw.append("  }")
     _sw.append("  window._qqeRefresh = function(){ if (qqeCh) qqeCh.setOption(qqeOpt()); };")
+    _sw.append("  window._werRefresh = function(){ var _t = document.getElementById('werTitle'); if (_t && window._envWerTitle) _t.textContent = window._envWerTitle; evIn = {}; evOut = {}; ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; }); ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; }); if (werCh) werCh.setOption(werOpt()); };")
     _sw.append("  window._werSync = function(show){")
     _sw.append("    wrap.style.display = show ? 'block' : 'none';")
     _sw.append("    if (qwrap) qwrap.style.display = show ? 'block' : 'none';")
