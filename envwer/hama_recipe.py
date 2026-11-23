@@ -15,6 +15,13 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
 - 衰减反转进场 REV: 对方波衰减 trigger + QQE 确认 (过零/再衰减
   >=10%, 反长作废) + 背景确认双齐才进; 深度衰减 (<=50% 峰 + 三根
   递减) 免 QQE 确认 (REVF)。
+- 回补进场 HB (定版, user 2026-11-23 采纳): 任一方向波衰减登记
+  (峰>=12) 后, 同款 _hb_trigger 以进场门槛 (1.4, 1.0) 重涨触发 +
+  触发根 |hist|>=15 + 背景同向 + 空仓 -> 开仓 (src=HB, 身份按
+  顺势单不带 wave); 进场清 rev_pend/dec_pend; STD/REV 之后只补
+  空位, 持仓时不新增动作。门槛 (1.4, 1.0) = 原门槛 (2.0, 1.2)
+  x0.7 并钳下限 1.0 (剂量直接写进门槛数字, 不留 dose 参数);
+  衰减单 HB 出场门槛仍 (2.0, 1.2) 不变。
 - 出场: 自己波衰减 (次根确认 DECAY / 加速 DECAYF) / D4 连减 4 根
   且 |hist|<16 / 衰减单波浪管理 (回补门槛 HB + 新波反向 FLIP) /
   顺势单背景破 BG / 反色 FLIP / 日终 EOD; 转灰 exit 已删 (定版)。
@@ -52,6 +59,8 @@ OUT_FROM = "2024-01-02"
 # ---- 定版参数 (sim.py 默认 + REV_ON=1) ----
 STOP_K = 99.0
 FIRST_PR = 0.5
+HB_ENTRY_MULT = (1.4, 1.0)  # 回补进场门槛 (小档/大档), 定版常数
+HB_MIN = 15.0               # 回补进场触发根 |hist| 下限, 定版常数
 REV_FAST = True
 HY_W = 0
 HY_ALL = False
@@ -297,7 +306,9 @@ def _run(c):
             return True
         return _hb_gray(j) and hist[j] * sgn > 0 and abs(hist[j]) >= 10
 
-    def _hb_trigger(i, tdir, marker):
+    def _hb_trigger(i, tdir, marker, mult=(2.0, 1.2)):
+        # mult = "比前根"两档倍数 (小档 |前|<=5 / 大档): 衰减单出场
+        # 调用用默认 (2.0, 1.2); 回补进场路传 HB_ENTRY_MULT (1.4, 1.0)
         if not _hb_true_w(i, tdir):
             return False
         hc = abs(hist[i])
@@ -306,14 +317,14 @@ def _run(c):
         if i >= 1:
             hp = hist[i - 1]
             if hp * tdir > 0 and abs(hp) > 3:
-                nd = 2.0 if abs(hp) <= 5 else 1.2
+                nd = mult[0] if abs(hp) <= 5 else mult[1]
                 if hc > abs(hp) * nd:
                     return True
         if i >= 2:
             h1, h2 = hist[i - 2], hist[i - 1]
             if (h1 * tdir > 0 and h2 * tdir > 0 and abs(h1) > 3
                     and abs(h2) > 3 and abs(h2) > abs(h1) and hc > abs(h2)):
-                nd1 = 2.0 if abs(h1) <= 5 else 1.2
+                nd1 = mult[0] if abs(h1) <= 5 else mult[1]
                 if hc > abs(h1) * nd1:
                     return True
         if i >= 1:
@@ -372,6 +383,8 @@ def _run(c):
             prev_conj = False
             dec_pend = None
             rev_pend = None
+            hb_arm = {1: None, -1: None}   # 回补进场: 各方向已登记 marker
+            hb_next = {1: False, -1: False}  # 上一根有衰减登记 -> 本根落 marker
             for gi in range(i0, i1 + 1):
                 hm = HM[gi]
                 _bge = bg_e[gi] if BG3_SOFT else bg[gi]
@@ -379,6 +392,15 @@ def _run(c):
                 conj_s = bg[gi] != 0 and ecol[gi] == bg[gi]
                 edge = conj_s and not prev_conj
                 prev_conj = conj_s
+                # 回补全局登记 (与持仓无关的波状态, 同 sim): 方向波
+                # 衰减登记 (dec_up/dec_dn, 峰>=12) -> 次根落 marker =
+                # 次根 |hist|; 新登记覆盖旧登记; 登记按日重置。
+                for _s, _decd in ((1, dec_up), (-1, dec_dn)):
+                    if hb_next[_s]:
+                        hb_arm[_s] = abs(hist[gi])
+                        hb_next[_s] = False
+                    if _decd.get(gi) is not None and _decd[gi] >= 12:
+                        hb_next[_s] = True
                 # ---- 持仓管理 ----
                 if pos is not None:
                     dr = pos["dir"]
@@ -604,6 +626,38 @@ def _run(c):
                                     events.append(
                                         (gi, "衰减翻仓信号·待次根确认"))
                                 break
+                # ---- 回补进场路 (定版, 同 sim): 任一方向波衰减登记
+                # 后, 同款 _hb_trigger 以进场门槛 (1.4, 1.0) 触发 +
+                # 触发根 |hist|>=HB_MIN + 背景 bg 同向 + 空仓 -> 按该
+                # 方向开仓。身份按 STD 顺势单 (不带 wave): 吃
+                # DECAY/DECAYF/D4/BG/FLIP/EOD, 不吃波浪管理。
+                # STD/REV 定版通道在本路之前已处理, 本路只补空位;
+                # 持仓时不新增任何动作。
+                if pos is None:
+                    for _s in (1, -1):
+                        if (hb_arm[_s] is not None and bg[gi] == _s
+                                and abs(hist[gi]) >= HB_MIN
+                                and _hb_trigger(gi, _s, hb_arm[_s],
+                                                HB_ENTRY_MULT)
+                                and abs(hama1_shade[gi]) >= HS_MIN
+                                and "09:35" <= hm <= "15:30"
+                                and MID_ON[gi]):
+                            eb = gi + 1
+                            if eb <= i1:
+                                stop = float(O[eb] - STOP_K * atr1m[gi]) \
+                                    if _s == 1 else \
+                                    float(O[eb] + STOP_K * atr1m[gi])
+                                pos = {"dir": _s, "trig": gi, "eb": eb,
+                                       "ep": float(O[eb]), "stop": stop,
+                                       "grey": bool(qcol[gi] == 0),
+                                       "src": "HB"}
+                                hb_arm[_s] = None
+                                dec_pend = None
+                                if rev_pend is not None:
+                                    events.append(
+                                        (gi, "回补进场·翻仓等待取消"))
+                                rev_pend = None
+                            break
             if pos is not None:  # 日终兜底
                 gi = i1
                 trades.append({**pos, "xb": gi, "xp": float(C[gi]),
@@ -765,7 +819,7 @@ _RENDER_JS = """
   var RSN_CN = {DECAY: '衰减出场', DECAYF: '衰减加速出场', D4: '连减4根出场', GREY: 'QQE转灰', FLIP: '新波反向', HB: '回补门槛平仓', BG: '背景破', SL: '止损', EOD: '日终平仓'};
   var ev = {};
   dd.trades.forEach(function(t){
-    var srcTxt = t.src === 'REV' ? '衰减trigger·等确认' : (t.src === 'REVF' ? '衰减trigger·加速' : '顺势凑齐');
+    var srcTxt = t.src === 'REV' ? '衰减trigger·等确认' : (t.src === 'REVF' ? '衰减trigger·加速' : (t.src === 'HB' ? '回补进场' : '顺势凑齐'));
     (ev[t.trig] = ev[t.trig] || []).push('开' + (t.dir === 1 ? ' Call' : ' Put') + ' · ' + srcTxt);
     (ev[t.xs] = ev[t.xs] || []).push('平仓 · ' + (RSN_CN[t.rsn] || t.rsn) + ' · 本笔 ' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%' + (t.conv ? ' · 中途转顺势单' : ''));
   });
@@ -803,7 +857,7 @@ _RENDER_JS = """
     ' <span class="leg">| 底纹: 每笔单开仓→平仓段, 绿=赚 红=亏, 深浅随盈亏幅度 · SSL: SMA200通道, 两线同为状态色 (绿=多头/红=空头) + 中间淡填充 · 粗线=HAMA 1m均线, 细线=HAMA 3m均线 (均 WMA55(hl2), NSDT渐变染色: 翻转根黄, 之后由浅到深) · 圈: 绿C/红P=触发根, 灰平=出场根 (价格图与QQE图同步画) · 黑边圈=QQE衰减trigger反转进场 · 进场背景: SSL+HAMA1m同向且HAMA3m不反向 (HAMA3黄色不卡进场) · 结算: 30%杠杆真0DTE口径</span>';
   document.getElementById('hamaTrades').innerHTML = dd.trades.map(function(t){
     return xs[t.trig] + ' 触发 → ' + xs[t.eb] + ' 开' + (t.dir === 1 ? ' Call' : ' Put') + ' @' + t.ep.toFixed(2) +
-    ' → ' + xs[t.xb] + ' 平 @' + t.xp.toFixed(2) + ' <b>' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%</b> (' + t.rsn + (t.src && t.src !== 'STD' ? ', 衰减trigger' + (t.src === 'REVF' ? '·加速' : '') : '') + (t.conv ? ', 中途转顺势单' : '') + ', 止损位 ' + t.stop.toFixed(2) + ')';
+    ' → ' + xs[t.xb] + ' 平 @' + t.xp.toFixed(2) + ' <b>' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%</b> (' + t.rsn + (t.src === 'HB' ? ', 回补进场' : (t.src && t.src !== 'STD' ? ', 衰减trigger' + (t.src === 'REVF' ? '·加速' : '') : '')) + (t.conv ? ', 中途转顺势单' : '') + ', 止损位 ' + t.stop.toFixed(2) + ')';
   }).join('<br>');
 })();
 """
