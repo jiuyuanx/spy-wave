@@ -353,6 +353,7 @@ window.addEventListener('resize', function(){ if (curVer !== 'ENVELOPE' && curVe
   cs.style.fontWeight = 'bold';
   sel.parentNode.insertBefore(cs, wrap.nextSibling);
   if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
+  if (!sel.querySelector('option[value="compound.html"]')) { var co = document.createElement('option'); co.value = 'compound.html'; co.textContent = '🧮 复利模拟'; sel.insertBefore(co, sel.options[0]); }
 })();
 document.addEventListener('DOMContentLoaded', function(){ switchVersion((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['ST','QQE','CE','ENVELOPE','ENVELOPE3M','ENVELOPE2M','STVX','hama'].indexOf(_v) >= 0 ? _v : 'ST'; })()); });
 // 去ST上涨下跌legend (用户不想关ST, 故直接去掉开关, 线常显)

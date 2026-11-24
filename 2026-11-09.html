@@ -325,6 +325,7 @@ window.switchEnvMode = function(m){
   var _savedEnvMode = null; try { _savedEnvMode = localStorage.getItem('waveEnvMode'); } catch(e) {}
   if (_savedEnvMode && _savedEnvMode !== 'champion' && typeof ENVELOPE_SETS !== 'undefined' && ENVELOPE_SETS[_savedEnvMode]) 
   if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
+  if (!sel.querySelector('option[value="compound.html"]')) { var co = document.createElement('option'); co.value = 'compound.html'; co.textContent = '🧮 复利模拟'; sel.insertBefore(co, sel.options[0]); }
 })();
 (function(){
   var host = document.getElementById('c');
