@@ -67,7 +67,7 @@ document.getElementById('dayhint').textContent='共'+days.length+'天';
 <div id="ch4" class="chart"></div>
 
 <hr>
-<p class="small">逐笔数据口径（v2）：每条策略存的是定版源交易逐笔的 Δ = 方向×(出场价−进场价)（SPY 点）与日期，页面用统一公式对所有策略现场定价：r = c·Δ + g·Δ²，c = 9.88×(L/10)，g = 0.311×(L/10)²；Δ&lt;0 时逆向钳制 r≤0，下限 −100%，不另加 −20 钳（止损口径已含在各链出场点里）。因此各链原生口径里烘焙进 ROI 的附加项（v2 罚、价差、刷单腿复利、合并接点免扣等）不再叠加，进出场点本身不变——与回测版本总览页各行的原生口径总额会有差异，以本页公式为准。Δ 来源：统一口径四链（QQE基线 / 做T版 / ST版 V_H / ST VX · 极简栈）为统计单口径（方向×(末段平仓价−首段开仓价)，止损+同向重开合并单按首开末平）；CE、1mEnvelope 三兄弟、2mEnvelope、Hama 取各自定版源交易的进出场价；3mEnvelope 定版源无价（且定版模拟以现行缓存不可复现），其 Δ 由定版逐笔 ROI 按同一公式反解（含 ≤0.1pp 接点价差噪声，折合约 0.01 点）。两处例外：① ST版 V_H 在总览页图中的曲线是含组合桶与 QQE 50% 混合的展示口径（总额 $31,664,545），没有单一逐笔链，本页 V_H 用的是混合引擎本身的逐笔链；② 实盘3 没有自有逐笔链，本页按 ST VX、QQE基线、1mEnvelope · WER冠军版三条链在同一 (p, f, L) 下各自跑链后的日权益均值画（等权三分，与总览页按周均分的语义一致）。总览页里的 ST版 V_G / V_C / V_F、ST-only 是纯文字历史对照节，没有曲线与逐笔链，不在本页。本页不含 2021–2023 段（各策略链自 2024-01-02 起）。模拟不计容量约束：任意金额按同一价格成交，资金量大到 0DTE 盘口吃不下时实际曲线会低于模拟。数据由 build_compound_data.py 在本机从各定版源重建 compound_chains.json 后随站点刷新；本页为静态数据快照，更新时间见数据文件提交。</p>
+<p class="small">逐笔数据口径（v2）：每条策略存的是定版源交易逐笔的 Δ = 方向×(出场价−进场价)（SPY 点）与日期，页面用统一公式对所有策略现场定价：r = c·Δ + g·Δ²，c = 9.88×(L/10)，g = 0.311×(L/10)²；Δ&lt;0 时逆向钳制 r≤0，下限 −100%，不另加 −20 钳（止损口径已含在各链出场点里）。因此各链原生口径里烘焙进 ROI 的附加项（v2 罚、刷单腿复利、合并接点免扣等）不再叠加，进出场点本身不变——与回测版本总览页各行的原生口径总额会有差异，以本页公式为准。价差只对 1mEnvelope 三兄弟（WER冠军版 / 反手版（反手QQE） / WER失衡版）扣：重定价后每笔固定扣 0.2pp（标准价差，与杠杆 L 无关），其余策略不扣价差；v2 罚不加回。Δ 来源：统一口径四链（QQE基线 / 做T版 / ST版 V_H / ST VX · 极简栈）为统计单口径（方向×(末段平仓价−首段开仓价)，止损+同向重开合并单按首开末平）；CE、1mEnvelope 三兄弟、2mEnvelope、Hama 取各自定版源交易的进出场价；3mEnvelope 定版源无价（且定版模拟以现行缓存不可复现），其 Δ 由定版逐笔 ROI 按同一公式反解（含 ≤0.1pp 接点价差噪声，折合约 0.01 点）。两处例外：① ST版 V_H 在总览页图中的曲线是含组合桶与 QQE 50% 混合的展示口径（总额 $31,664,545），没有单一逐笔链，本页 V_H 用的是混合引擎本身的逐笔链；② 实盘3 没有自有逐笔链，本页按 ST VX、QQE基线、1mEnvelope · WER冠军版三条链在同一 (p, f, L) 下各自跑链后的日权益均值画（等权三分，与总览页按周均分的语义一致）。总览页里的 ST版 V_G / V_C / V_F、ST-only 是纯文字历史对照节，没有曲线与逐笔链，不在本页。本页不含 2021–2023 段（各策略链自 2024-01-02 起）。模拟不计容量约束：任意金额按同一价格成交，资金量大到 0DTE 盘口吃不下时实际曲线会低于模拟。数据由 build_compound_data.py 在本机从各定版源重建 compound_chains.json 后随站点刷新；本页为静态数据快照，更新时间见数据文件提交。</p>
 </div>
 <script>
 var DATA = /*__CHAINS__*/;
@@ -83,14 +83,18 @@ function viewDates(){
   return DATES.filter(function(d){ var m = d.slice(0, 7); return m >= a && m <= b; });
 }
 // 解析: 每策略 Map(日期 -> [Δ,...]) (Δ = 方向 x (出场价-进场价), SPY 点)
+// 价差 (user 2026-11-24 定): 只 1mEnvelope 三兄弟重定价后每笔固定扣 0.2pp (标准价差,
+// 与杠杆 L 无关), 其余策略不扣; v2 罚不加回。
+var SPREAD = {'1mEnvelope · WER冠军版': 0.2, '1mEnvelope · 反手版（反手QQE）': 0.2, '1mEnvelope · WER失衡版': 0.2};
 var STRATS = DATA.strategies.map(function(s){
   var m = {};
   Object.keys(s.days).forEach(function(d){ m[d] = s.days[d].split(',').map(Number); });
-  return {name: s.name, color: s.color, days: m, rdays: {}};
+  return {name: s.name, color: s.color, days: m, rdays: {}, spread: SPREAD[s.name] || 0};
 });
 // 统一公式重定价 (所有策略同一公式、无特殊): r = c*Δ + g*Δ^2,
 // c = 9.88*(L/10), g = 0.311*(L/10)^2; Δ<0 时逆向钳制 r<=0 (官方公式口径), 下限 -100%。
 // 不另加 -20 钳 (止损口径已含在各链出场点里)。杠杆变化时才重算。
+// 唯一附加项: st.spread 的策略 (1mEnvelope 三兄弟) 在重定价后每笔扣固定价差, 与 L 无关。
 function repriceAll(){
   var k = curLev / 10, c = 9.88 * k, g = 0.311 * k * k;
   STRATS.forEach(function(st){
@@ -99,7 +103,9 @@ function repriceAll(){
       rm[d] = st.days[d].map(function(x){
         var r = c * x + g * x * x;
         if (x < 0) r = Math.min(r, 0);
-        return Math.max(r, -100);
+        r = Math.max(r, -100);
+        if (st.spread) r = Math.max(r - st.spread, -100);
+        return r;
       });
     });
     st.rdays = rm;
