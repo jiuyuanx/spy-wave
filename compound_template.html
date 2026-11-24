@@ -44,7 +44,7 @@ document.getElementById('dayhint').textContent='共'+days.length+'天';
 <div class="ctl"><span class="lab">颗粒：</span><button id="btnGDay" class="grp-l on">按日</button><button id="btnGWeek" class="grp-m">按周</button><button id="btnGMonth" class="grp-r">按月</button>
 <span class="lab" style="margin-left:18px">纵轴：</span><button id="btnLin" class="grp-l on">线性</button><button id="btnLog" class="grp-r">对数</button></div>
 <div class="ctl"><span class="lab">f（每笔下注占当前池比例）：</span><input type="range" id="fSlider" min="0.10" max="1.00" step="0.05" value="0.50"> <b id="fVal">f = 0.50</b></div>
-<div class="ctl"><span class="lab">杠杆：</span><span id="levBtns"></span> <span class="small">选了杠杆 L 后，每笔收益按 r × (L ÷ 原生杠杆) 缩放后再跑链；原生杠杆：普通公式策略 = 10（9.88 口径）、Hama = 30。「原口径」= 各策略用自己的定版杠杆、不缩放。</span></div>
+<div class="ctl"><span class="lab">杠杆：</span><span id="levBtns"></span> <span class="small">杠杆 = 全部策略每笔收益统一 × (L/10) 后再跑链，对所有策略同一算法、无策略特殊；默认 L=10（倍率 1，即各策略定版口径本身）。</span></div>
 
 <h2>p = 0.10（每日预算 = 当日权益 × 10%）</h2>
 <div id="ch0" class="chart"></div>
@@ -69,7 +69,7 @@ var N = DATES.length;
 var STRATS = DATA.strategies.map(function(s){
   var m = {};
   Object.keys(s.days).forEach(function(d){ m[d] = s.days[d].split(',').map(Number); });
-  return {name: s.name, color: s.color, lev: s.lev || 10, days: m};
+  return {name: s.name, color: s.color, days: m};
 });
 var SP3_SRC = ['ST VX · 极简栈', 'QQE基线', '1mEnvelope · WER冠军版'];
 function simDay(rs, pool, f, k){
@@ -82,7 +82,7 @@ function simDay(rs, pool, f, k){
   return pool;
 }
 function simChain(st, p, f){
-  var k = curLev ? curLev / st.lev : 1;
+  var k = curLev / 10;
   var E = 100000, out = new Array(N);
   for (var i = 0; i < N; i++){
     var rs = st.days[DATES[i]];
@@ -111,7 +111,7 @@ function sampleIdx(gran){
   idx.push(N - 1);
   return idx;
 }
-var gran = 'day', logAxis = false, curF = 0.50, curLev = null;
+var gran = 'day', logAxis = false, curF = 0.50, curLev = 10;
 var charts = [];
 for (var c = 0; c < 5; c++) charts.push(echarts.init(document.getElementById('ch' + c)));
 function fmtM(v){
@@ -148,7 +148,7 @@ function render(){
     var pos = series.findIndex(function(x){ return x.name.indexOf('CE') === 0; });
     series.splice(pos, 0, sp3series);
     charts[pi].setOption({
-      title: {text: 'p = ' + p.toFixed(2) + ' · f = ' + curF.toFixed(2) + ' · 杠杆 ' + (curLev ? curLev : '原口径'), right: 12, top: 2, textStyle: {fontSize: 12, color: '#999', fontWeight: 'normal'}},
+      title: {text: 'p = ' + p.toFixed(2) + ' · f = ' + curF.toFixed(2) + ' · 杠杆 ' + curLev, right: 12, top: 2, textStyle: {fontSize: 12, color: '#999', fontWeight: 'normal'}},
       tooltip: {trigger: 'axis', formatter: function(ps){
         var t = ps[0].axisValue + '<br/>';
         ps.slice().sort(function(a, b){ return b.data - a.data; }).forEach(function(pp){
@@ -163,11 +163,11 @@ function render(){
     }, true);
   });
 }
-var LEVS = [null, 5, 10, 15, 20, 25, 30, 35, 40];
+var LEVS = [5, 10, 15, 20, 25, 30, 35, 40];
 var levBtnsEl = document.getElementById('levBtns');
 LEVS.forEach(function(L, i){
   var b = document.createElement('button');
-  b.textContent = L ? String(L) : '原口径';
+  b.textContent = String(L);
   b.className = (i === 0 ? 'grp-l' : i === LEVS.length - 1 ? 'grp-r' : 'grp-m') + (L === curLev ? ' on' : '');
   b.onclick = function(){
     curLev = L;
