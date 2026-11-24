@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>复利模拟</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+body{margin:0;background:#fff;color:#222;font-family:sans-serif;}
+.wrap{max-width:1150px;margin:0 auto;padding:12px 12px 32px;}
+h1{font-size:20px;margin:14px 0 6px;}
+h2{font-size:17px;margin:22px 0 6px;}
+p{font-size:14px;line-height:1.7;margin:6px 0;}
+.small{font-size:12px;color:#666;line-height:1.6;}
+.chart{width:100%;height:430px;margin:8px 0;}
+button{font-size:14px;font-weight:bold;cursor:pointer;padding:6px 16px;border:1px solid #00a0a0;background:#fff;color:#333;}
+button.on{background:#00a0a0;color:#fff;}
+button.grp-l{border-radius:16px 0 0 16px;}
+button.grp-r{border-radius:0 16px 16px 0;margin-left:-1px;}
+button.grp-m{margin-left:-1px;}
+input[type=range]{width:300px;vertical-align:middle;}
+.ctl{margin:10px 0;font-size:14px;}
+.ctl .lab{color:#555;margin-right:8px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div style="text-align:center;padding:6px 0 0;font-size:13px">
+<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
+<option value="compound.html" selected>🧮 复利模拟</option>
+<option value="summary.html">📊 回测版本总览</option>
+</select> <span id="dayhint" style="color:#888"></span>
+</div>
+<script>
+fetch('archive.json').then(function(r){return r.json();}).then(function(d){
+var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
+days.forEach(function(x){var o=document.createElement('option');o.value=x+'.html';o.textContent=x;s.appendChild(o);});
+document.getElementById('dayhint').textContent='共'+days.length+'天';
+}).catch(function(){});
+</script>
+
+<h1>复利模拟（日预算制）</h1>
+<p>把每个策略的定版逐笔链拿来按「日预算制」跑资金曲线：每天早上拿出当日权益的 p 作为当天预算（其余 (1−p) 当天不动），每笔下注 = 当前池子的 f 倍，池内盈亏逐笔滚动，日终把池子并回权益。每条策略从 $100,000 起链、全史（2024-01-02 起，各策略覆盖到 2026-11-13 ~ 2026-11-20 不等）。下面 5 张图一张对应一个 p，每张图里是全部策略的资金曲线（颜色与回测版本总览页一致）；f 全图共用一个滑杆，拖动即时重算。颗粒可切按日/按周/按月（周期末取值）。纵轴可切对数——各策略终值差出几个数量级时，对数轴更看得清形状。</p>
+<div class="ctl"><span class="lab">颗粒：</span><button id="btnGDay" class="grp-l on">按日</button><button id="btnGWeek" class="grp-m">按周</button><button id="btnGMonth" class="grp-r">按月</button>
+<span class="lab" style="margin-left:18px">纵轴：</span><button id="btnLin" class="grp-l on">线性</button><button id="btnLog" class="grp-r">对数</button></div>
+<div class="ctl"><span class="lab">f（每笔下注占当前池比例）：</span><input type="range" id="fSlider" min="0.10" max="1.00" step="0.05" value="0.50"> <b id="fVal">f = 0.50</b></div>
+
+<h2>p = 0.10（每日预算 = 当日权益 × 10%）</h2>
+<div id="ch0" class="chart"></div>
+<h2>p = 0.15（每日预算 = 当日权益 × 15%）</h2>
+<div id="ch1" class="chart"></div>
+<h2>p = 0.20（每日预算 = 当日权益 × 20%）</h2>
+<div id="ch2" class="chart"></div>
+<h2>p = 0.25（每日预算 = 当日权益 × 25%）</h2>
+<div id="ch3" class="chart"></div>
+<h2>p = 0.30（每日预算 = 当日权益 × 30%）</h2>
+<div id="ch4" class="chart"></div>
+
+<hr>
+<p class="small">逐笔链口径（与回测版本总览页各行同源）：QQE基线 / 做T版 / ST版 V_H / ST VX · 极简栈 / CE 为统一口径逐单链（整单含刷单腿与止损接点合并、v2 罚、无价差、地板 −100）；1mEnvelope 三兄弟为 summary 口径逐单链（逐笔 Gamma + v2 罚 + 0.1pp 价差、止损接点合并）；3mEnvelope / 2mEnvelope 为各自定版逐笔链（已扣 0.1pp 价差、接点合并）；Hama 为定版逐笔链（30% 杠杆真 0DTE gamma 口径）。两处例外：① ST版 V_H 在总览页图中的曲线是含组合桶与 QQE 50% 混合的展示口径（总额 $31,664,545），没有单一逐笔链，本页 V_H 用的是混合引擎本身的逐笔链（统一口径总额 $22,030,471）；② 实盘3 没有自有逐笔链，本页按 ST VX、QQE基线、1mEnvelope · WER冠军版三条链在同一 (p, f) 下各自跑链后的日权益均值画（等权三分，与总览页按周均分的语义一致）。总览页里的 ST版 V_G / V_C / V_F、ST-only 是纯文字历史对照节，没有曲线与逐笔链，不在本页。本页不含 2021–2023 段（各策略链自 2024-01-02 起）。模拟不计容量约束：任意金额按同一价格成交，资金量大到 0DTE 盘口吃不下时实际曲线会低于模拟。数据由 build_compound_data.py 在本机从各定版链重建 compound_chains.json 后随站点刷新；本页为静态数据快照，更新时间见数据文件提交。</p>
+</div>
+<script>
+var DATA = /*__CHAINS__*/;
+var PS = [0.10, 0.15, 0.20, 0.25, 0.30];
+var DATES = DATA.dates;
+var N = DATES.length;
+// 解析: 每策略 Map(日期 -> [r,...])
+var STRATS = DATA.strategies.map(function(s){
+  var m = {};
+  Object.keys(s.days).forEach(function(d){ m[d] = s.days[d].split(',').map(Number); });
+  return {name: s.name, color: s.color, days: m};
+});
+var SP3_SRC = ['ST VX · 极简栈', 'QQE基线', '1mEnvelope · WER冠军版'];
+function simDay(rs, pool, f){
+  for (var i = 0; i < rs.length; i++){
+    var S = f * pool;
+    var pnl = S * rs[i] / 100;
+    pool += pnl;
+    if (pool <= 0){ pool = 0; break; }
+  }
+  return pool;
+}
+function simChain(st, p, f){
+  var E = 100000, out = new Array(N);
+  for (var i = 0; i < N; i++){
+    var rs = st.days[DATES[i]];
+    if (rs){
+      var D = p * E, pool = D, reserve = E - D;
+      pool = simDay(rs, pool, f);
+      E = reserve + pool;
+    }
+    out[i] = E;
+  }
+  return out;
+}
+// 颗粒采样索引
+function sampleIdx(gran){
+  if (gran === 'day') return DATES.map(function(d, i){ return i; });
+  var idx = [], lastKey = null;
+  for (var i = 0; i < N; i++){
+    var d = DATES[i], key;
+    if (gran === 'week'){
+      var dt = new Date(d + 'T00:00:00Z');
+      dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
+      key = dt.toISOString().slice(0, 10);
+    } else { key = d.slice(0, 7); }
+    if (key !== lastKey){ if (lastKey !== null) idx.push(i - 1); lastKey = key; }
+  }
+  idx.push(N - 1);
+  return idx;
+}
+var gran = 'day', logAxis = false, curF = 0.50;
+var charts = [];
+for (var c = 0; c < 5; c++) charts.push(echarts.init(document.getElementById('ch' + c)));
+function fmtM(v){
+  if (v >= 1e12) return '$' + (v / 1e12).toFixed(2) + '万亿';
+  if (v >= 1e8) return '$' + (v / 1e8).toFixed(2) + '亿';
+  if (v >= 1e4) return '$' + (v / 1e4).toFixed(1) + '万';
+  return '$' + Math.round(v).toLocaleString('en-US');
+}
+function fmtFull(v){ return '$' + Math.round(v).toLocaleString('en-US'); }
+function render(){
+  var idx = sampleIdx(gran);
+  var labels = idx.map(function(i){ return gran === 'month' ? DATES[i].slice(0, 7) : DATES[i]; });
+  // 先算全部策略在每个 p 下的曲线 (实盘3 需要三条源链)
+  PS.forEach(function(p, pi){
+    var eqs = {};
+    STRATS.forEach(function(st){ eqs[st.name] = simChain(st, p, curF); });
+    var sp3 = new Array(N);
+    for (var i = 0; i < N; i++){
+      sp3[i] = (eqs[SP3_SRC[0]][i] + eqs[SP3_SRC[1]][i] + eqs[SP3_SRC[2]][i]) / 3;
+    }
+    eqs['实盘3（VX+QQE+1mEnv 均分）'] = sp3;
+    var series = STRATS.map(function(st){
+      var eq = eqs[st.name];
+      var fin = eq[N - 1];
+      return {name: st.name + ' [' + fmtM(fin) + ']', type: 'line', showSymbol: false,
+              lineStyle: {width: 1.6, color: st.color}, itemStyle: {color: st.color},
+              data: idx.map(function(i){ return eq[i]; })};
+    });
+    // 实盘3 插入到与总览页一致的位置 (做T版之后、CE 之前)
+    var sp3eq = eqs['实盘3（VX+QQE+1mEnv 均分）'];
+    var sp3series = {name: '实盘3（VX+QQE+1mEnv 均分） [' + fmtM(sp3eq[N - 1]) + ']', type: 'line', showSymbol: false,
+                     lineStyle: {width: 1.6, color: '#9333ea'}, itemStyle: {color: '#9333ea'},
+                     data: idx.map(function(i){ return sp3eq[i]; })};
+    var pos = series.findIndex(function(x){ return x.name.indexOf('CE') === 0; });
+    series.splice(pos, 0, sp3series);
+    charts[pi].setOption({
+      title: {text: 'p = ' + p.toFixed(2) + ' · f = ' + curF.toFixed(2), right: 12, top: 2, textStyle: {fontSize: 12, color: '#999', fontWeight: 'normal'}},
+      tooltip: {trigger: 'axis', formatter: function(ps){
+        var t = ps[0].axisValue + '<br/>';
+        ps.slice().sort(function(a, b){ return b.data - a.data; }).forEach(function(pp){
+          t += pp.marker + ' ' + pp.seriesName.replace(/ \[[^\]]*\]$/, '') + ': ' + fmtFull(pp.data) + '<br/>'; });
+        return t; }},
+      legend: {type: 'scroll', top: 0, left: 0, right: 150, textStyle: {fontSize: 11}},
+      grid: {left: 70, right: 16, top: 56, bottom: 60},
+      xAxis: {type: 'category', data: labels, axisLabel: {fontSize: 10}},
+      yAxis: {type: logAxis ? 'log' : 'value', axisLabel: {fontSize: 10, formatter: function(v){ return fmtM(v); }}},
+      dataZoom: [{type: 'inside'}, {type: 'slider', height: 18, bottom: 8}],
+      series: series
+    }, true);
+  });
+}
+document.getElementById('fSlider').addEventListener('input', function(){
+  curF = parseFloat(this.value);
+  document.getElementById('fVal').textContent = 'f = ' + curF.toFixed(2);
+  render();
+});
+function setGran(g){
+  gran = g;
+  ['Day', 'Week', 'Month'].forEach(function(k){
+    document.getElementById('btnG' + k).className = 'grp-' + (k === 'Day' ? 'l' : k === 'Month' ? 'r' : 'm') + ((('day' === g && k === 'Day') || ('week' === g && k === 'Week') || ('month' === g && k === 'Month')) ? ' on' : '');
+  });
+  render();
+}
+document.getElementById('btnGDay').onclick = function(){ setGran('day'); };
+document.getElementById('btnGWeek').onclick = function(){ setGran('week'); };
+document.getElementById('btnGMonth').onclick = function(){ setGran('month'); };
+document.getElementById('btnLin').onclick = function(){ logAxis = false; this.className = 'grp-l on'; document.getElementById('btnLog').className = 'grp-r'; render(); };
+document.getElementById('btnLog').onclick = function(){ logAxis = true; this.className = 'grp-r on'; document.getElementById('btnLin').className = 'grp-l'; render(); };
+render();
+</script>
+</body>
+</html>

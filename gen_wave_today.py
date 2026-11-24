@@ -3978,6 +3978,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("  var _savedEnvMode = null; try { _savedEnvMode = localStorage.getItem('waveEnvMode'); } catch(e) {}")
     _sw.append("  if (_savedEnvMode && _savedEnvMode !== 'champion' && typeof ENVELOPE_SETS !== 'undefined' && ENVELOPE_SETS[_savedEnvMode]) switchEnvMode(_savedEnvMode);")
     _sw.append("  if (!sel.querySelector('option[value=\"summary.html\"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }")
+    _sw.append("  if (!sel.querySelector('option[value=\"compound.html\"]')) { var co = document.createElement('option'); co.value = 'compound.html'; co.textContent = '🧮 复利模拟'; sel.insertBefore(co, sel.options[0]); }")
     _sw.append("})();")
     # ---- WER 面板 (Envelope 版股票图下方; 仅 envelope 时显示) ----
     _sw.append("(function(){")
@@ -4312,6 +4313,23 @@ return _origEnvTip(ps, barInfo);
 
     open(out, "w").write(html)
     print(f"wrote {out} ({len(times)} bars, {len(qpins)+len(spins)} pins, pos={pos_txt})")
+    # ---- 复利模拟页 (user 2026-11-23 令): compound_chains.json 与
+    # compound_template.html 在仓内时, 随本轮把 compound.html 一并渲染到
+    # 同一输出目录 (数据由 build_compound_data.py 在本机从各策略定版逐笔链
+    # 构建后提交; 仓内缺文件时跳过, 不影响日页) ----
+    try:
+        _cdir = os.path.dirname(os.path.abspath(__file__))
+        _cj = os.path.join(_cdir, "compound_chains.json")
+        _ct = os.path.join(_cdir, "compound_template.html")
+        if os.path.exists(_cj) and os.path.exists(_ct):
+            _tpl = open(_ct, encoding="utf-8").read()
+            _data = open(_cj, encoding="utf-8").read()
+            _cout = os.path.join(WDIR, "compound.html")
+            open(_cout, "w", encoding="utf-8").write(
+                _tpl.replace("/*__CHAINS__*/", _data))
+            print(f"wrote {_cout} (compound)")
+    except Exception as _ce:
+        print(f"  compound render skipped: {_ce}")
     # 今日动作摘要
     for (bi, ts, act, dr, px, rs) in acts_sorted:
         if bi in today_idx and act in ("开", "平"):
