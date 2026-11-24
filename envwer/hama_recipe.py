@@ -26,6 +26,14 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
   且 |hist|<16 / 衰减单波浪管理 (回补门槛 HB + 新波反向 FLIP) /
   顺势单背景破 BG / 反色 FLIP / 日终 EOD; 转灰 exit 已删 (定版)。
   价格止损 99xATR 占位 (STOP_K=99)。
+- 波浪管理 WM-FLIP (定版, user 2026-11-24 落地): fav 口径 WAVE_ID
+  波账, 衰减单开仓记来源波 (REV=登记根/REVF=信号根所属波), FLIP
+  须当前根波 id != 来源波才平; 同波反号根不触发 (原波反长由 HB
+  门槛管); 身份转换后 ecol 支 FLIP 不查波账。
+- 确认根新波已蔫门 WILT (定版 R=0.7 写死, user 2026-11-24 落地):
+  REV/REVF 背景凑齐、执行开仓那根, 确认根 hist 已过零到新波侧时,
+  |hist| <= 同侧连续段紧邻前 2 根同侧柱较大者 x0.7 -> 不开、
+  pending 作废; 不足 2 根不查、未过零不查; 双侧对称。
 - 午间斜率门: 12:00 起每半小时检查点, |近30根位移| >= 0.75xATR
   才开下半小时, 14:30 解除 (MID_ON, 全因果)。
 - 开仓窗口: 09:35–15:54 (定版去除尾限, user 2026-11-23 采纳):
@@ -65,6 +73,7 @@ STOP_K = 99.0
 FIRST_PR = 0.5
 HB_ENTRY_MULT = (1.4, 1.0)  # 回补进场门槛 (小档/大档), 定版常数
 HB_MIN = 15.0               # 回补进场触发根 |hist| 下限, 定版常数
+WILT_R = 0.7                # 确认根「新波已蔫」门定版常数 (user 2026-11-24 落地)
 REV_FAST = True
 HY_W = 0
 HY_ALL = False
@@ -296,6 +305,44 @@ def _run(c):
     dec_up = _decay_signals(ecol == 1, ecol == -1)
     dec_dn = _decay_signals(ecol == -1, ecol == 1)
 
+    # ---- 波账 WAVE_ID (WM-FLIP 定版, user 2026-11-24 落地; 与 sim.py
+    # 同文): fav 口径波段划分: |hist|<3 忽略 (归属当前波), 反向 >=3
+    # 断波开新波, 跨日重置。衰减单开仓记来源波 id (pos["src_wave"],
+    # 仅内部字段, 输出时剥离), FLIP 支须当前根波 id != 来源波才平。
+    WAVE_ID = np.full(N, -1, dtype=int)
+    _wid = 0
+    _wsgn = 0
+    _wcur = -1
+    for _i in range(N):
+        if _i > 0 and DSTR[_i] != DSTR[_i - 1]:
+            _wsgn = 0
+            _wcur = -1
+        _h = hist[_i]
+        if abs(_h) >= 3:
+            _s = 1 if _h > 0 else -1
+            if _s != _wsgn:
+                _wid += 1
+                _wsgn = _s
+                _wcur = _wid
+        WAVE_ID[_i] = _wcur
+
+    def _wilt_check(gi, ed, i0):
+        """确认根「新波已蔫」门 (定版 R=0.7, 与 sim.py 同文): hist[gi]
+        未过零到新波一侧 -> 不查; gi 前同侧连续段 (当日内) 紧邻不足
+        2 根 -> 不查; 否则 |hist[gi]| <= max(前两根) x WILT_R -> 挡。"""
+        hv = hist[gi]
+        if hv * ed <= 0:
+            return False, 0.0, []
+        prev = []
+        j = gi - 1
+        while j >= i0 and hist[j] * ed > 0 and len(prev) < 2:
+            prev.append(abs(float(hist[j])))
+            j -= 1
+        if len(prev) < 2:
+            return False, 0.0, prev
+        base = max(prev)
+        return abs(float(hv)) <= base * WILT_R, base, prev
+
     def _hb_true(j, sgn):
         return bool(qup[j]) and abs(hist[j]) >= 4 if sgn > 0 else \
             bool(qdn[j]) and abs(hist[j]) >= 4
@@ -446,7 +493,10 @@ def _run(c):
                             if _hb_trigger(gi, -dr, pos.get("marker", 0.0)):
                                 rsn = "HB"
                             elif hist[gi] * dr < 0 and abs(hist[gi]) > 3:
-                                rsn = "FLIP"
+                                # WM-FLIP 定版: 与开仓来源同一根波不认
+                                # 「新波反向」 (原波反长由 HB 门槛管)
+                                if WAVE_ID[gi] != pos.get("src_wave", -1):
+                                    rsn = "FLIP"
                         elif rsn is None and ecol[gi] == -dr \
                                 and ecol[gi] != 0:
                             rsn = "FLIP"
@@ -563,18 +613,27 @@ def _run(c):
                                     and "09:35" <= hm <= "15:54" \
                                     and MID_ON[gi]:
                                 _ed = -_wv
-                                eb = gi + 1
-                                if eb <= i1:
-                                    stop = float(O[eb] - STOP_K * atr1m[gi]) \
-                                        if _ed == 1 else \
-                                        float(O[eb] + STOP_K * atr1m[gi])
-                                    pos = {"dir": _ed, "trig": _t0, "eb": eb,
-                                           "trig0": _hd,
-                                           "ep": float(O[eb]), "stop": stop,
-                                           "grey": bool(qcol[_t0] == 0),
-                                           "src": "REV", "wave": True,
-                                           "marker": float(abs(hist[eb]))}
-                                    dec_pend = None
+                                if _wilt_check(gi, _ed, i0)[0]:
+                                    # 新波已蔫门挡下: 不开, pending 作废
+                                    events.append((gi, "新波已蔫·不开"))
+                                else:
+                                    eb = gi + 1
+                                    if eb <= i1:
+                                        stop = float(
+                                            O[eb] - STOP_K * atr1m[gi]) \
+                                            if _ed == 1 else \
+                                            float(O[eb] + STOP_K * atr1m[gi])
+                                        pos = {"dir": _ed, "trig": _t0,
+                                               "eb": eb, "trig0": _hd,
+                                               "ep": float(O[eb]),
+                                               "stop": stop,
+                                               "grey": bool(qcol[_t0] == 0),
+                                               "src": "REV", "wave": True,
+                                               "marker": float(
+                                                   abs(hist[eb])),
+                                               "src_wave": int(
+                                                   WAVE_ID[_t0])}
+                                        dec_pend = None
                                 rev_pend = None
                             else:
                                 if _qc and bg_r[gi] == -_wv \
@@ -594,20 +653,30 @@ def _run(c):
                                         and bg_r[gi] == _ed
                                         and "09:35" <= hm <= "15:54"
                                         and MID_ON[gi]):
-                                    eb = gi + 1
-                                    if eb <= i1:
-                                        stop = float(
-                                            O[eb] - STOP_K * atr1m[gi]) \
-                                            if _ed == 1 else float(
-                                                O[eb] + STOP_K * atr1m[gi])
-                                        pos = {"dir": _ed, "trig": gi,
-                                               "eb": eb,
-                                               "ep": float(O[eb]),
-                                               "stop": stop,
-                                               "grey": bool(qcol[gi] == 0),
-                                               "src": "REVF", "wave": True,
-                                               "marker": float(abs(hist[eb]))}
-                                        dec_pend = None
+                                    if _wilt_check(gi, _ed, i0)[0]:
+                                        # 快速支信号根 hist 恒在旧波一侧,
+                                        # 构造上不触发; 同 REV 口径不开
+                                        events.append((gi, "新波已蔫·不开"))
+                                    else:
+                                        eb = gi + 1
+                                        if eb <= i1:
+                                            stop = float(
+                                                O[eb] - STOP_K * atr1m[gi]) \
+                                                if _ed == 1 else float(
+                                                    O[eb] + STOP_K * atr1m[gi])
+                                            pos = {"dir": _ed, "trig": gi,
+                                                   "eb": eb,
+                                                   "ep": float(O[eb]),
+                                                   "stop": stop,
+                                                   "grey": bool(
+                                                       qcol[gi] == 0),
+                                                   "src": "REVF",
+                                                   "wave": True,
+                                                   "marker": float(
+                                                       abs(hist[eb])),
+                                                   "src_wave": int(
+                                                       WAVE_ID[gi])}
+                                            dec_pend = None
                                 else:
                                     if abs(hist[gi]) <= 0.5 * _sg \
                                             and abs(hist[gi]) < \
@@ -708,7 +777,8 @@ def _run(c):
             "trades": [{k: (int(v) - int(i0)
                             if k in ("trig", "trig0", "eb", "xb", "xs")
                             else v)
-                        for k, v in t.items()} for t in trades],
+                        for k, v in t.items() if k != "src_wave"}
+                       for t in trades],
             "events": [[int(_g) - int(i0), _x] for _g, _x in events],
             "comp": round((comp - 1) * 100, 2),
             "sum": round(sum(t["r"] for t in trades), 2),
