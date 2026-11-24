@@ -672,7 +672,7 @@ const STVX_MAINFILL = [["09:30", 606.76, 605.61, "09:33", 606.76, 605.99, -1], [
 const STVX_MAINFLIPS = [{"value": ["09:30", 606.76], "itemStyle": {"color": "#f23645"}, "label": {"formatter": "Sell", "position": "top", "backgroundColor": "#f23645", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["10:45", 605.79], "itemStyle": {"color": "#089981"}, "label": {"formatter": "Buy", "position": "bottom", "backgroundColor": "#089981", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["14:03", 608.16], "itemStyle": {"color": "#f23645"}, "label": {"formatter": "Sell", "position": "top", "backgroundColor": "#f23645", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}, {"value": ["14:30", 607.23], "itemStyle": {"color": "#089981"}, "label": {"formatter": "Buy", "position": "bottom", "backgroundColor": "#089981", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}];
 </script>
 
-<!-- HAMA_SECTION_BEGIN (transplant) -->
+<!-- HAMA_SECTION_BEGIN (transplant v2) -->
 <div id="hamaSection" style="display:none;max-width:1150px;margin:14px auto;padding:0 8px">
 <div id="hamaCh" style="width:100%;height:600px"></div>
 <div id="hamaTbl"></div>
@@ -697,28 +697,75 @@ const HAMA_SSL_FILLS = [{"b": [607.12, 607.12, 607.11, 607.1, 607.09, 607.08, 60
   var RICH_HAMA = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},stvx:{color:'#00a0a0',fontWeight:'bold'},hama:{color:'#7c3aed',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};
   var sec = document.getElementById('hamaSection');
   if (!sec) return;
+  function bodyChild(el){ while (el && el.parentNode && el.parentNode !== document.body) el = el.parentNode; return el; }
+  var chartHost = document.getElementById('c');
+  var tblBlock = null;
+  var tw0 = document.getElementById('tblWrap');
+  if (tw0) tblBlock = bodyChild(tw0);
+  if (!tblBlock) { var t0 = document.querySelector('table'); if (t0) tblBlock = bodyChild(t0); }
+  if (tblBlock && tblBlock.parentNode) { tblBlock.parentNode.insertBefore(sec, tblBlock.nextSibling); }
+  else if (chartHost && chartHost.parentNode) { chartHost.parentNode.insertBefore(sec, chartHost.nextSibling); }
+  var FN = null, VER = 'hama', DEFVER = 'live';
+  if (typeof window.switchVersion === 'function') { FN = 'switchVersion'; VER = 'HAMA'; DEFVER = 'ST'; }
+  else if (typeof window.switchVersion15 === 'function') { FN = 'switchVersion15'; }
+  else if (typeof window.switchVersion3 === 'function') { FN = 'switchVersion3'; }
   var btn = document.createElement('button');
-  btn.type = 'button'; btn.textContent = 'Hama'; btn.dataset.ver = 'HAMA';
+  btn.type = 'button'; btn.textContent = 'Hama'; btn.dataset.ver = VER;
   btn.style.fontSize = '13px'; btn.style.padding = '2px 8px'; btn.style.marginLeft = '8px';
   btn.style.borderRadius = '10px'; btn.style.border = '1px solid #ccc'; btn.style.background = '#fff';
   btn.style.color = '#333'; btn.style.cursor = 'pointer';
   var hostBtn = null;
   var allBtns = document.querySelectorAll('button[data-ver]');
-  for (var i = 0; i < allBtns.length; i++) { if (allBtns[i].dataset.ver !== 'HAMA') { hostBtn = allBtns[i]; break; } }
+  for (var i = 0; i < allBtns.length; i++) { if (allBtns[i].dataset.ver !== VER) { hostBtn = allBtns[i]; break; } }
   if (hostBtn && hostBtn.parentNode) { hostBtn.parentNode.appendChild(btn); }
   else { var sel = document.getElementById('daypick'); if (sel && sel.parentNode) { var sp = document.createElement('span'); sp.appendChild(btn); sel.parentNode.insertBefore(sp, sel.nextSibling); } }
-  var chart = null;
+  ['_verBtns','_verBtns15','_verBtns3'].forEach(function(k){ try { if (window[k] && window[k].indexOf(btn) < 0) window[k].push(btn); } catch(e) {} });
+  var chart = null, hamaOn = false, lastVer = DEFVER, saved = [];
+  function mainEls(){
+    var els = [];
+    var cand = [chartHost, tblBlock, document.getElementById('werPanel'), document.getElementById('qqePanel'), document.getElementById('slpPanel'), document.getElementById('envModeWrap')];
+    for (var i = 0; i < cand.length; i++) { if (cand[i] && els.indexOf(cand[i]) < 0) els.push(cand[i]); }
+    return els;
+  }
   function setBtn(on){ btn.style.background = on ? '#2b7fff' : '#fff'; btn.style.borderColor = on ? '#2b7fff' : '#ccc'; btn.style.color = on ? '#fff' : '#333'; }
-  function hide(){ if (sec.style.display !== 'none') { sec.style.display = 'none'; setBtn(false); } }
+  function showHama(){
+    if (hamaOn) return;
+    hamaOn = true;
+    saved = mainEls().map(function(el){ return [el, el.style.display]; });
+    saved.forEach(function(p){ p[0].style.display = 'none'; });
+    sec.style.display = '';
+    setBtn(true);
+    try { document.title = TITLE_PLAIN; } catch(e) {}
+    if (!chart) { initChart(); } else { chart.resize(); }
+  }
+  function hideHama(){
+    if (!hamaOn) return;
+    hamaOn = false;
+    sec.style.display = 'none';
+    setBtn(false);
+    saved.forEach(function(p){ p[0].style.display = p[1]; });
+    saved = [];
+  }
   btn.onclick = function(){
-    if (sec.style.display === 'none') {
-      sec.style.display = ''; setBtn(true);
-      try { document.title = TITLE_PLAIN; } catch(e) {}
-      if (!chart) { initChart(); } else { chart.resize(); }
-      sec.scrollIntoView();
-    } else { hide(); }
+    if (hamaOn) { if (FN && typeof window[FN] === 'function') { window[FN](lastVer); } else { hideHama(); } }
+    else { showHama(); }
   };
-  document.addEventListener('click', function(e){ var t = e.target; if (t && t !== btn && t.tagName === 'BUTTON' && t.dataset && t.dataset.ver) hide(); });
+  if (FN && typeof window[FN] === 'function' && !window[FN].__hamaWrapped) {
+    var orig = window[FN];
+    var w = function(v){
+      if (v === VER || v === 'hama' || v === 'HAMA') { showHama(); return; }
+      lastVer = v;
+      hideHama();
+      return orig.apply(this, arguments);
+    };
+    w.__hamaWrapped = true;
+    window[FN] = w;
+  }
+  document.addEventListener('click', function(e){
+    if (!hamaOn) return;
+    var t = e.target;
+    if (t && t !== btn && t.tagName === 'BUTTON' && t.dataset && t.dataset.ver && t.dataset.ver !== VER) { hideHama(); }
+  });
   function initChart(){
     document.getElementById('hamaTbl').innerHTML = HAMA_INNER;
     var MP = {symbolSize: 26, fontSize: 7, opacity: 0.75};
@@ -767,5 +814,5 @@ const HAMA_SSL_FILLS = [{"b": [607.12, 607.12, 607.11, 607.1, 607.09, 607.08, 60
 })();
 
 </script>
-<!-- HAMA_SECTION_END (transplant) -->
+<!-- HAMA_SECTION_END (transplant v2) -->
 </body></html>
