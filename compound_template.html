@@ -19,6 +19,14 @@ button.grp-l{border-radius:16px 0 0 16px;}
 button.grp-r{border-radius:0 16px 16px 0;margin-left:-1px;}
 button.grp-m{margin-left:-1px;}
 input[type=range]{width:300px;vertical-align:middle;}
+#rangeWrap{position:relative;display:inline-block;width:300px;height:22px;vertical-align:middle;}
+#rangeWrap input[type=range]{position:absolute;left:0;top:2px;width:100%;margin:0;padding:0;background:transparent;pointer-events:none;-webkit-appearance:none;appearance:none;height:18px;}
+#rangeWrap input[type=range]::-webkit-slider-runnable-track{background:transparent;}
+#rangeWrap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:14px;height:14px;border-radius:50%;background:#00a0a0;border:2px solid #fff;box-shadow:0 0 3px #666;cursor:pointer;}
+#rangeWrap input[type=range]::-moz-range-track{background:transparent;}
+#rangeWrap input[type=range]::-moz-range-thumb{pointer-events:auto;width:11px;height:11px;border-radius:50%;background:#00a0a0;border:2px solid #fff;box-shadow:0 0 3px #666;cursor:pointer;}
+#rangeTrack{position:absolute;left:0;right:0;top:10px;height:4px;background:#ddd;border-radius:2px;}
+#rangeFill{position:absolute;top:0;height:4px;background:#00a0a0;border-radius:2px;}
 .ctl{margin:10px 0;font-size:14px;}
 .ctl .lab{color:#555;margin-right:8px;}
 </style>
@@ -40,11 +48,12 @@ document.getElementById('dayhint').textContent='共'+days.length+'天';
 </script>
 
 <h1>复利模拟（日预算制）</h1>
-<p>把每个策略的定版逐笔链拿来按「日预算制」跑资金曲线：每天早上拿出当日权益的 p 作为当天预算（其余 (1−p) 当天不动），每笔下注 = 当前池子的 f 倍，池内盈亏逐笔滚动，日终把池子并回权益。每条策略从 $100,000 起链、全史（2024-01-02 起，各策略覆盖到 2026-11-13 ~ 2026-11-20 不等）。下面 5 张图一张对应一个 p，每张图里是全部策略的资金曲线（颜色与回测版本总览页一致）；f 全图共用一个滑杆，拖动即时重算。颗粒可切按日/按周/按月（周期末取值）。纵轴可切对数——各策略终值差出几个数量级时，对数轴更看得清形状。</p>
+<p>把每个策略的定版逐笔链拿来按「日预算制」跑资金曲线：每天早上拿出当日权益的 p 作为当天预算（其余 (1−p) 当天不动），每笔下注 = 当前池子的 f 倍，池内盈亏逐笔滚动，日终把池子并回权益。每条策略从 $100,000 起链、全史（2024-01-02 起，各策略覆盖到 2026-11-13 ~ 2026-11-20 不等）。下面 5 张图一张对应一个 p，每张图里是全部策略的资金曲线（颜色与回测版本总览页一致）；f 全图共用一个滑杆，拖动即时重算。顶部年-月双头滑杆可选时间范围：链在所选起始月月初以 $100,000 重新起链、只纳入范围内的交易（默认全范围）。颗粒可切按日/按周/按月（周期末取值）。纵轴可切对数——各策略终值差出几个数量级时，对数轴更看得清形状。</p>
 <div class="ctl"><span class="lab">颗粒：</span><button id="btnGDay" class="grp-l on">按日</button><button id="btnGWeek" class="grp-m">按周</button><button id="btnGMonth" class="grp-r">按月</button>
 <span class="lab" style="margin-left:18px">纵轴：</span><button id="btnLin" class="grp-l on">线性</button><button id="btnLog" class="grp-r">对数</button></div>
 <div class="ctl"><span class="lab">f（每笔下注占当前池比例）：</span><input type="range" id="fSlider" min="0.10" max="1.00" step="0.05" value="0.50"> <b id="fVal">f = 0.50</b></div>
 <div class="ctl"><span class="lab">杠杆：</span><span id="levBtns"></span> <span class="small">杠杆 = 全部策略每笔收益统一 × (L/10) 后再跑链，对所有策略同一算法、无策略特殊；默认 L=10（倍率 1，即各策略定版口径本身）。</span></div>
+<div class="ctl"><span class="lab">时间范围（年-月）：</span><span id="rangeWrap"><span id="rangeTrack"><span id="rangeFill"></span></span><input type="range" id="rgStart" min="0" step="1" value="0"><input type="range" id="rgEnd" min="0" step="1" value="0"></span> <b id="rangeVal"></b> <span class="small">双头滑杆选起止月（含当月）：链在起始月月初以 $100,000 重新起链，只纳入范围内的交易；默认全范围。</span></div>
 
 <h2>p = 0.10（每日预算 = 当日权益 × 10%）</h2>
 <div id="ch0" class="chart"></div>
@@ -65,6 +74,14 @@ var DATA = /*__CHAINS__*/;
 var PS = [0.10, 0.15, 0.20, 0.25, 0.30];
 var DATES = DATA.dates;
 var N = DATES.length;
+// 时间范围 (年-月双头滑杆): MONTHS = 数据覆盖的全部月份, rgLo/rgHi 为起止月下标
+var MONTHS = [];
+DATES.forEach(function(d){ var m = d.slice(0, 7); if (MONTHS.indexOf(m) < 0) MONTHS.push(m); });
+var rgLo = 0, rgHi = MONTHS.length - 1;
+function viewDates(){
+  var a = MONTHS[rgLo], b = MONTHS[rgHi];
+  return DATES.filter(function(d){ var m = d.slice(0, 7); return m >= a && m <= b; });
+}
 // 解析: 每策略 Map(日期 -> [r,...])
 var STRATS = DATA.strategies.map(function(s){
   var m = {};
@@ -81,11 +98,11 @@ function simDay(rs, pool, f, k){
   }
   return pool;
 }
-function simChain(st, p, f){
+function simChain(st, p, f, dates){
   var k = curLev / 10;
-  var E = 100000, out = new Array(N);
-  for (var i = 0; i < N; i++){
-    var rs = st.days[DATES[i]];
+  var E = 100000, out = new Array(dates.length);
+  for (var i = 0; i < dates.length; i++){
+    var rs = st.days[dates[i]];
     if (rs){
       var D = p * E, pool = D, reserve = E - D;
       pool = simDay(rs, pool, f, k);
@@ -96,11 +113,11 @@ function simChain(st, p, f){
   return out;
 }
 // 颗粒采样索引
-function sampleIdx(gran){
-  if (gran === 'day') return DATES.map(function(d, i){ return i; });
+function sampleIdx(gran, dates){
+  if (gran === 'day') return dates.map(function(d, i){ return i; });
   var idx = [], lastKey = null;
-  for (var i = 0; i < N; i++){
-    var d = DATES[i], key;
+  for (var i = 0; i < dates.length; i++){
+    var d = dates[i], key;
     if (gran === 'week'){
       var dt = new Date(d + 'T00:00:00Z');
       dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7));
@@ -108,7 +125,7 @@ function sampleIdx(gran){
     } else { key = d.slice(0, 7); }
     if (key !== lastKey){ if (lastKey !== null) idx.push(i - 1); lastKey = key; }
   }
-  idx.push(N - 1);
+  idx.push(dates.length - 1);
   return idx;
 }
 var gran = 'day', logAxis = false, curF = 0.50, curLev = 10;
@@ -122,33 +139,35 @@ function fmtM(v){
 }
 function fmtFull(v){ return '$' + Math.round(v).toLocaleString('en-US'); }
 function render(){
-  var idx = sampleIdx(gran);
-  var labels = idx.map(function(i){ return gran === 'month' ? DATES[i].slice(0, 7) : DATES[i]; });
+  var dates = viewDates(), n = dates.length;
+  var idx = sampleIdx(gran, dates);
+  var labels = idx.map(function(i){ return gran === 'month' ? dates[i].slice(0, 7) : dates[i]; });
+  var rangeTxt = MONTHS[rgLo] + ' ~ ' + MONTHS[rgHi];
   // 先算全部策略在每个 p 下的曲线 (实盘3 需要三条源链)
   PS.forEach(function(p, pi){
     var eqs = {};
-    STRATS.forEach(function(st){ eqs[st.name] = simChain(st, p, curF); });
-    var sp3 = new Array(N);
-    for (var i = 0; i < N; i++){
+    STRATS.forEach(function(st){ eqs[st.name] = simChain(st, p, curF, dates); });
+    var sp3 = new Array(n);
+    for (var i = 0; i < n; i++){
       sp3[i] = (eqs[SP3_SRC[0]][i] + eqs[SP3_SRC[1]][i] + eqs[SP3_SRC[2]][i]) / 3;
     }
     eqs['实盘3（VX+QQE+1mEnv 均分）'] = sp3;
     var series = STRATS.map(function(st){
       var eq = eqs[st.name];
-      var fin = eq[N - 1];
+      var fin = eq[n - 1];
       return {name: st.name + ' [' + fmtM(fin) + ']', type: 'line', showSymbol: false,
               lineStyle: {width: 1.6, color: st.color}, itemStyle: {color: st.color},
               data: idx.map(function(i){ return eq[i]; })};
     });
     // 实盘3 插入到与总览页一致的位置 (做T版之后、CE 之前)
     var sp3eq = eqs['实盘3（VX+QQE+1mEnv 均分）'];
-    var sp3series = {name: '实盘3（VX+QQE+1mEnv 均分） [' + fmtM(sp3eq[N - 1]) + ']', type: 'line', showSymbol: false,
+    var sp3series = {name: '实盘3（VX+QQE+1mEnv 均分） [' + fmtM(sp3eq[n - 1]) + ']', type: 'line', showSymbol: false,
                      lineStyle: {width: 1.6, color: '#9333ea'}, itemStyle: {color: '#9333ea'},
                      data: idx.map(function(i){ return sp3eq[i]; })};
     var pos = series.findIndex(function(x){ return x.name.indexOf('CE') === 0; });
     series.splice(pos, 0, sp3series);
     charts[pi].setOption({
-      title: {text: 'p = ' + p.toFixed(2) + ' · f = ' + curF.toFixed(2) + ' · 杠杆 ' + curLev, right: 12, top: 2, textStyle: {fontSize: 12, color: '#999', fontWeight: 'normal'}},
+      title: {text: 'p = ' + p.toFixed(2) + ' · f = ' + curF.toFixed(2) + ' · 杠杆 ' + curLev + ' · ' + rangeTxt, right: 12, top: 2, textStyle: {fontSize: 12, color: '#999', fontWeight: 'normal'}},
       tooltip: {trigger: 'axis', formatter: function(ps){
         var t = ps[0].axisValue + '<br/>';
         ps.slice().sort(function(a, b){ return b.data - a.data; }).forEach(function(pp){
@@ -181,6 +200,31 @@ document.getElementById('fSlider').addEventListener('input', function(){
   document.getElementById('fVal').textContent = 'f = ' + curF.toFixed(2);
   render();
 });
+// 年-月双头滑杆接线: 两把手钳在 [0, MONTHS-1] 且 start <= end; 重合时靠右半区把 start 抬到上层以便往左拖
+var rgStartEl = document.getElementById('rgStart'), rgEndEl = document.getElementById('rgEnd');
+rgStartEl.max = rgEndEl.max = MONTHS.length - 1;
+rgStartEl.value = 0;
+rgEndEl.value = MONTHS.length - 1;
+function syncRange(from){
+  var a = parseInt(rgStartEl.value, 10), b = parseInt(rgEndEl.value, 10);
+  if (a > b){
+    if (from === 's'){ a = b; rgStartEl.value = a; }
+    else { b = a; rgEndEl.value = b; }
+  }
+  rgLo = a; rgHi = b;
+  document.getElementById('rangeVal').textContent = MONTHS[a] + ' ~ ' + MONTHS[b] +
+    ((a === 0 && b === MONTHS.length - 1) ? '（全范围）' : '');
+  var span = MONTHS.length - 1;
+  var fill = document.getElementById('rangeFill');
+  fill.style.left = (a / span * 100) + '%';
+  fill.style.width = ((b - a) / span * 100) + '%';
+  var topStart = a > span / 2;
+  rgStartEl.style.zIndex = topStart ? 6 : 4;
+  rgEndEl.style.zIndex = topStart ? 4 : 6;
+}
+rgStartEl.addEventListener('input', function(){ syncRange('s'); render(); });
+rgEndEl.addEventListener('input', function(){ syncRange('e'); render(); });
+syncRange();
 function setGran(g){
   gran = g;
   ['Day', 'Week', 'Month'].forEach(function(k){
