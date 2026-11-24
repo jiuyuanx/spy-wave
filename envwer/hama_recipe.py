@@ -36,7 +36,9 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
   pending 作废; 不足 2 根不查、未过零不查; 双侧对称。
 - 午间斜率门: 12:00 起每半小时检查点, |近30根位移| >= 0.75xATR
   才开下半小时, 14:30 解除 (MID_ON, 全因果)。
-- 开仓窗口: 09:35–15:54 (定版去除尾限, user 2026-11-23 采纳):
+- 开仓窗口: 09:31–15:54 (起点 09:31 = 提前进场, user 2026-11-24 采纳:
+  扫 09:31-09:34 中 09:31 Δ+777.69pp 三年全正胜出; 尾限去除为
+  2026-11-23 定版):
   全部进场路尾限由 15:30 放开到 15:54 (相对 Δ+951.20pp 三年
   全正, 15:30 后新开 994 笔/+813.71pp); 换身份与挡单标注仍
   15:30, 与 sim.py ENTRY_END 定版口径一致。
@@ -534,7 +536,7 @@ def _run(c):
                                        range(max(0, gi - HY_W + 1), gi + 1))
                         if (_bge == dr and ecol[gi] == dr and _hy2
                                 and abs(hama1_shade[gi]) >= HS_MIN
-                                and "09:35" <= hm <= "15:30"):
+                                and "09:31" <= hm <= "15:30"):
                             _w5d = 0.0
                             for _j in range(max(i0, gi - 5), gi):
                                 if ecol[_j] == dr:
@@ -557,7 +559,7 @@ def _run(c):
                 if HY_W > 0:
                     _hy = all(hama1_col[_j] != 0 for _j in
                               range(max(0, gi - HY_W + 1), gi + 1))
-                _first = edge or (hm == "09:35" and conj_s)
+                _first = edge or (hm == "09:31" and conj_s)
                 if HY_ALL:
                     _first = _first and _hy
                 # 段首单峰值衰减过滤 (定版 0.5, 同 sim.py FIRST_PR): 当根
@@ -575,15 +577,15 @@ def _run(c):
                 if not MID_ON[gi] \
                         and ((_first and _pr_ok) or (conj and incr and _hy)) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
-                        and "09:35" <= hm <= "15:30":
+                        and "09:31" <= hm <= "15:30":
                     events.append((gi, "午间斜率门关·信号被挡"))
                 if _first and not _pr_ok and not (conj and incr and _hy) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
-                        and "09:35" <= hm <= "15:30" and MID_ON[gi]:
+                        and "09:31" <= hm <= "15:30" and MID_ON[gi]:
                     events.append((gi, "段首峰值比<0.5·信号被挡"))
                 if ((_first and _pr_ok) or (conj and incr and _hy)) \
                         and abs(hama1_shade[gi]) >= HS_MIN \
-                        and "09:35" <= hm <= "15:54" and MID_ON[gi]:
+                        and "09:31" <= hm <= "15:54" and MID_ON[gi]:
                     dr = _bge
                     eb = gi + 1
                     if eb <= i1:
@@ -610,7 +612,7 @@ def _run(c):
                                 _qc = True
                                 events.append((gi, "衰减已确认"))
                             if _qc and bg_r[gi] == -_wv \
-                                    and "09:35" <= hm <= "15:54" \
+                                    and "09:31" <= hm <= "15:54" \
                                     and MID_ON[gi]:
                                 _ed = -_wv
                                 if _wilt_check(gi, _ed, i0)[0]:
@@ -637,7 +639,7 @@ def _run(c):
                                 rev_pend = None
                             else:
                                 if _qc and bg_r[gi] == -_wv \
-                                        and "09:35" <= hm <= "15:30" \
+                                        and "09:31" <= hm <= "15:30" \
                                         and not MID_ON[gi]:
                                     events.append(
                                         (gi, "午间斜率门关·翻仓信号被挡"))
@@ -651,7 +653,7 @@ def _run(c):
                                         and abs(hist[gi]) < abs(hist[gi - 1])
                                         < abs(hist[gi - 2])
                                         and bg_r[gi] == _ed
-                                        and "09:35" <= hm <= "15:54"
+                                        and "09:31" <= hm <= "15:54"
                                         and MID_ON[gi]):
                                     if _wilt_check(gi, _ed, i0)[0]:
                                         # 快速支信号根 hist 恒在旧波一侧,
@@ -683,7 +685,7 @@ def _run(c):
                                             abs(hist[gi - 1]) \
                                             < abs(hist[gi - 2]) \
                                             and bg_r[gi] == _ed \
-                                            and "09:35" <= hm <= "15:30" \
+                                            and "09:31" <= hm <= "15:30" \
                                             and not MID_ON[gi]:
                                         events.append(
                                             (gi, "午间斜率门关·信号被挡"))
@@ -713,7 +715,7 @@ def _run(c):
                                 and _hb_trigger(gi, _s, hb_arm[_s],
                                                 HB_ENTRY_MULT)
                                 and abs(hama1_shade[gi]) >= HS_MIN
-                                and "09:35" <= hm <= "15:54"
+                                and "09:31" <= hm <= "15:54"
                                 and MID_ON[gi]):
                             eb = gi + 1
                             if eb <= i1:
