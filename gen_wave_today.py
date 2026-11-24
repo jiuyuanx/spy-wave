@@ -3394,13 +3394,26 @@ def main():
             raise RuntimeError(f"hama 载荷失败: {_herr}")
         _hb = _hpl["bars"]
         _hn = len(_hb)
-        hama_times1m = [b[0] for b in _hb]
+        # 固定 x 轴为全天 09:30-15:59 (390 根 1m), 数据左对齐、右侧留白
+        # (与 Envelope _env_times1m 同款; 只用已走 bars 会把类目轴拉满全宽,
+        # 盘中 hama 图被横向拉伸、与其它版不对齐 — user 2026-11-24 令改)
+        hama_times1m = []
+        _hh9, _mm9 = 9, 30
+        for _k9 in range(390):
+            hama_times1m.append(f"{_hh9:02d}:{_mm9:02d}")
+            _mm9 += 1
+            if _mm9 >= 60:
+                _hh9 += 1
+                _mm9 -= 60
         _hclose = [b[4] for b in _hb]
         hama_ohlc = [[b[1], b[4], b[3], b[2]] for b in _hb]
         _hqcol_c = {1: "#2563eb", -1: "#dc2626", 0: "#9ca3af"}
         hama_qqe = [{"value": _hv,
                      "itemStyle": {"color": _hqcol_c.get(_qc, "#9ca3af")}}
                     for _hv, _qc in zip(_hpl["hist"], _hpl["qcol"])]
+        if _hn < 390:  # 盘中未走完: 对齐数组尾部补 null 到全天 390
+            hama_ohlc = hama_ohlc + [[None, None, None, None]] * (390 - _hn)
+            hama_qqe = hama_qqe + [None] * (390 - _hn)
         _RSN_CN = {"DECAY": "衰减出场", "DECAYF": "衰减加速出场",
                    "D4": "连减4根出场", "GREY": "QQE转灰",
                    "FLIP": "新波反向", "HB": "回补门槛平仓", "BG": "背景破",
@@ -3577,7 +3590,7 @@ def main():
             return _out
 
         def _seg_data(vals, a, b):
-            _d = [None] * _hn
+            _d = [None] * 390
             for _i in range(a, b + 1):
                 _d[_i] = vals[_i]
             return _d
@@ -3592,7 +3605,7 @@ def main():
                                    "d": _seg_data(_hpl["ssl_mal"], _a, _ext)})
             if _sv != 0:
                 _base_d = _seg_data(_hpl["ssl_mal"], _a, _b)
-                _delt_d = [None] * _hn
+                _delt_d = [None] * 390
                 for _i in range(_a, _b + 1):
                     if _hpl["ssl_mah"][_i] is not None and \
                             _hpl["ssl_mal"][_i] is not None:
