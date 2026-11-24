@@ -39,12 +39,16 @@ jobs:
 
       - name: save dated copy + archive
         if: steps.gen.outputs.skip != '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TODAY=${{ inputs.wave_date }}
           if [ -z "$TODAY" ]; then TODAY=$(TZ=America/New_York date +%F); fi
           cp public/index.html public/$TODAY.html
-          git fetch origin gh-pages --depth=1 2>/dev/null || true
-          git show origin/gh-pages:archive.json > public/archive.json 2>/dev/null || echo '{"days":[]}' > public/archive.json
+          # archive.json via API (was: git fetch the whole gh-pages branch, ~85 s)
+          curl -sf -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github.raw" \
+            "https://api.github.com/repos/${{ github.repository }}/contents/archive.json?ref=gh-pages" \
+            > public/archive.json || echo '{"days":[]}' > public/archive.json
           python3 -c "
           import json
           p = 'public/archive.json'
@@ -63,8 +67,9 @@ jobs:
 
       - name: deploy to gh-pages
         if: steps.gen.outputs.skip != '1'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          keep_files: true   # 保留历史日期文件, 只更新 index/当天/archive.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Git Data API publish: only the files in public/ are uploaded on top of
+        # the current gh-pages tree (keep_files semantics). Was peaceiris
+        # actions-gh-pages cloning the whole branch every run (~135 s).
+        run: python3 publish_gh_pages.py
