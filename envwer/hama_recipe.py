@@ -40,7 +40,8 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
   衰减快速支) 出现但背景不允许顺势开时照开、打逆势身份 (ctr);
   衰减路峰值门 11 (CTR_PEAK_MIN); F 支带同波递进门 (同波上一个
   F 开仓触发根 |hist| 为锚、须严格大于); 退场只吃特殊衰减
-  CTRX (自己波同向柱 <=前根 90% 登记、按 dec_pend 同款确认) +
+  CTRX (自己波同向柱 <=前根 87.5% 登记、确认根再缩到 <=触发根
+  95% 或过零确认; 2026-11-25 双比定版) +
   HB 回补平 + 新波反向 FLIP (带 WM 同波门) + SL/EOD; 背景转
   同边 -> 转普通顺势单 (conv); 普通单 (STD/HB) 被 DECAY/DECAYF
   平掉的决策根上背景没齐反方向 -> 同根翻逆势 (CTR_FLIP);
@@ -305,17 +306,32 @@ def _run(c):
                 if opp[j]:  # 定版 (2026-11-24): 峰看 LB10 内全部同向真色柱, |h|<=3 不断段 (与 sim DEC_PEAK_NOCUT 一致)
                     seg_lo = j + 1
                     break
-            peaks = [abs(hist[j]) for j in range(seg_lo, i + 1)
-                     if mask[j] and abs(hist[j]) > 3]
-            if not peaks:
+            seg_js = [j for j in range(seg_lo, i + 1)
+                      if mask[j] and abs(hist[j]) > 3]
+            if not seg_js:
                 continue
             if mask[i] and ca < 4:
                 continue
-            peak = max(peaks)
+            peak = max(abs(hist[j]) for j in seg_js)
             if ca >= peak:
                 continue
             prev_ca = abs(hist[i - 1]) if i - 1 >= seg_lo else 999.0
-            if peak >= 6 and ca <= _trig_line(peak) and ca <= prev_ca * 0.9:
+            line = _trig_line(peak)
+            if peak >= 23:
+                # mono 单调纯度定版 (user 2026-11-24 采纳、2026-11-25 同步;
+                # 与 sim DEC_MONO B=0.225/FLOOR=0.85/PEAK_MIN=23 一致):
+                # 触发线按路径纯度 m=(峰-当根)/Σ|Δhist| 缩放, 钳 >=0.85 倍。
+                # 惩罚侧免峰下限版 2026-11-25 user 令先不加, 两侧同吃 23 门。
+                ppos = max(j for j in seg_js if abs(hist[j]) == peak)
+                if i - ppos < 2:
+                    m = 0.5
+                else:
+                    walked = sum(abs(abs(hist[k]) - abs(hist[k - 1]))
+                                 for k in range(ppos + 1, i + 1))
+                    m = 0.5 if walked <= 0 else min(
+                        1.0, max(0.0, (peak - ca) / walked))
+                line *= max(0.85, 1.0 + 0.225 * (2.0 * m - 1.0))
+            if peak >= 6 and ca <= line and ca <= prev_ca * 0.9:
                 out[i] = peak
         return out
 
@@ -525,7 +541,7 @@ def _run(c):
                             if ctr_xpend is not None:
                                 _th = ctr_xpend[1]
                                 _hv = hist[gi]
-                                if _hv * dr < 0 or abs(_hv) <= 0.9 * _th:
+                                if _hv * dr < 0 or abs(_hv) <= 0.95 * _th:  # CTRX 确认比定版 0.95 (user 2026-11-25; 与 sim CTRX_CR 一致)
                                     rsn = "CTRX"
                                     ctr_xpend = None
                                 elif _hv * dr > 0 and abs(_hv) > _th:
@@ -543,8 +559,8 @@ def _run(c):
                                     and gi - 1 >= i0 \
                                     and hist[gi] * dr > 0 \
                                     and hist[gi - 1] * dr > 0 \
-                                    and abs(hist[gi]) <= 0.9 \
-                                    * abs(hist[gi - 1]):
+                                    and abs(hist[gi]) <= 0.875 \
+                                    * abs(hist[gi - 1]):  # CTRX 触发比定版 0.875 (user 2026-11-25; 与 sim CTRX_TR 一致)
                                 ctr_xpend = (gi, abs(hist[gi]))
                         if dec_pend is not None:
                             _th = dec_pend[1]
