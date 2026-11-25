@@ -1,0 +1,672 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>实盘dashboard 2026-11-25 | 今日 -$74 (-0.8%) | 持仓:实盘:空仓 | k3clean L25</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="theme.js"></script>
+<style>body{margin:0;background:#fff;font-family:sans-serif}#c{width:100%;height:55vh}</style>
+</head><body>
+<div style="text-align:center;padding:6px 0 0;font-size:13px">
+<select id="daypick" onchange="if(this.value)location.href=this.value" style="font-size:13px;padding:2px 6px">
+<option value="">📅 选择日期…</option>
+</select> <span id="dayhint" style="color:#888"></span>
+</div>
+<script>
+fetch('archive.json').then(function(r){return r.json();}).then(function(d){
+var s=document.getElementById('daypick'),days=(d.days||[]).slice().reverse();
+var cur=location.pathname.split('/').pop().replace('.html','');
+days.forEach(function(x){var o=document.createElement('option');o.value=x+'.html';o.textContent=x;if(x===cur)o.selected=true;s.appendChild(o);});
+document.getElementById('dayhint').textContent='共'+days.length+'天';
+}).catch(function(){});
+</script>
+<div id="c"></div><script>
+const times = ["09:30", "09:33", "09:36", "09:39", "09:42", "09:45", "09:48", "09:51", "09:54", "09:57", "10:00", "10:03", "10:06", "10:09", "10:12", "10:15", "10:18", "10:21", "10:24", "10:27", "10:30", "10:33", "10:36", "10:39", "10:42", "10:45", "10:48", "10:51", "10:54", "10:57", "11:00", "11:03", "11:06", "11:09", "11:12", "11:15", "11:18", "11:21", "11:24", "11:27", "11:30", "11:33", "11:36", "11:39", "11:42", "11:45", "11:48", "11:51", "11:54", "11:57", "12:00", "12:03", "12:06", "12:09", "12:12", "12:15", "12:18", "12:21", "12:24", "12:27", "12:30", "12:33", "12:36", "12:39", "12:42", "12:45", "12:48", "12:51", "12:54", "12:57", "13:00", "13:03", "13:06", "13:09", "13:12", "13:15", "13:18", "13:21", "13:24", "13:27", "13:30", "13:33", "13:36", "13:39", "13:42", "13:45", "13:48", "13:51", "13:54", "13:57", "14:00", "14:03", "14:06", "14:09", "14:12", "14:15", "14:18", "14:21", "14:24", "14:27", "14:30", "14:33", "14:36", "14:39", "14:42", "14:45", "14:48", "14:51", "14:54", "14:57", "15:00", "15:03", "15:06", "15:09", "15:12", "15:15", "15:18", "15:21", "15:24", "15:27", "15:30", "15:33", "15:36", "15:39", "15:42", "15:45", "15:48", "15:51", "15:54", "15:57"];
+const vals = [0.23,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const colors = ["gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray", "gray"];
+const decayReal = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const flipBlue = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const hubuThr = [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null];
+const pins = [];
+const line1m = [[0.0, 702.72], [0.3333, 700.96], [0.6667, 701.88], [1.0, 701.04], [1.3333, 699.82]];
+const spins = [];
+const filldots = [];
+const stUp = [null];
+const stDn = [709.94];
+const stFastUp = [null];
+const stFastDn = [707.24];
+const stFastFlips = [{"value":["09:30",707.24],"itemStyle":{"color":"#ff4500"},"label":{"formatter":"Sell","position":"top","backgroundColor":"#ff4500","color":"#fff","borderRadius":4,"padding":[2,4],"fontSize":10}}];
+const stFill = [["09:30",709.94,701.88,"09:30",709.94,701.88,-1]];
+const stFlips = [{"value":["09:30",709.94],"itemStyle":{"color":"#f23645"},"label":{"formatter":"Sell","position":"top","backgroundColor":"#f23645","color":"#fff","borderRadius":4,"padding":[3,6],"fontSize":12}}];
+if (typeof THEME !== 'undefined') { THEME.applyColors(spins); THEME.applyColors(pins); }
+const barInfo = {"09:30": {"o": 703.15, "h": 703.31, "l": 700.36, "c": 701.88, "qqe": 0.23, "col": "灰", "acts": []}};
+var ch = echarts.init(document.getElementById('c'));
+ch.setOption({
+  title:{text:'实盘dashboard 2026-11-25 | 今日 -$74 (-0.8%) | 持仓:实盘:空仓 | k3clean L25', left:'center', textStyle:{fontSize:14}},
+  legend:{data:[
+    {name:'3mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%231a9e54%22/></svg>'},
+    {name:'1m曲线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%234da6ff%22 stroke-width=%222%22/></svg>'},
+    {name:'st慢版', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'},
+    {name:'st快版', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%231e40af%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff4500%22 stroke-width=%222%22/></svg>'},
+    {name:'QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%232b7fff%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22%23e5484d%22/></svg>'},
+    {name:'80%衰减线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff9900%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+    {name:'翻仓线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23ff0000%22 stroke-width=%222%22/></svg>'},
+    {name:'回补门槛', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23a020f0%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'},
+    'cumslope','slope5',
+    {name:'9mK线', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(221,34,34,0.25)%22 stroke=%22rgba(221,34,34,1)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(0,170,68,0.25)%22 stroke=%22rgba(0,170,68,1)%22/></svg>'},
+    {name:'9m QQE', icon:'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><rect x=%220%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(30,170,255,0.25)%22 stroke=%22rgba(30,170,255,0.7)%22/><rect x=%2212%22 y=%220%22 width=%2212%22 height=%2212%22 fill=%22rgba(255,130,180,0.25)%22 stroke=%22rgba(255,130,180,0.7)%22/></svg>'}
+  ], top:30, selected:{'cumslope':false,'slope5':false,'st快版':false}},
+  tooltip:Object.assign({trigger:'axis',axisPointer:{type:'cross'},formatter:function(ps){return (typeof THEME!=='undefined')?THEME.tooltipFormatter(ps,barInfo):ps[0].axisValue;}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
+  dataZoom:[{type:'inside', xAxisIndex:[0,1,2,3]},{type:'slider', xAxisIndex:[0,1,2,3], bottom:6}],
+  grid:[{left:34,right:'8%',top:'12%',height:'38%'},{left:34,right:'8%',top:'53%',height:'42%'}],
+  axisPointer:{link:{xAxisIndex:'all'}},
+  xAxis:[{type:'category',data:times,gridIndex:0,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false}},
+         {type:'category',data:times,gridIndex:1,axisLabel:{rotate:45, fontSize:10}},{type:'category',data:times,gridIndex:1,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}},{type:'value',gridIndex:0,min:-0.5,max:129.5,axisLabel:{show:false},axisTick:{show:false},axisLine:{show:false},splitLine:{show:false}}],
+  yAxis:[{type:'value',gridIndex:0,scale:true,max:703.77,axisLabel:{fontSize:8}},{type:'value',gridIndex:1,axisLabel:{fontSize:8}},{type:'value',gridIndex:0,scale:true,position:'right',splitLine:{show:false},axisLabel:{fontSize:8,color:'#20b2aa'}}],
+  series:[
+    {name:'st慢版', type:'custom', silent:true, z:1, data:stFill, xAxisIndex:0, yAxisIndex:0,
+      renderItem:function(params, api){
+        var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6);
+        if(v===v3) return null;
+        var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]);
+        return {type:'polygon', shape:{points:[p1,p2,p3,p4]}, style:{fill:tr===1?'rgba(8,153,129,0.12)':'rgba(242,54,69,0.12)', stroke:null}};
+      }},
+    {name:'3mK线', type:'candlestick', data:[{value:[703.15,701.88,700.36,703.31],itemStyle:{borderColor:"#ffffff",borderWidth:1}}], xAxisIndex:0, yAxisIndex:0,
+      itemStyle:{color:'#1a9e54', color0:'#e5484d', borderColor:'#1a9e54', borderColor0:'#e5484d'},
+      markArea:{silent:true,data:[]}},
+    {name:'st慢版', type:'line', data:stUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#089981', width:2}, symbol:'none', showSymbol:false, z:5},
+    {name:'st慢版', type:'line', data:stDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#f23645', width:2}, symbol:'none', showSymbol:false, z:5},
+    {name:'st快版', type:'line', data:stFastUp, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#1e40af', width:2, opacity:0.5}, symbol:'none', showSymbol:false, z:5},
+    {name:'st快版', type:'line', data:stFastDn, xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff4500', width:2, opacity:0.5}, symbol:'none', showSymbol:false, z:5},
+    {name:'st慢版', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:10, z:6, data:stFlips, label:{show:true, fontSize:12}},
+    {name:'st快版', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:8, z:6, data:stFastFlips, label:{show:true, fontSize:10}},
+    {name:'9mK线', type:'candlestick', data:[[NaN,NaN,NaN,NaN]], xAxisIndex:0, yAxisIndex:0,
+    itemStyle:THEME.k9.style,
+    barWidth:THEME.k9.barWidth},
+
+    {name:'1m曲线', type:'line', data:line1m, xAxisIndex:3, yAxisIndex:0,
+      lineStyle:{color:'#4da6ff', width:1.2, opacity:0.55}, symbol:'none', showSymbol:false,
+      markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:spins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
+    },
+    {name:'成交点', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbol:'circle', symbolSize:6, z:5,
+      itemStyle:{opacity:0.75}, data:filldots,
+      tooltip:Object.assign({trigger:'item',formatter:function(p){return p.data&&p.data.tip?p.data.tip:'';}},(typeof THEME!=='undefined'&&THEME.tooltip)||{}),
+    },
+    {name:'cumslope', type:'line', data:[null], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#20b2aa', width:1.5}, symbol:'none', showSymbol:false},
+    {name:'QQE', type:'bar', data: vals.map((v,i)=>({value:v, itemStyle:{color:THEME.qqe3[colors[i]]}})),
+      xAxisIndex:1, yAxisIndex:1,
+      markPoint:{symbol:'pin', symbolSize:THEME.markPoint.symbolSize, data:pins, label:{color:'#fff', fontSize:THEME.markPoint.fontSize}, itemStyle:{opacity:THEME.markPoint.opacity}},
+    },
+    {name:'9m QQE', type:'bar', data:[null], xAxisIndex:2, yAxisIndex:1, barWidth:'260%', z:3},
+
+    {name:'80%衰减线', type:'line', data:decayReal, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff9900', type:'dashed', width:3}, symbol:'none', showSymbol:false},
+    {name:'翻仓线', type:'line', data:flipBlue, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#ff0000', width:2}, symbol:'none', showSymbol:false},
+    {name:'回补门槛', type:'line', data:hubuThr, xAxisIndex:1, yAxisIndex:1, lineStyle:{color:'#a020f0', type:'dashed', width:2}, symbol:'none', showSymbol:false},
+    {name:'每单盈亏', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0},label:{show:true, opacity:1, fontSize:11, fontWeight:'bold', position:'top', distance:1,formatter:function(p){return p.data.lbl;}}, data:[]},
+    {name:'slope5', type:'line', data:[null], xAxisIndex:0, yAxisIndex:2, lineStyle:{color:'#ff69b4', width:1.5}, symbol:'none', showSymbol:false,},
+    {name:'heat_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff9900', width:1.5, type:'solid'}, symbol:'none', showSymbol:false,z:10},
+    {name:'heat_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1.5, type:'solid'}, symbol:'none', showSymbol:false,z:10},
+    {name:'trig_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#FF6F00', width:1, type:'dashed'}, symbol:'none', showSymbol:false,z:10},
+    {name:'trig_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1, type:'dashed'}, symbol:'none', showSymbol:false,z:10},
+    {name:'heat_up', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#ff9900', width:1.5}, symbol:'none', showSymbol:false},
+    {name:'heat_lo', type:'line', data:[], xAxisIndex:0, yAxisIndex:0, lineStyle:{color:'#0277BD', width:1.5}, symbol:'none', showSymbol:false},
+    {name:'段收益率', type:'scatter', xAxisIndex:0, yAxisIndex:0, symbolSize:1, itemStyle:{opacity:0}, label:{show:true, opacity:1, fontSize:8, fontWeight:'bold', position:'top', distance:1}, data:[]},
+  ]
+});
+</script>
+<div id="tblWrap" style="max-width:1150px;margin:14px auto;padding:0 8px"><div style="font-size:14px;font-weight:bold;margin-bottom:6px">实盘信号单（实际成交 vs 信号预估）</div><div style="overflow-x:auto"><table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap"><tr style="background:#f2f2f2"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:32</td><td>实盘PUT</td><td>2</td><td>8.96</td><td>701.88</td><td>09:33</td><td>8.89</td><td>701.04</td><td style="color:#e5484d;font-weight:bold">-$14</td><td style="color:#e5484d">-0.8%</td><td style="color:#1a9e54">+$153</td><td style="color:#1a9e54">+8.5%</td></tr><tr><td>2</td><td>09:33</td><td>实盘CALL</td><td>3</td><td>7.03</td><td>701.04</td><td>09:34</td><td>6.83</td><td>699.82</td><td style="color:#e5484d;font-weight:bold">-$60</td><td style="color:#e5484d">-2.8%</td><td style="color:#e5484d">-$244</td><td style="color:#e5484d">-11.6%</td></tr><tr style="background:#f2f2f2;font-weight:bold"><td colspan="9">合计</td><td>-$74</td><td></td><td>-$92</td><td></td></tr></table></div><div style="font-size:11px;color:#888;margin-top:4px">实际=FIFO按成交配对(买→卖),与Alpaca一致;操作名取最近15分钟内同向信号,无则标实盘;预估=Gamma公式ROI×期权成本(实盘按实际成本,回放按$100k基准),单笔floor -100%;ST单按30分钟切段复利,QQE单整单一段;开/平SPY=成交时刻最接近1m bar收盘价;(浮)=未实现</div><div style="font-size:11px;color:#888;">Alpaca实际成交: 4笔, 最新09:34:03</div></div>
+<script>
+function toggleSeries(name){
+  var c = window._waveChart;
+  if(!c) return;
+  c.dispatchAction({type:'legendToggleSelect', name:name});
+  var id = name==='3mK线'?'tg3mk':(name==='1m曲线'?'tg1m':(name==='9mK线'?'tg9mk':(name==='QQE'?'tg3mq':'tg9mq')));
+  var b = document.getElementById(id);
+  if(b){ b.style.opacity = (b.style.opacity==='0.35'?'1':'0.35'); }
+}
+// (5 series toggle buttons removed per user request 2026-10-24)
+</script>
+
+<div style="padding:0 46px;font-size:11px;color:#666;">
+<div>热度0-15</div>
+<div style="display:flex;height:14px;border-radius:4px;overflow:hidden;margin:4px 0 2px 0;">
+<div style="flex:1;background:#2196F3;"></div>
+<div style="flex:1;background:#03A9F4;"></div>
+<div style="flex:1;background:#FFC107;"></div>
+<div style="flex:1;background:#FF9800;"></div>
+<div style="flex:1;background:#F57C00;"></div>
+<div style="flex:1;background:#E65100;"></div>
+<div style="flex:1;background:#BF360C;"></div>
+<div style="flex:1;background:#B71C1C;"></div>
+</div><div style="display:flex;justify-content:space-between;"><span>0</span><span>15</span></div>
+</div>
+<script>
+const QQE_PINS = [];
+const QQE_SPINS = [];
+const QQE_SCAT = [];
+const QQE_MARKAREA = [];
+const QQE_ACTS = {"09:30": []};
+const VH_SCAT = [];
+const VH_SEG = [];
+const VH_MARKAREA = [];
+const VH_MARKLINE = [];
+const VH_ACTS = {};
+const CE_PINS = [];
+const CE_SPINS = [];
+const CE_SCAT = [];
+const CE_MARKAREA = [];
+const CE_ACTS = {};
+const CE_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">CE版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交</div>";
+const CE_BS = [];
+const ENVELOPE_SETS = {champion: {PINS: [], SPINS: [], SCAT_1M: [], MARKAREA_1M: [], INNER: "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">Envelope版信号单（WER终栈⑪ · Gamma理论预估，-100口径）</div><div style=\"font-size:12px;color:#555;margin-bottom:6px\">WER 冠军版（终栈⑪）：ER 段＋F3S 段内管理 · dose/ramp/brk5 · ER腿止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · 引擎信号根收盘口径</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div>", ACTS: {}, TIP: {"09:30": {"o": 703.15, "h": 703.15, "l": 702.72, "c": 702.72, "up": 715.76, "mid": 714.91, "lo": 714.06, "why": ""}, "09:31": {"o": 702.52, "h": 702.52, "l": 700.96, "c": 700.96, "up": 712.46, "mid": 711.36, "lo": 710.25, "why": ""}, "09:32": {"o": 701.06, "h": 701.88, "l": 701.06, "c": 701.88, "up": 709.59, "mid": 708.46, "lo": 707.32, "why": ""}, "09:33": {"o": 701.88, "h": 701.88, "l": 701.04, "c": 701.04, "up": 707.07, "mid": 705.92, "lo": 704.77, "why": ""}, "09:34": {"o": 701.12, "h": 701.12, "l": 699.82, "c": 699.82, "up": 704.92, "mid": 703.71, "lo": 702.5, "why": ""}}, TITLE: "2026-11-25 (Envelope版) | 下跳15.8点 | +$0 (+0.0%)", TITLEE: "2026-11-25 ({envelope|Envelope}版) | {dn|下跳15.8点} | {pnl_pos|+$0 (+0.0%)}", SLOPE_DYE: [[0.0, null], [0.3333, null], [0.6667, null], [1.0, null], [1.3333, null]], QF1M: [], WER: {"wer": [0.7508, 0.8172, 0.7888, 0.8398, 0.8745], "eff": [0.602, 0.589, 0.596, 0.57, 0.574], "areas": [], "entries": [], "exits": []}, WTITLE: "WER · WER冠军/反手+QQE 共用（引擎口径）"}, f1: {PINS: [], SPINS: [], SCAT_1M: [], MARKAREA_1M: [], INNER: "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">Envelope版信号单（反手+QQE · Gamma理论预估，-100口径）</div><div style=\"font-size:12px;color:#555;margin-bottom:6px\">反手+QQE：WER 本体＋F1 止损反手（p=0.25 · 反手止损 2.5×ATR）＋ER 段/F3S 段内管理 · QQE 衰减翻仓转向（确认根砍 sf 反手仓、反向接棒：信号圈橙边＋主图深蓝/深紫箭头） · dose/ramp/brk5 · 本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · 引擎信号根收盘口径</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div>", ACTS: {}, TIP: {"09:30": {"o": 703.15, "h": 703.15, "l": 702.72, "c": 702.72, "up": 715.76, "mid": 714.91, "lo": 714.06, "why": ""}, "09:31": {"o": 702.52, "h": 702.52, "l": 700.96, "c": 700.96, "up": 712.46, "mid": 711.36, "lo": 710.25, "why": ""}, "09:32": {"o": 701.06, "h": 701.88, "l": 701.06, "c": 701.88, "up": 709.59, "mid": 708.46, "lo": 707.32, "why": ""}, "09:33": {"o": 701.88, "h": 701.88, "l": 701.04, "c": 701.04, "up": 707.07, "mid": 705.92, "lo": 704.77, "why": ""}, "09:34": {"o": 701.12, "h": 701.12, "l": 699.82, "c": 699.82, "up": 704.92, "mid": 703.71, "lo": 702.5, "why": ""}}, TITLE: "2026-11-25 (Envelope版) | 下跳15.8点 | +$0 (+0.0%)", TITLEE: "2026-11-25 ({envelope|Envelope}版) | {dn|下跳15.8点} | {pnl_pos|+$0 (+0.0%)}", SLOPE_DYE: [[0.0, null], [0.3333, null], [0.6667, null], [1.0, null], [1.3333, null]], QF1M: [], WER: {"wer": [0.7508, 0.8172, 0.7888, 0.8398, 0.8745], "eff": [0.602, 0.589, 0.596, 0.57, 0.574], "areas": [], "entries": [], "exits": []}, WTITLE: "WER · WER冠军/反手+QQE 共用（引擎口径）"}, imb: {PINS: [], SPINS: [], SCAT_1M: [], MARKAREA_1M: [], INNER: "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">Envelope版信号单（WER失衡版 · Gamma理论预估，-100口径）</div><div style=\"font-size:12px;color:#555;margin-bottom:6px\">WER失衡版：WER 窗口 8＋失衡段（重心/价格突破）内门槛降 0.2 · 电平触发 · 09:35 起进段 · 段内 QQE 条件版（跟随/衰减翻仓/回补/长波回补/快速通道） · 塌陷只平 40% · 大根门事前 ATR 5 · QQE 单 99×ATR 止损 · 本体止损 0.7875×ATR · WER段内 1m 曲线天蓝染色 · 引擎信号根收盘口径</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div>", ACTS: {}, TIP: {"09:30": {"o": 703.15, "h": 703.15, "l": 702.72, "c": 702.72, "up": 715.76, "mid": 714.91, "lo": 714.06, "why": ""}, "09:31": {"o": 702.52, "h": 702.52, "l": 700.96, "c": 700.96, "up": 712.46, "mid": 711.36, "lo": 710.25, "why": ""}, "09:32": {"o": 701.06, "h": 701.88, "l": 701.06, "c": 701.88, "up": 709.59, "mid": 708.46, "lo": 707.32, "why": ""}, "09:33": {"o": 701.88, "h": 701.88, "l": 701.04, "c": 701.04, "up": 707.07, "mid": 705.92, "lo": 704.77, "why": ""}, "09:34": {"o": 701.12, "h": 701.12, "l": 699.82, "c": 699.82, "up": 704.92, "mid": 703.71, "lo": 702.5, "why": ""}}, TITLE: "2026-11-25 (Envelope版) | 下跳15.8点 | +$0 (+0.0%)", TITLEE: "2026-11-25 ({envelope|Envelope}版) | {dn|下跳15.8点} | {pnl_pos|+$0 (+0.0%)}", SLOPE_DYE: [[0.0, null], [0.3333, null], [0.6667, null], [1.0, null], [1.3333, null]], QF1M: [], WER: {"wer": [0.8663, 0.9129, 0.8286, 0.8474, 0.9056], "eff": [0.423, 0.4, 0.417, 0.412, 0.4], "areas": [], "entries": [], "exits": []}, WTITLE: "WER · WER失衡版（窗口 8 · 引擎口径）"}};
+var ENVELOPE_PINS = ENVELOPE_SETS.champion.PINS;
+var ENVELOPE_SPINS = ENVELOPE_SETS.champion.SPINS;
+var ENVELOPE_SCAT_1M = ENVELOPE_SETS.champion.SCAT_1M;
+var ENVELOPE_MARKAREA_1M = ENVELOPE_SETS.champion.MARKAREA_1M;
+var ENVELOPE_INNER = ENVELOPE_SETS.champion.INNER;
+var ENVELOPE_ACTS = ENVELOPE_SETS.champion.ACTS;
+var ENVELOPE_TIP = ENVELOPE_SETS.champion.TIP;
+var ENVELOPE_SLOPE_DYE = ENVELOPE_SETS.champion.SLOPE_DYE;
+var ENVELOPE_QF1M = ENVELOPE_SETS.champion.QF1M;
+const ENVELOPE_TITLE = ENVELOPE_SETS.champion.TITLE;
+const ENVELOPE_TITLEE = ENVELOPE_SETS.champion.TITLEE;
+const ENVELOPE_TIMES1M = ["09:30", "09:31", "09:32", "09:33", "09:34", "09:35", "09:36", "09:37", "09:38", "09:39", "09:40", "09:41", "09:42", "09:43", "09:44", "09:45", "09:46", "09:47", "09:48", "09:49", "09:50", "09:51", "09:52", "09:53", "09:54", "09:55", "09:56", "09:57", "09:58", "09:59", "10:00", "10:01", "10:02", "10:03", "10:04", "10:05", "10:06", "10:07", "10:08", "10:09", "10:10", "10:11", "10:12", "10:13", "10:14", "10:15", "10:16", "10:17", "10:18", "10:19", "10:20", "10:21", "10:22", "10:23", "10:24", "10:25", "10:26", "10:27", "10:28", "10:29", "10:30", "10:31", "10:32", "10:33", "10:34", "10:35", "10:36", "10:37", "10:38", "10:39", "10:40", "10:41", "10:42", "10:43", "10:44", "10:45", "10:46", "10:47", "10:48", "10:49", "10:50", "10:51", "10:52", "10:53", "10:54", "10:55", "10:56", "10:57", "10:58", "10:59", "11:00", "11:01", "11:02", "11:03", "11:04", "11:05", "11:06", "11:07", "11:08", "11:09", "11:10", "11:11", "11:12", "11:13", "11:14", "11:15", "11:16", "11:17", "11:18", "11:19", "11:20", "11:21", "11:22", "11:23", "11:24", "11:25", "11:26", "11:27", "11:28", "11:29", "11:30", "11:31", "11:32", "11:33", "11:34", "11:35", "11:36", "11:37", "11:38", "11:39", "11:40", "11:41", "11:42", "11:43", "11:44", "11:45", "11:46", "11:47", "11:48", "11:49", "11:50", "11:51", "11:52", "11:53", "11:54", "11:55", "11:56", "11:57", "11:58", "11:59", "12:00", "12:01", "12:02", "12:03", "12:04", "12:05", "12:06", "12:07", "12:08", "12:09", "12:10", "12:11", "12:12", "12:13", "12:14", "12:15", "12:16", "12:17", "12:18", "12:19", "12:20", "12:21", "12:22", "12:23", "12:24", "12:25", "12:26", "12:27", "12:28", "12:29", "12:30", "12:31", "12:32", "12:33", "12:34", "12:35", "12:36", "12:37", "12:38", "12:39", "12:40", "12:41", "12:42", "12:43", "12:44", "12:45", "12:46", "12:47", "12:48", "12:49", "12:50", "12:51", "12:52", "12:53", "12:54", "12:55", "12:56", "12:57", "12:58", "12:59", "13:00", "13:01", "13:02", "13:03", "13:04", "13:05", "13:06", "13:07", "13:08", "13:09", "13:10", "13:11", "13:12", "13:13", "13:14", "13:15", "13:16", "13:17", "13:18", "13:19", "13:20", "13:21", "13:22", "13:23", "13:24", "13:25", "13:26", "13:27", "13:28", "13:29", "13:30", "13:31", "13:32", "13:33", "13:34", "13:35", "13:36", "13:37", "13:38", "13:39", "13:40", "13:41", "13:42", "13:43", "13:44", "13:45", "13:46", "13:47", "13:48", "13:49", "13:50", "13:51", "13:52", "13:53", "13:54", "13:55", "13:56", "13:57", "13:58", "13:59", "14:00", "14:01", "14:02", "14:03", "14:04", "14:05", "14:06", "14:07", "14:08", "14:09", "14:10", "14:11", "14:12", "14:13", "14:14", "14:15", "14:16", "14:17", "14:18", "14:19", "14:20", "14:21", "14:22", "14:23", "14:24", "14:25", "14:26", "14:27", "14:28", "14:29", "14:30", "14:31", "14:32", "14:33", "14:34", "14:35", "14:36", "14:37", "14:38", "14:39", "14:40", "14:41", "14:42", "14:43", "14:44", "14:45", "14:46", "14:47", "14:48", "14:49", "14:50", "14:51", "14:52", "14:53", "14:54", "14:55", "14:56", "14:57", "14:58", "14:59", "15:00", "15:01", "15:02", "15:03", "15:04", "15:05", "15:06", "15:07", "15:08", "15:09", "15:10", "15:11", "15:12", "15:13", "15:14", "15:15", "15:16", "15:17", "15:18", "15:19", "15:20", "15:21", "15:22", "15:23", "15:24", "15:25", "15:26", "15:27", "15:28", "15:29", "15:30", "15:31", "15:32", "15:33", "15:34", "15:35", "15:36", "15:37", "15:38", "15:39", "15:40", "15:41", "15:42", "15:43", "15:44", "15:45", "15:46", "15:47", "15:48", "15:49", "15:50", "15:51", "15:52", "15:53", "15:54", "15:55", "15:56", "15:57", "15:58", "15:59"];
+const ENVELOPE_UPPER_1M = [715.76, 712.46, 709.59, 707.07, 704.92];
+const ENVELOPE_LOWER_1M = [714.06, 710.25, 707.32, 704.77, 702.5];
+const ENVELOPE_CHANMID_1M = [714.91, 711.36, 708.46, 705.92, 703.71];
+const ENVELOPE_MID_1M = [715.26, 711.81, 708.92, 706.39, 704.2];
+const ENVELOPE_TREND_SEGS = [];
+const STVX_PINS = [];
+const STVX_SPINS = [];
+const STVX_SCAT = [];
+const STVX_MARKAREA = [];
+const STVX_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">ST VX版信号单（Gamma理论预估，v2罚后口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI(v2逆势put罚后)×$100k日内sequential复利；ST VX=年龄滑梯+slope5压带(分时K:10:30前0.5/起0.15)+止损只在翻仓根查(固定窗3根)+大跳空日10:00前不开仓+双侧上午门控(≥55%/≤-30%→13:30-15:00只平不开、15:00状态恢复)；非实际成交</div>";
+const STVX_ACTS = {};
+const STVX_UPPER = [709.94];
+const STVX_UPPER_F = [null];
+const STVX_LOWER = [null];
+const STVX_LOWER_F = [716.34];
+const STVX_MAINUP = [709.94];
+const STVX_MAINUP_F = [null];
+const STVX_MAINDN = [null];
+const STVX_MAINDN_F = [716.34];
+const STVX_MAINFILL = [["09:30", 709.94, 701.88, "09:33", 708.77, 699.82, -1], ["09:33", 708.77, 699.82, "09:33", 708.77, 699.82, -1]];
+const STVX_MAINFLIPS = [{"value": ["09:30", 709.94], "itemStyle": {"color": "#f23645"}, "label": {"formatter": "Sell", "position": "top", "backgroundColor": "#f23645", "color": "#fff", "borderRadius": 4, "padding": [3, 6], "fontSize": 12}}];
+const HAMA_PINS = [{"coord": ["09:32", -30.1], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "顺势凑齐"}, {"coord": ["09:33", -35.0], "value": "平P", "itemStyle": {"color": "#9ca3af"}, "rs": "背景破"}];
+const HAMA_SPINS = [{"coord": ["09:32", 701.88], "value": "开P", "itemStyle": {"color": "#ff0000"}, "rs": "顺势凑齐"}, {"coord": ["09:33", 701.04], "value": "平P", "itemStyle": {"color": "#9ca3af"}, "rs": "背景破"}];
+const HAMA_SCAT = [{"value":["09:34",703.40],"lbl":"+24.0%","label":{"color":THEME.tradeLabelColor(24.018059999999846)}}];
+const HAMA_MARKAREA = [[{xAxis:'09:33',itemStyle:{color:THEME.pnlBgColorST(24.02)}},{xAxis:'09:34'}]];
+const HAMA_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">Hama版信号单（SSL×HAMA×QQE，30%杠杆真0DTE口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr><td>1</td><td>09:33</td><td>开Put</td><td>—</td><td>—</td><td>701.88</td><td>09:34</td><td>—</td><td>701.12</td><td style=\"color:#888888;font-weight:bold\">—</td><td style=\"color:#888888\">—</td><td style=\"color:#1a9e54\">~+$24,018</td><td style=\"color:#1a9e54\">~+24.0%</td></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$24,020</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=30%杠杆真0DTE公式ROI×$100k/笔、合计逐笔相加（非复利）；背景=SSL 1m+HAMA 1m/3m 与 QQE 同色即进场，衰减反转 REV、逆势单 CTR（蓝边圈），出场 DECAY/D4/HB/FLIP/BG，午间斜率门，FOMC 日不做；非实际成交</div>";
+const HAMA_ACTS = {"09:32": ["开put@701.88 顺势凑齐"], "09:33": ["平put@701.12 背景破"]};
+const HAMA_TIP = {"09:30": {"o": 703.15, "c": 702.72, "qqe": -7.7, "col": "红", "bgx": "SSL <span style='color:#f23645'><b>空头</b></span> · HAMA1m <span style='color:#d97706'>黄色</span> · HAMA3m <span style='color:#00b300'><b>多头</b></span><br/>背景 <span style='color:#888'>不满足多空</span>", "why": ""}, "09:31": {"o": 702.52, "c": 700.96, "qqe": -19.6, "col": "红", "bgx": "SSL <span style='color:#f23645'><b>空头</b></span> · HAMA1m <span style='color:#ff4020'><b>空头</b></span> · HAMA3m <span style='color:#00b300'><b>多头</b></span><br/>背景 <span style='color:#888'>不满足多空</span>", "why": ""}, "09:32": {"o": 701.06, "c": 701.88, "qqe": -25.7, "col": "红", "bgx": "SSL <span style='color:#f23645'><b>空头</b></span> · HAMA1m <span style='color:#ff0000'><b>空头</b></span> · HAMA3m <span style='color:#d97706'>黄色</span><br/>背景 <span style='color:#dc2626'><b>满足空头</b></span>", "why": "开put@701.88 顺势凑齐"}, "09:33": {"o": 701.88, "c": 701.04, "qqe": -30.0, "col": "红", "bgx": "SSL <span style='color:#f23645'><b>空头</b></span> · HAMA1m <span style='color:#ff0000'><b>空头</b></span> · HAMA3m <span style='color:#d97706'>黄色</span><br/>背景 <span style='color:#dc2626'><b>满足空头</b></span>", "why": "平put@701.12 背景破"}, "09:34": {"o": 701.12, "c": 699.82, "qqe": -33.2, "col": "红", "bgx": "SSL <span style='color:#f23645'><b>空头</b></span> · HAMA1m <span style='color:#ff0000'><b>空头</b></span> · HAMA3m <span style='color:#d97706'>黄色</span><br/>背景 <span style='color:#dc2626'><b>满足空头</b></span>", "why": ""}};
+const HAMA_TIMES1M = ["09:30", "09:31", "09:32", "09:33", "09:34", "09:35", "09:36", "09:37", "09:38", "09:39", "09:40", "09:41", "09:42", "09:43", "09:44", "09:45", "09:46", "09:47", "09:48", "09:49", "09:50", "09:51", "09:52", "09:53", "09:54", "09:55", "09:56", "09:57", "09:58", "09:59", "10:00", "10:01", "10:02", "10:03", "10:04", "10:05", "10:06", "10:07", "10:08", "10:09", "10:10", "10:11", "10:12", "10:13", "10:14", "10:15", "10:16", "10:17", "10:18", "10:19", "10:20", "10:21", "10:22", "10:23", "10:24", "10:25", "10:26", "10:27", "10:28", "10:29", "10:30", "10:31", "10:32", "10:33", "10:34", "10:35", "10:36", "10:37", "10:38", "10:39", "10:40", "10:41", "10:42", "10:43", "10:44", "10:45", "10:46", "10:47", "10:48", "10:49", "10:50", "10:51", "10:52", "10:53", "10:54", "10:55", "10:56", "10:57", "10:58", "10:59", "11:00", "11:01", "11:02", "11:03", "11:04", "11:05", "11:06", "11:07", "11:08", "11:09", "11:10", "11:11", "11:12", "11:13", "11:14", "11:15", "11:16", "11:17", "11:18", "11:19", "11:20", "11:21", "11:22", "11:23", "11:24", "11:25", "11:26", "11:27", "11:28", "11:29", "11:30", "11:31", "11:32", "11:33", "11:34", "11:35", "11:36", "11:37", "11:38", "11:39", "11:40", "11:41", "11:42", "11:43", "11:44", "11:45", "11:46", "11:47", "11:48", "11:49", "11:50", "11:51", "11:52", "11:53", "11:54", "11:55", "11:56", "11:57", "11:58", "11:59", "12:00", "12:01", "12:02", "12:03", "12:04", "12:05", "12:06", "12:07", "12:08", "12:09", "12:10", "12:11", "12:12", "12:13", "12:14", "12:15", "12:16", "12:17", "12:18", "12:19", "12:20", "12:21", "12:22", "12:23", "12:24", "12:25", "12:26", "12:27", "12:28", "12:29", "12:30", "12:31", "12:32", "12:33", "12:34", "12:35", "12:36", "12:37", "12:38", "12:39", "12:40", "12:41", "12:42", "12:43", "12:44", "12:45", "12:46", "12:47", "12:48", "12:49", "12:50", "12:51", "12:52", "12:53", "12:54", "12:55", "12:56", "12:57", "12:58", "12:59", "13:00", "13:01", "13:02", "13:03", "13:04", "13:05", "13:06", "13:07", "13:08", "13:09", "13:10", "13:11", "13:12", "13:13", "13:14", "13:15", "13:16", "13:17", "13:18", "13:19", "13:20", "13:21", "13:22", "13:23", "13:24", "13:25", "13:26", "13:27", "13:28", "13:29", "13:30", "13:31", "13:32", "13:33", "13:34", "13:35", "13:36", "13:37", "13:38", "13:39", "13:40", "13:41", "13:42", "13:43", "13:44", "13:45", "13:46", "13:47", "13:48", "13:49", "13:50", "13:51", "13:52", "13:53", "13:54", "13:55", "13:56", "13:57", "13:58", "13:59", "14:00", "14:01", "14:02", "14:03", "14:04", "14:05", "14:06", "14:07", "14:08", "14:09", "14:10", "14:11", "14:12", "14:13", "14:14", "14:15", "14:16", "14:17", "14:18", "14:19", "14:20", "14:21", "14:22", "14:23", "14:24", "14:25", "14:26", "14:27", "14:28", "14:29", "14:30", "14:31", "14:32", "14:33", "14:34", "14:35", "14:36", "14:37", "14:38", "14:39", "14:40", "14:41", "14:42", "14:43", "14:44", "14:45", "14:46", "14:47", "14:48", "14:49", "14:50", "14:51", "14:52", "14:53", "14:54", "14:55", "14:56", "14:57", "14:58", "14:59", "15:00", "15:01", "15:02", "15:03", "15:04", "15:05", "15:06", "15:07", "15:08", "15:09", "15:10", "15:11", "15:12", "15:13", "15:14", "15:15", "15:16", "15:17", "15:18", "15:19", "15:20", "15:21", "15:22", "15:23", "15:24", "15:25", "15:26", "15:27", "15:28", "15:29", "15:30", "15:31", "15:32", "15:33", "15:34", "15:35", "15:36", "15:37", "15:38", "15:39", "15:40", "15:41", "15:42", "15:43", "15:44", "15:45", "15:46", "15:47", "15:48", "15:49", "15:50", "15:51", "15:52", "15:53", "15:54", "15:55", "15:56", "15:57", "15:58", "15:59"];
+const HAMA_OHLC = [[703.155, 702.72, 702.09, 703.31], [702.52, 700.96, 700.36, 702.55], [701.06, 701.88, 700.85, 701.925], [701.88, 701.04, 700.83, 701.885], [701.125, 699.82, 699.82, 701.14], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null], [null, null, null, null]];
+const HAMA_QQE = [{"value": -7.68, "itemStyle": {"color": "#dc2626"}}, {"value": -19.64, "itemStyle": {"color": "#dc2626"}}, {"value": -25.7, "itemStyle": {"color": "#dc2626"}}, {"value": -30.0, "itemStyle": {"color": "#dc2626"}}, {"value": -33.24, "itemStyle": {"color": "#dc2626"}}, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+const HAMA_LINE_SEGS = [{"name": "SSL", "w": 1.6, "c": "#f23645", "d": [717.9, 717.81, 717.72, 717.63, 717.53, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "SSL", "w": 1.6, "c": "#f23645", "d": [717.52, 717.43, 717.33, 717.24, 717.14, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "HAMA", "w": 2.6, "c": "#facc15", "d": [716.65, 716.11, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "HAMA", "w": 2.6, "c": "#ff8c42", "d": [null, 716.11, 715.58, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "HAMA", "w": 2.6, "c": "#ff4020", "d": [null, null, 715.58, 715.06, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "HAMA", "w": 2.6, "c": "#ff0000", "d": [null, null, null, 715.06, 714.51, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "HAMA3", "w": 1.6, "c": "#00b300", "d": [717.21, 717.21, 716.65, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}, {"name": "HAMA3", "w": 1.6, "c": "#facc15", "d": [null, null, 716.65, 716.65, 716.65, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]}];
+const HAMA_SSL_FILLS = [{"b": [717.52, 717.43, 717.33, 717.24, 717.14, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "d": [0.38, 0.38, 0.39, 0.39, 0.39, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "c": "rgba(242,54,69,0.10)"}];
+var ENVELOPE_WER = {"wer": [0.7508, 0.8172, 0.7888, 0.8398, 0.8745], "eff": [0.602, 0.589, 0.596, 0.57, 0.574], "areas": [], "entries": [], "exits": []};
+const ENVELOPE_SLPDEV = {"slope": [-0.0192, -0.0725, -0.0777, -0.1116, -0.1804], "dev": [null, null, null, null, null], "th": {"up": 0.05, "dn": 0.07, "dev": 0.079}};
+const ENVELOPE_QQE1M = {"hist": [-7.68, -19.64, -25.7, -30.0, -33.24, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "col": ["#e5484d", "#e5484d", "#e5484d", "#e5484d", "#e5484d", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]};
+(function(){
+if (typeof THEME === 'undefined' || !THEME.tooltipFormatter || THEME._envTipWrapped) return;
+var _origEnvTip = THEME.tooltipFormatter;
+THEME._envTipWrapped = true;
+THEME.tooltipFormatter = function(ps, barInfo) {
+try {
+if (typeof curVer3 !== 'undefined' && curVer3 === 'envelope' && typeof ENVELOPE_TIP !== 'undefined') {
+var t = ps[0].axisValue;
+var e = ENVELOPE_TIP[t];
+if (e) {
+var s = '<b>' + t + '</b><br/>开' + e.o + ' 收' + e.c;
+s += '<br/><span style=\'color:' + THEME.envelope.upper + '\'>上' + e.up + '</span> <span style=\'color:#b58900\'>中' + e.mid + '</span> <span style=\'color:' + THEME.envelope.lower + '\'>下' + e.lo + '</span>';
+if (e.why) s += '<br/>' + e.why;
+else s += '<br/><span style=\'color:#888\'>无Envelope动作</span>';
+return s;
+}
+}
+if (typeof curVer3 !== 'undefined' && curVer3 === 'hama' && typeof HAMA_TIP !== 'undefined') {
+var t2 = ps[0].axisValue;
+var h = HAMA_TIP[t2];
+if (h) {
+var qc2 = {'蓝': '#2563eb', '红': '#dc2626', '灰': '#9ca3af'}[h.col] || '#9ca3af';
+var s2 = '<b>' + t2 + '</b><br/>开' + h.o + ' 收' + h.c;
+s2 += '<br/>QQE <span style=\'color:' + qc2 + '\'><b>' + h.qqe + '</b></span>（' + h.col + '）';
+if (h.bgx) s2 += '<br/>' + h.bgx;
+if (h.why) s2 += '<br/>' + h.why;
+else s2 += '<br/><span style=\'color:#888\'>无Hama动作</span>';
+return s2;
+}
+}
+} catch (err) {}
+return _origEnvTip(ps, barInfo);
+};
+})();
+const TITLES3 = {live: "实盘dashboard 2026-11-25 | 今日 -$74 (-0.8%) | 持仓:实盘:空仓 | k3clean L25", vh: "2026-11-25 (ST版) | 下跳15.8点 | 全天ST | +$0 (+0.0%)", qqe: "2026-11-25 (QQE版) | 下跳15.8点 | 全天QQE | +$0 (+0.0%)", ce: "2026-11-25 (CE版) | 下跳15.8点 | 全天CE | +$0 (+0.0%)", envelope: "2026-11-25 (Envelope版) | 下跳15.8点 | +$0 (+0.0%)", stvx: "2026-11-25 (ST VX版) | 下跳15.8点 | 全天ST VX | +$0 (+0.0%)", hama: "2026-11-25 (Hama版) | 下跳15.8点 | 全天Hama | +$24,020 (+24.0%)"};
+const TITLES3E = {vh: "2026-11-25 ({st|ST}版) | {dn|下跳15.8点} | 全天{st|ST} | {pnl_pos|+$0 (+0.0%)}", qqe: "2026-11-25 ({qqe|QQE}版) | {dn|下跳15.8点} | 全天{qqe|QQE} | {pnl_pos|+$0 (+0.0%)}", ce: "2026-11-25 ({ce|CE}版) | {dn|下跳15.8点} | 全天{ce|CE} | {pnl_pos|+$0 (+0.0%)}", envelope: "2026-11-25 ({envelope|Envelope}版) | {dn|下跳15.8点} | {pnl_pos|+$0 (+0.0%)}", stvx: "2026-11-25 ({stvx|ST VX}版) | {dn|下跳15.8点} | 全天{stvx|ST VX} | {pnl_pos|+$0 (+0.0%)}", hama: "2026-11-25 ({hama|hama}版) | {dn|下跳15.8点} | 全天{hama|hama} | {pnl_pos|+$24,020 (+24.0%)}"};
+const RICH3 = {dn:{color:'#e5484d',fontWeight:'bold',fontSize:18},up:{color:'#2e9e5b',fontWeight:'bold',fontSize:18},flat:{color:'#e5484d',fontWeight:'bold'},st:{color:'#00a0a0',fontWeight:'bold'},qqe:{color:'#2b7fff',fontWeight:'bold'},ce:{color:'#e5484d',fontWeight:'bold'},envelope:{color:'#2563eb',fontWeight:'bold'},stvx:{color:'#00a0a0',fontWeight:'bold'},hama:{color:'#7c3aed',fontWeight:'bold'},pnl_pos:{color:'#1a9e54'},pnl_neg:{color:'#e5484d'}};
+const VH_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">ST VH版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利；ST单按30分钟切段理论预估（段标签为理论切段预估，非实际成交），QQE单整单一段；非实际成交</div>";
+const QQE_INNER = "<div style=\"font-size:14px;font-weight:bold;margin-bottom:6px\">QQE版信号单（Gamma理论预估，-100口径）</div><div style=\"overflow-x:auto\"><table border=\"1\" cellspacing=\"0\" cellpadding=\"6\" style=\"border-collapse:collapse;font-size:12px;width:100%;text-align:center;white-space:nowrap\"><tr style=\"background:#f2f2f2\"><th>#</th><th>开仓</th><th>操作</th><th>张数</th><th>开均价</th><th>开SPY</th><th>平仓</th><th>平均价</th><th>平SPY</th><th>实际收益</th><th>实际收益率</th><th>预估收益</th><th>预估收益率</th></tr><tr style=\"background:#f2f2f2;font-weight:bold\"><td colspan=\"9\">合计</td><td>—</td><td></td><td>~+$0</td><td></td></tr></table></div><div style=\"font-size:11px;color:#888;margin-top:4px\">预估=Gamma公式ROI×$100k日内sequential复利，单笔floor -100%；非实际成交</div>";
+var LIVE_INNER = (function(){var tw=document.getElementById('tblWrap');return tw?tw.innerHTML:'';})();
+var curVer3 = 'live';
+var QQE_DEF_DATA = null; var K3_DEF_DATA = null;
+(function(){ try { var _o0 = ch.getOption(); if (_o0 && _o0.series) { for (var _si0 = 0; _si0 < _o0.series.length; _si0++) { if (_o0.series[_si0].name === 'QQE' && QQE_DEF_DATA === null) QQE_DEF_DATA = _o0.series[_si0].data; if (_o0.series[_si0].name === '3mK线' && K3_DEF_DATA === null) K3_DEF_DATA = _o0.series[_si0].data; } } } catch(e) {} })();
+window._fitChartH = function(){ var host = document.getElementById('c'); if (!host) return; var docTop = host.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop || 0); var fitH = window.innerHeight - docTop - 4; if (fitH < 380) fitH = 380; host.style.height = fitH + 'px'; if (typeof ch !== 'undefined' && ch) ch.resize(); };
+window.addEventListener('resize', function(){ if (curVer3 !== 'envelope' && window._fitChartH) window._fitChartH(); });
+function switchVersion3(v){
+  curVer3 = v;
+  try { localStorage.setItem('waveVer3', v); } catch(e) {}
+  var isLive = (v === 'live');
+  var isVH = (v === 'vh');
+  var useVH = isLive || isVH;
+  var isCE = (v === 'ce');
+  var isENVELOPE = (v === 'envelope');
+  var isSTVX = (v === 'stvx');
+  var isHAMA = (v === 'hama');
+  var pinsData = isHAMA ? HAMA_PINS : (isENVELOPE ? ENVELOPE_PINS : (isCE ? CE_PINS : (isSTVX ? STVX_PINS : (useVH ? pins : QQE_PINS))));
+  var spinsData = isHAMA ? HAMA_SPINS : (isENVELOPE ? ENVELOPE_SPINS : (isCE ? CE_SPINS : (isSTVX ? STVX_SPINS : (useVH ? spins : QQE_SPINS))));
+  var scatData = isHAMA ? HAMA_SCAT : (isENVELOPE ? ENVELOPE_SCAT_1M : (isCE ? CE_SCAT : (isSTVX ? STVX_SCAT : (useVH ? VH_SCAT : QQE_SCAT))));
+  var scatFS = (isCE || useVH) ? 11 : 8;
+  if (typeof THEME !== 'undefined' && THEME.applyColors) { THEME.applyColors(spinsData); THEME.applyColors(pinsData); }
+  if (typeof THEME !== 'undefined' && THEME.applyPinEdges) { THEME.applyPinEdges(spinsData); THEME.applyPinEdges(pinsData); }
+  ch.setOption({
+    title: {text: isLive ? TITLES3.live : (isHAMA ? TITLES3E.hama : (isENVELOPE ? TITLES3E.envelope : (isCE ? TITLES3E.ce : (isSTVX ? TITLES3E.stvx : (isVH ? TITLES3E.vh : TITLES3E.qqe))))), left: 'center', textStyle: {fontSize: 14, rich: RICH3}},
+    series: [
+      {name: '1m曲线', xAxisIndex: isHAMA ? 0 : 3, data: isHAMA ? [] : line1m, lineStyle: {color: isENVELOPE ? '#1e40af' : '#4da6ff', width: isENVELOPE ? 2 : 1.2, opacity: isENVELOPE ? 1 : 0.55}, markPoint: {data: spinsData}},
+      {id: 'env-trend-seg-0', name: 'WER段染色', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {color: '#38bdf8', width: 3}, z: 6, data: isENVELOPE ? ENVELOPE_SLOPE_DYE : []},
+      {id: 'env-trend-seg-1', name: '1m趋势段1', type: 'line', xAxisIndex: 3, yAxisIndex: 0, symbol: 'none', showSymbol: false, lineStyle: {color: THEME.envelope.trendDown, width: THEME.envelope.trendWidth}, data: []},
+      {name: 'QQE', data: isHAMA ? HAMA_QQE : (QQE_DEF_DATA ? QQE_DEF_DATA : undefined), markPoint: {data: pinsData}},
+      {name: '每单盈亏', data: scatData, label: {show: isENVELOPE ? false : true, opacity: 1, fontSize: scatFS, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, markArea: {silent: true, data: isENVELOPE ? ENVELOPE_MARKAREA_1M : []}},
+      {name: '3mK线', data: isHAMA ? [] : (K3_DEF_DATA ? K3_DEF_DATA : undefined), markArea: {silent: true, data: (isENVELOPE || isHAMA) ? [] : (isCE ? CE_MARKAREA : (isSTVX ? STVX_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},
+      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},
+      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},
+      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : []},
+      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : []},
+      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : []},
+      {id: 'env-mid', name: 'Envelope均线', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.mid, width: 2}, data: isENVELOPE ? ENVELOPE_MID_1M : []},
+      {id: 'stvx-upper', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_UPPER : []},
+      {id: 'stvx-upper-f', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.3}, z: 4, data: isSTVX ? STVX_UPPER_F : []},
+      {id: 'stvx-lower', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.9}, z: 4, data: isSTVX ? STVX_LOWER : []},
+      {id: 'stvx-lower-f', name: '影子主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#9333ea', width: 1.2, type: [6, 4], opacity: 0.3}, z: 4, data: isSTVX ? STVX_LOWER_F : []},
+      {name: '成交点', data: (isENVELOPE || isSTVX || isHAMA) ? [] : filldots},
+      {id: 'stvx-mainfill', name: '主轨', type: 'custom', silent: true, z: 1, xAxisIndex: 0, yAxisIndex: 0, renderItem: function(params, api){ var v=api.value(0), v1=api.value(1), v2=api.value(2), v3=api.value(3), v4=api.value(4), v5=api.value(5), tr=api.value(6); if (v===v3) return null; var p1=api.coord([v,v1]), p2=api.coord([v3,v4]), p3=api.coord([v3,v5]), p4=api.coord([v,v2]); return {type: 'polygon', shape: {points: [p1,p2,p3,p4]}, style: {fill: tr===1 ? 'rgba(8,153,129,0.12)' : 'rgba(242,54,69,0.12)', stroke: null}}; }, data: isSTVX ? STVX_MAINFILL : []},
+      {id: 'stvx-mainup', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2}, z: 5, data: isSTVX ? STVX_MAINUP : []},
+      {id: 'stvx-mainup-f', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#f23645', width: 2, opacity: 0.3}, z: 5, data: isSTVX ? STVX_MAINUP_F : []},
+      {id: 'stvx-maindn', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2}, z: 5, data: isSTVX ? STVX_MAINDN : []},
+      {id: 'stvx-maindn-f', name: '主轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: '#089981', width: 2, opacity: 0.3}, z: 5, data: isSTVX ? STVX_MAINDN_F : []},
+      {id: 'stvx-mainflips', name: '主轨', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, z: 6, label: {show: true, fontSize: 12}, data: isSTVX ? STVX_MAINFLIPS : []},
+      {id: 'hama-kline', name: '1mK线', type: 'candlestick', xAxisIndex: 0, yAxisIndex: 0, itemStyle: {color: '#1a9e54', color0: '#e5484d', borderColor: '#1a9e54', borderColor0: '#e5484d'}, data: isHAMA ? HAMA_OHLC : [], markArea: {silent: true, data: isHAMA ? HAMA_MARKAREA : []}},
+      {id: 'hama-ls-0', name: HAMA_LINE_SEGS[0].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[0].w, color: HAMA_LINE_SEGS[0].c}, itemStyle: {color: HAMA_LINE_SEGS[0].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[0].d : []},
+      {id: 'hama-ls-1', name: HAMA_LINE_SEGS[1].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[1].w, color: HAMA_LINE_SEGS[1].c}, itemStyle: {color: HAMA_LINE_SEGS[1].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[1].d : []},
+      {id: 'hama-ls-2', name: HAMA_LINE_SEGS[2].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[2].w, color: HAMA_LINE_SEGS[2].c}, itemStyle: {color: HAMA_LINE_SEGS[2].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[2].d : []},
+      {id: 'hama-ls-3', name: HAMA_LINE_SEGS[3].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[3].w, color: HAMA_LINE_SEGS[3].c}, itemStyle: {color: HAMA_LINE_SEGS[3].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[3].d : []},
+      {id: 'hama-ls-4', name: HAMA_LINE_SEGS[4].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[4].w, color: HAMA_LINE_SEGS[4].c}, itemStyle: {color: HAMA_LINE_SEGS[4].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[4].d : []},
+      {id: 'hama-ls-5', name: HAMA_LINE_SEGS[5].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[5].w, color: HAMA_LINE_SEGS[5].c}, itemStyle: {color: HAMA_LINE_SEGS[5].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[5].d : []},
+      {id: 'hama-ls-6', name: HAMA_LINE_SEGS[6].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[6].w, color: HAMA_LINE_SEGS[6].c}, itemStyle: {color: HAMA_LINE_SEGS[6].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[6].d : []},
+      {id: 'hama-ls-7', name: HAMA_LINE_SEGS[7].name, type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: HAMA_LINE_SEGS[7].w, color: HAMA_LINE_SEGS[7].c}, itemStyle: {color: HAMA_LINE_SEGS[7].c}, z: 5, data: isHAMA ? HAMA_LINE_SEGS[7].d : []},
+      {id: 'hama-sslf-b-0', name: 'SSL', type: 'line', stack: 'hamaSsl0', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: 0}, data: isHAMA ? HAMA_SSL_FILLS[0].b : []},
+      {id: 'hama-sslf-d-0', name: 'SSL', type: 'line', stack: 'hamaSsl0', xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', showSymbol: false, silent: true, lineStyle: {width: 0}, areaStyle: {color: HAMA_SSL_FILLS[0].c}, data: isHAMA ? HAMA_SSL_FILLS[0].d : []},
+    ], legend: {selected: {'cumslope': false, 'slope5': false, 'st快版': false, 'st慢版': (isENVELOPE || isSTVX || isHAMA) ? false : true, '9mK线': (isENVELOPE || isHAMA) ? false : true, '9m QQE': (isENVELOPE || isHAMA) ? false : true, '3mK线': (isENVELOPE || isHAMA) ? false : true, 'QQE': isENVELOPE ? false : true, '80%衰减线': (isENVELOPE || isHAMA) ? false : true, '翻仓线': (isENVELOPE || isHAMA) ? false : true, '回补门槛': (isENVELOPE || isHAMA) ? false : true}}, xAxis: [{data: isHAMA ? HAMA_TIMES1M : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isHAMA ? HAMA_TIMES1M : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {show: isENVELOPE ? false : true, axisPointer: {label: {show: isENVELOPE ? false : true}}, data: isHAMA ? HAMA_TIMES1M : (isENVELOPE ? ENVELOPE_TIMES1M : times)}, {type: isHAMA ? 'category' : 'value', data: isHAMA ? HAMA_TIMES1M : undefined, min: isHAMA ? null : (isENVELOPE ? -1/6 : -0.5), max: isHAMA ? null : (isENVELOPE ? 779/6 : 129.5)}], yAxis: [{min: isENVELOPE ? 698.82 : null, max: isENVELOPE ? 703.72 : 703.77}, {show: isENVELOPE ? false : true}], grid: [{height: isENVELOPE ? '88%' : ('38%')}, {height: isENVELOPE ? '0%' : '42%'}]
+  });
+  try { ch.setOption({dataZoom: [{}, {show: !isENVELOPE}]}); } catch(e) {}
+  try {
+    var _lo2 = ch.getOption();
+    var _ld2 = (_lo2 && _lo2.legend && _lo2.legend[0] && _lo2.legend[0].data) ? _lo2.legend[0].data.slice() : null;
+    if (_ld2) {
+      var _hasL2 = function(n){ for (var i=0;i<_ld2.length;i++){ var d=_ld2[i]; if ((typeof d==='string' ? d : d.name)===n) return true; } return false; };
+      var _chgL2 = false;
+      if (!_hasL2('主轨')) { _ld2.push({name: '主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('影子主轨')) { _ld2.push({name: '影子主轨', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%239333ea%22 stroke-width=%222%22 stroke-dasharray=%224,2%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('HAMA')) { _ld2.push({name: 'HAMA', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%232fbf2f%22 stroke-width=%223%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('HAMA3')) { _ld2.push({name: 'HAMA3', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%2366d95e%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('SSL')) { _ld2.push({name: 'SSL', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2212%22 y2=%226%22 stroke=%22%23089981%22 stroke-width=%222%22/><line x1=%2212%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%23f23645%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }
+      if (!_hasL2('1mK线')) { _ld2.push({name: '1mK线', icon: 'image://data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2224%22 height=%2212%22><line x1=%220%22 y1=%226%22 x2=%2224%22 y2=%226%22 stroke=%22%231a9e54%22 stroke-width=%222%22/></svg>'}); _chgL2 = true; }
+      if (!window._LEG_ALL) window._LEG_ALL = _ld2.slice();
+      var _lt = isHAMA ? window._LEG_ALL.filter(function(d){ var n = (typeof d==='string' ? d : d.name); return ['1mK线','1m曲线','QQE','HAMA','HAMA3','SSL'].indexOf(n) >= 0; }) : window._LEG_ALL;
+      if (_lt.length !== _ld2.length || _chgL2) ch.setOption({legend: {data: _lt}});
+    }
+  } catch(e) {}
+  var _chHost = document.getElementById('c');
+  if (_chHost) { if (isENVELOPE) { _chHost.style.height = ''; if (typeof ch !== 'undefined' && ch) ch.resize(); } else if (window._fitChartH) { window._fitChartH(); } }
+  var tw = document.getElementById('tblWrap');
+  if (tw) { tw.innerHTML = isLive ? LIVE_INNER : (isHAMA ? HAMA_INNER : (isENVELOPE ? ENVELOPE_INNER : (isCE ? CE_INNER : (isSTVX ? STVX_INNER : (isVH ? VH_INNER : QQE_INNER))))); }
+  if (window._werSync) window._werSync(isENVELOPE);
+  var actsData = isHAMA ? HAMA_ACTS : (isENVELOPE ? ENVELOPE_ACTS : (isCE ? CE_ACTS : (isSTVX ? STVX_ACTS : (useVH ? VH_ACTS : QQE_ACTS))));
+  for (var t in barInfo) { barInfo[t].acts = actsData[t] || []; }
+  document.title = TITLES3[v];
+  if (window._verBtns3) { window._verBtns3.forEach(function(b){ var on = (b.dataset.ver === v); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; }); }
+  var _emw = document.getElementById('envModeWrap'); if (_emw) _emw.style.display = isENVELOPE ? '' : 'none';
+}
+window._envMode = 'champion';
+window.switchEnvMode = function(m){
+  var S = ENVELOPE_SETS[m]; if (!S) return;
+  window._envMode = m;
+  try { localStorage.setItem('waveEnvMode', m); } catch(e) {}
+  ENVELOPE_PINS = S.PINS; ENVELOPE_SPINS = S.SPINS; ENVELOPE_SCAT_1M = S.SCAT_1M; ENVELOPE_MARKAREA_1M = S.MARKAREA_1M; ENVELOPE_INNER = S.INNER; ENVELOPE_ACTS = S.ACTS; ENVELOPE_TIP = S.TIP; ENVELOPE_SLOPE_DYE = S.SLOPE_DYE; ENVELOPE_QF1M = S.QF1M || [];
+  if (S.WER) { ENVELOPE_WER = S.WER; window._envWerTitle = S.WTITLE; if (window._werRefresh) window._werRefresh(); }
+  TITLES3.envelope = S.TITLE; TITLES3E.envelope = S.TITLEE;
+  if (window._qqeRefresh) window._qqeRefresh();
+  if (window._envModeBtns) window._envModeBtns.forEach(function(b){ var on = (b.dataset.envmode === m); b.style.background = on ? '#2b7fff' : '#fff'; b.style.borderColor = on ? '#2b7fff' : '#ccc'; b.style.color = on ? '#fff' : '#333'; });
+  if (typeof curVer3 !== 'undefined' && curVer3 === 'envelope') switchVersion3('envelope');
+};
+(function(){
+  var sel = document.getElementById('daypick');
+  if (!sel) return;
+  var wrap = document.createElement('span');
+  [['live','实盘版'],['vh','ST VH版'],['qqe','QQE版'],['ce','CE版'],['envelope','Envelope版'],['stvx','ST VX版'],['hama','Hama']].forEach(function(it){
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = it[1]; b.dataset.ver = it[0];
+    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';
+    b.style.borderRadius = '10px'; b.style.border = '1px solid #ccc'; b.style.background = '#fff';
+    b.style.color = '#333'; b.style.cursor = 'pointer';
+    b.onclick = function(){ switchVersion3(it[0]); };
+    wrap.appendChild(b);
+  });
+  sel.parentNode.insertBefore(wrap, sel.nextSibling);
+  window._verBtns3 = wrap.querySelectorAll('button');
+  var emw = document.createElement('span');
+  emw.id = 'envModeWrap'; emw.style.display = 'none';
+  [['champion','WER冠军'],['f1','反手+QQE'],['imb','WER失衡版']].forEach(function(it){
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = it[1]; b.dataset.envmode = it[0];
+    b.style.fontSize = '13px'; b.style.padding = '2px 8px'; b.style.marginLeft = '6px';
+    b.style.borderRadius = '10px'; b.style.border = '1px solid #ccc'; b.style.cursor = 'pointer';
+    var on0 = (it[0] === 'champion'); b.style.background = on0 ? '#2b7fff' : '#fff'; b.style.borderColor = on0 ? '#2b7fff' : '#ccc'; b.style.color = on0 ? '#fff' : '#333';
+    b.onclick = function(){ switchEnvMode(it[0]); };
+    emw.appendChild(b);
+  });
+  wrap.appendChild(emw);
+  window._envModeBtns = emw.querySelectorAll('button');
+  var _savedEnvMode = null; try { _savedEnvMode = localStorage.getItem('waveEnvMode'); } catch(e) {}
+  if (_savedEnvMode && _savedEnvMode !== 'champion' && typeof ENVELOPE_SETS !== 'undefined' && ENVELOPE_SETS[_savedEnvMode]) switchEnvMode(_savedEnvMode);
+  if (!sel.querySelector('option[value="summary.html"]')) { var so = document.createElement('option'); so.value = 'summary.html'; so.textContent = '📊 回测版本总览'; sel.insertBefore(so, sel.options[0]); }
+  if (!sel.querySelector('option[value="compound.html"]')) { var co = document.createElement('option'); co.value = 'compound.html'; co.textContent = '🧮 复利模拟'; sel.insertBefore(co, sel.options[0]); }
+})();
+(function(){
+  var host = document.getElementById('c');
+  if (!host || typeof ENVELOPE_WER === 'undefined' || !ENVELOPE_WER.wer.length) return;
+  var wrap = document.createElement('div');
+  wrap.id = 'werPanel';
+  wrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';
+  wrap.innerHTML = '<div id="werTitle" style="font-size:13px;font-weight:bold;margin:2px 0 0">WER · WER冠军/反手+QQE 共用（引擎口径）</div><div id="werCh" style="width:100%;height:150px"></div>';
+  host.parentNode.insertBefore(wrap, host.nextSibling);
+  var werCh = null, werBound = false, werBoundMain = null, werZoomLock = false, werTipLock = false, werMainSIdx = -1;
+  var qqeCh = null, qqeBound = false, qqeBoundMain = null, qwrap = null;
+  if (typeof ENVELOPE_QQE1M !== 'undefined' && ENVELOPE_QQE1M.hist && ENVELOPE_QQE1M.hist.length) {
+    qwrap = document.createElement('div');
+    qwrap.id = 'qqePanel';
+    qwrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';
+    qwrap.innerHTML = '<div style=\"font-size:13px;font-weight:bold;margin:2px 0 0\">QQE · 1m（QQE MOD 口径）</div><div id=\"qqe1mCh\" style=\"width:100%;height:150px\"></div>';
+    host.parentNode.insertBefore(qwrap, wrap);
+  }
+  var slpCh = null, slpBound = false, slpBoundMain = null, swrap = null;
+  if (typeof ENVELOPE_SLPDEV !== 'undefined' && ENVELOPE_SLPDEV.slope && ENVELOPE_SLPDEV.slope.length) {
+    swrap = document.createElement('div');
+    swrap.id = 'slpPanel';
+    swrap.style.cssText = 'max-width:1150px;margin:0 auto;padding:0 8px;display:none';
+    swrap.innerHTML = '<div style="font-size:13px;font-weight:bold;margin:2px 0 0">slope / dev · 阈值（引擎口径）</div><div id="slpCh" style="width:100%;height:150px"></div>';
+    wrap.parentNode.insertBefore(swrap, wrap.nextSibling);
+  }
+  var evIn = {}, evOut = {};
+  ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; });
+  ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; });
+  function qqeOpt(){
+    var Q = ENVELOPE_QQE1M;
+    var data = Q.hist.map(function(v, i){ return v == null ? null : {value: v, itemStyle: {color: Q.col[i]}}; });
+    var qfByIdx = {}; (typeof ENVELOPE_QF1M !== 'undefined' ? ENVELOPE_QF1M : []).forEach(function(m){ qfByIdx[m[0]] = m[1]; });
+    var QFE = (typeof THEME !== 'undefined' && THEME.pinEdge && THEME.pinEdge.qf) ? THEME.pinEdge.qf : {edge: '#ff8c00', opacity: 0.8};
+    var qfPts = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; if (Q.hist[idx] == null) return null; var lab = d > 0 ? '翻c' : '翻p'; return {coord: [ENVELOPE_TIMES1M[idx], Q.hist[idx]], value: lab, label: {show: true, formatter: lab, color: '#fff', fontSize: 7, fontWeight: 'bold'}, itemStyle: {color: d > 0 ? '#00cc00' : '#ff0000', borderColor: QFE.edge, borderWidth: 2, opacity: QFE.opacity}}; }).filter(function(p){ return p; });
+    var QFA_PATH = 'path://M50 2 L98 48 L66 48 L66 98 L34 98 L34 48 L2 48 Z';
+    var QFA_OFF = 9;
+    var qfArrows = Object.keys(qfByIdx).map(function(k){ var idx = Number(k), d = qfByIdx[k]; var h = Q.hist[idx]; if (h == null) return null; var y = h >= 0 ? h + QFA_OFF : h - QFA_OFF; return {coord: [ENVELOPE_TIMES1M[idx], y], value: d > 0 ? 'qfFlipC' : 'qfFlipP', symbol: QFA_PATH, symbolSize: 20, symbolRotate: d > 0 ? 0 : 180, label: {show: false}, itemStyle: {color: d > 0 ? '#0e7490' : '#b91c1c', opacity: 1}}; }).filter(function(p){ return p; });
+    var qfPtsAll = qfPts.concat(qfArrows);
+    var ST = {'#2f80ed': 'QQE Up（真蓝）', '#e5484d': 'QQE Down（真红）', '#b0b0b0': '中性（|hist|>3 无主信号确认）', '#e0e0e0': '|hist| ≤ 3'};
+    return {animation: false,
+      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || Q.hist[idx] == null) return ''; var h = t + '<br/>QQE(1m) = <b>' + Number(Q.hist[idx]).toFixed(2) + '</b><br/>' + (ST[Q.col[idx]] || ''); if (qfByIdx[idx]) h += '<br/><b style="color:#ff8c00">QQE转向' + (qfByIdx[idx] > 0 ? '买入' : '卖出') + '</b>（确认根）'; return h; }},
+      grid: {left: 40, right: 12, top: 12, bottom: 24},
+      dataZoom: [{type: 'inside', xAxisIndex: 0}],
+      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},
+      yAxis: {type: 'value', axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},
+      series: [
+        {name: 'QQE', type: 'bar', data: data, barWidth: '60%', markPoint: {symbol: 'circle', symbolSize: 13, label: {show: true, color: '#fff', fontSize: 7, fontWeight: 'bold'}, data: qfPtsAll}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 3, label: {formatter: '+3'}}, {yAxis: -3, label: {formatter: '-3'}}, {yAxis: 0, lineStyle: {color: '#d1d5db', type: 'solid'}, label: {show: false}}]}}
+      ]};
+  }
+  function werOpt(){
+    var areas = ENVELOPE_WER.areas.map(function(a){ return [{xAxis: ENVELOPE_TIMES1M[a[0]], itemStyle: {color: a[2] > 0 ? 'rgba(26,158,84,0.10)' : 'rgba(229,72,77,0.10)'}}, {xAxis: ENVELOPE_TIMES1M[a[1]]}]; });
+    var pts = ENVELOPE_WER.entries.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#7c3aed', borderColor: '#fff', borderWidth: 1.5}}; })
+      .concat(ENVELOPE_WER.exits.map(function(e){ return {coord: [ENVELOPE_TIMES1M[e[0]], e[1]], itemStyle: {color: '#6b7280', borderColor: '#fff', borderWidth: 1.5}}; }));
+    return {animation: false,
+      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0 || ENVELOPE_WER.wer[idx] == null) return ''; var h = t + '<br/>WER = <b>' + Number(ENVELOPE_WER.wer[idx]).toFixed(4) + '</b><br/>有效门槛 eff_to = <b>' + Number(ENVELOPE_WER.eff[idx]).toFixed(3) + '</b>'; if (evIn[t]) h += '<br/><b style="color:#7c3aed">段入场</b>（' + (evIn[t] > 0 ? '上行' : '下行') + '）'; if (evOut[t]) h += '<br/><b style="color:#6b7280">段出场</b>'; return h; }},
+      grid: {left: 40, right: 12, top: 12, bottom: 24},
+      dataZoom: [{type: 'inside', xAxisIndex: 0}],
+      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},
+      yAxis: {type: 'value', min: 0, max: 1.25, name: 'WER', nameTextStyle: {fontSize: 11, color: '#7c3aed'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},
+      series: [
+        {name: 'WER', type: 'line', data: ENVELOPE_WER.wer, showSymbol: false, lineStyle: {width: 1.8, color: '#7c3aed'}, itemStyle: {color: '#7c3aed'}, markLine: {silent: true, symbol: 'none', lineStyle: {color: '#9ca3af', type: 'dashed', width: 1}, label: {color: '#9ca3af', fontSize: 10, position: 'insideEndTop'}, data: [{yAxis: 0.675, label: {formatter: '0.675'}}, {yAxis: 0.5, label: {formatter: '0.50'}}, {yAxis: 0.3, label: {formatter: '0.30'}}]}, markArea: {silent: true, data: areas}, markPoint: {symbol: 'circle', symbolSize: 8, label: {show: false}, data: pts}},
+        {name: '有效门槛', type: 'line', data: ENVELOPE_WER.eff, showSymbol: false, step: 'end', lineStyle: {width: 1.5, color: '#f97316', type: 'dashed'}, itemStyle: {color: '#f97316'}}
+      ]};
+  }
+  function slpOpt(){
+    var S = ENVELOPE_SLPDEV;
+    var TD = (typeof THEME !== 'undefined' && THEME.slpdev) ? THEME.slpdev : {colSlope: '#38bdf8', colDev: '#ff6700', colBoth: '#c026d3', areaAlpha: 0.12, yMax: 0.35, thUp: 0.05, thDn: 0.07, thDev: 0.079, slopeLine: '#2563eb', slopeLineWidth: 2, slopeLineType: 'dashed', devLineWidth: 1.5, devLineType: 'dotted', zeroLine: '#d1d5db'};
+    var TH = {up: TD.thUp, dn: TD.thDn, dev: TD.thDev};
+    var mx = TD.yMax;
+    function s3(v){ return v == null ? '—' : (v >= 0 ? '+' : '') + Number(v).toFixed(3); }
+    function relTxt(v, thPos, thNeg){
+      if (v == null) return '';
+      if (v >= 0) return v >= thPos ? ' ≥ +' + thPos.toFixed(3) + ' 已达标' : ' < +' + thPos.toFixed(3) + ' 未达';
+      return v <= thNeg ? ' ≤ ' + thNeg.toFixed(3) + ' 已达标' : ' > ' + thNeg.toFixed(3) + ' 未达';
+    }
+    function rgba(hex, a){ var n = parseInt(hex.slice(1), 16); return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
+    // 过阈值区间背景染色 (user 2026-11-17 17:32 令, 取代 17:01 的打点):
+    // 每根按 slope 过阈 / dev 过阈分类 (1=slope、2=dev、3=双过), 连续
+    // 同类根合并成一段 markArea, 背景染对应 theme 色 (TD.col*) +
+    // TD.areaAlpha 低透明; 单根段向后延一根保宽度 (末根向前延),
+    // 免零宽看不见。
+    var AREA_COL = {1: rgba(TD.colSlope, TD.areaAlpha), 2: rgba(TD.colDev, TD.areaAlpha), 3: rgba(TD.colBoth, TD.areaAlpha)};
+    var areas = [], cls = [];
+    for (var i = 0; i < S.slope.length; i++) {
+      var sv2 = S.slope[i], dv2 = S.dev[i];
+      var sHit = sv2 != null && (sv2 >= TH.up || sv2 <= -TH.dn);
+      var dHit = dv2 != null && (dv2 >= TH.dev || dv2 <= -TH.dev);
+      cls.push(sHit ? (dHit ? 3 : 1) : (dHit ? 2 : 0));
+    }
+    for (var j = 0; j < cls.length; j++) {
+      if (!cls[j]) continue;
+      var k = j;
+      while (k + 1 < cls.length && cls[k + 1] === cls[j]) k++;
+      var s2 = j, e2 = k;
+      if (k === j) { if (k + 1 < cls.length) e2 = k + 1; else if (j > 0) s2 = j - 1; }
+      areas.push([{xAxis: ENVELOPE_TIMES1M[s2], itemStyle: {color: AREA_COL[cls[j]]}}, {xAxis: ENVELOPE_TIMES1M[e2]}]);
+      j = k;
+    }
+    return {animation: false,
+      tooltip: {trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.85)', textStyle: {color: '#333', fontSize: 12}, axisPointer: {type: 'line', lineStyle: {color: '#999', type: 'dashed', width: 1}}, formatter: function(ps){ if(!ps || !ps.length) return ''; var t = ps[0].axisValue; var idx = ENVELOPE_TIMES1M.indexOf(t); if (idx < 0) return ''; var sv = S.slope[idx], dv = S.dev[idx]; if (sv == null && dv == null) return ''; return t + '<br/><span style="color:' + TD.slopeLine + '">slope7 = <b>' + s3(sv) + '</b>' + relTxt(sv, TH.up, -TH.dn) + '</span><br/><span style="color:' + TD.colDev + '">dev = <b>' + s3(dv) + '</b>' + relTxt(dv, TH.dev, -TH.dev) + '</span>'; }},
+      grid: {left: 40, right: 12, top: 12, bottom: 24},
+      dataZoom: [{type: 'inside', xAxisIndex: 0}],
+      xAxis: {type: 'category', data: ENVELOPE_TIMES1M, boundaryGap: false, axisLabel: {fontSize: 10}},
+      yAxis: {type: 'value', min: -mx, max: mx, name: 'slope / dev', nameTextStyle: {fontSize: 11, color: '#374151'}, axisLabel: {fontSize: 10}, splitLine: {lineStyle: {color: '#eef1f4'}}},
+      series: [
+        {name: 'slope7', type: 'line', data: S.slope, showSymbol: false, lineStyle: {width: TD.slopeLineWidth, color: TD.slopeLine}, itemStyle: {color: TD.slopeLine}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.up, lineStyle: {color: TD.slopeLine, type: TD.slopeLineType, width: 1}, label: {formatter: 'slope +' + TH.up.toFixed(3), color: TD.slopeLine, fontSize: 10, position: 'insideEndTop'}}, {yAxis: -TH.dn, lineStyle: {color: TD.slopeLine, type: TD.slopeLineType, width: 1}, label: {formatter: 'slope −' + TH.dn.toFixed(3), color: TD.slopeLine, fontSize: 10, position: 'insideEndTop'}}, {yAxis: 0, lineStyle: {color: TD.zeroLine, type: 'solid', width: 1}, label: {show: false}}]}, markArea: {silent: true, label: {show: false}, data: areas}},
+        {name: 'dev', type: 'line', data: S.dev, showSymbol: false, lineStyle: {width: TD.devLineWidth, color: TD.colDev}, itemStyle: {color: TD.colDev}, markLine: {silent: true, symbol: 'none', data: [{yAxis: TH.dev, lineStyle: {color: TD.colDev, type: TD.devLineType, width: 1}, label: {formatter: 'dev +' + TH.dev.toFixed(3), color: TD.colDev, fontSize: 10, position: 'insideStartTop'}}, {yAxis: -TH.dev, lineStyle: {color: TD.colDev, type: TD.devLineType, width: 1}, label: {formatter: 'dev −' + TH.dev.toFixed(3), color: TD.colDev, fontSize: 10, position: 'insideStartTop'}}]}}
+      ]};
+  }
+  // 手动同步主图<->WER面板 (2026-11-11: 弃 echarts.connect —— 悬停 showTip 带 escapeConnect 设计上不转发,
+  // 且 connect 转发的 updateAxisPointer 靠源图样本 seriesIndex+dataIndex 在对侧反解, 主图 series0 仅130点, 索引>=130 必失效)
+  function werMain(){
+    try {
+      var m = (typeof ch !== 'undefined' && ch) ? ch : (window.ch || null);
+      if (!m || (m.isDisposed && m.isDisposed())) return null;
+      return m;
+    } catch(e) { return null; }
+  }
+  function werFindMainSIdx(){
+    var main = werMain();
+    werMainSIdx = -1;
+    if (!main) return;
+    try {
+      var ss = main.getOption().series || [];
+      var i;
+      for (i = 0; i < ss.length; i++) { if (ss[i].id === 'env-upper') { werMainSIdx = i; return; } }
+      for (i = 0; i < ss.length; i++) {
+        if (ss[i].type === 'line' && (ss[i].xAxisIndex || 0) === 0 && ss[i].data && ss[i].data.length === ENVELOPE_TIMES1M.length) { werMainSIdx = i; return; }
+      }
+    } catch(e) {}
+  }
+  function werTipIdx(ev, fromMain){
+    if (!ev) return -1;
+    if (ev.axesInfo) {
+      for (var i = 0; i < ev.axesInfo.length; i++) {
+        var ai = ev.axesInfo[i];
+        if (ai.axisDim === 'x' && ai.axisIndex === 0 && ai.value != null) {
+          var v = (typeof ai.value === 'number') ? ai.value : ENVELOPE_TIMES1M.indexOf(ai.value);
+          if (v >= 0 && v < ENVELOPE_TIMES1M.length) return v;
+        }
+      }
+    }
+    if (!fromMain && typeof ev.dataIndex === 'number' && ev.dataIndex >= 0 && ev.dataIndex < ENVELOPE_TIMES1M.length) return ev.dataIndex;
+    return -1;
+  }
+  function werShowTip(dst, sIdx, idx){
+    if (werTipLock || sIdx < 0) return;
+    werTipLock = true;
+    try { dst.dispatchAction({type: 'showTip', seriesIndex: sIdx, dataIndex: idx}); } catch(e) {}
+    werTipLock = false;
+  }
+  function werHideTip(dst){
+    if (werTipLock) return;
+    werTipLock = true;
+    try { dst.dispatchAction({type: 'updateAxisPointer', currTrigger: 'leave'}); } catch(e) {}
+    try { dst.dispatchAction({type: 'hideTip'}); } catch(e) {}
+    werTipLock = false;
+  }
+  function werZoomTo(dst, ev){
+    if (werZoomLock) return;
+    var z = (ev && ev.batch && ev.batch.length) ? ev.batch[0] : ev;
+    if (!z) return;
+    werZoomLock = true;
+    try {
+      if (z.start != null && z.end != null) dst.dispatchAction({type: 'dataZoom', start: z.start, end: z.end});
+      else if (z.startValue != null && z.endValue != null) dst.dispatchAction({type: 'dataZoom', startValue: z.startValue, endValue: z.endValue});
+    } catch(e) {}
+    werZoomLock = false;
+  }
+  function werBind(){
+    if (!werCh || typeof echarts === 'undefined') return;
+    var main = werMain();
+    if (!main) return;
+    werFindMainSIdx();
+    if (werBound && werBoundMain === main) return;
+    werBound = true;
+    werBoundMain = main;
+    main.on('datazoom', function(ev){ if (wrap.style.display !== 'none') werZoomTo(werCh, ev); });
+    werCh.on('datazoom', function(ev){ werZoomTo(main, ev); });
+    main.on('updateAxisPointer', function(ev){
+      if (wrap.style.display === 'none') return;
+      var idx = werTipIdx(ev, true);
+      if (idx >= 0) werShowTip(werCh, 0, idx); else werHideTip(werCh);
+    });
+    werCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) { if (werMainSIdx >= 0) werShowTip(main, werMainSIdx, idx); } else werHideTip(main);
+    });
+    main.on('globalout', function(){ werHideTip(werCh); });
+    werCh.on('globalout', function(){ werHideTip(main); });
+    main.on('mouseout', function(){ werHideTip(werCh); });
+    werCh.on('mouseout', function(){ werHideTip(main); });
+  }
+  function werSyncZoom(){
+    var main = werMain();
+    if (!main) return;
+    try {
+      var dz = (main.getOption().dataZoom || [])[0];
+      if (dz && dz.start != null && dz.end != null && (dz.start > 0 || dz.end < 100)) {
+        werZoomLock = true;
+        if (werCh) werCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});
+        if (qqeCh) qqeCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});
+        if (slpCh) slpCh.dispatchAction({type: 'dataZoom', start: dz.start, end: dz.end});
+        werZoomLock = false;
+      }
+    } catch(e) { werZoomLock = false; }
+  }
+  // slope/dev 图与主图/WER 图三方联动: 与 werBind 同套手动同步
+  // (datazoom 转发 + updateAxisPointer->showTip, 共用防环锁)。
+  function werBindSlp(){
+    if (!slpCh || typeof echarts === 'undefined') return;
+    var main = werMain();
+    if (!main) return;
+    if (werMainSIdx < 0) werFindMainSIdx();
+    if (slpBound && slpBoundMain === main) return;
+    slpBound = true;
+    slpBoundMain = main;
+    main.on('datazoom', function(ev){ if (swrap.style.display !== 'none') werZoomTo(slpCh, ev); });
+    slpCh.on('datazoom', function(ev){ werZoomTo(main, ev); if (werCh) werZoomTo(werCh, ev); });
+    if (werCh) werCh.on('datazoom', function(ev){ werZoomTo(slpCh, ev); });
+    main.on('updateAxisPointer', function(ev){
+      if (swrap.style.display === 'none') return;
+      var idx = werTipIdx(ev, true);
+      if (idx >= 0) werShowTip(slpCh, 0, idx); else werHideTip(slpCh);
+    });
+    slpCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) { if (werMainSIdx >= 0) werShowTip(main, werMainSIdx, idx); if (werCh) werShowTip(werCh, 0, idx); } else { werHideTip(main); if (werCh) werHideTip(werCh); }
+    });
+    if (werCh) werCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) werShowTip(slpCh, 0, idx); else werHideTip(slpCh);
+    });
+    main.on('globalout', function(){ werHideTip(slpCh); });
+    slpCh.on('globalout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); });
+    main.on('mouseout', function(){ werHideTip(slpCh); });
+    slpCh.on('mouseout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); });
+    if (werCh) werCh.on('globalout', function(){ werHideTip(slpCh); });
+    if (werCh) werCh.on('mouseout', function(){ werHideTip(slpCh); });
+  }
+  // 1m QQE 图与主图/WER/slope 图四方联动: 与 werBindSlp 同套
+  // 手动同步 (datazoom 转发 + updateAxisPointer->showTip)。
+  function werBindQqe(){
+    if (!qqeCh || typeof echarts === 'undefined') return;
+    var main = werMain();
+    if (!main) return;
+    if (werMainSIdx < 0) werFindMainSIdx();
+    if (qqeBound && qqeBoundMain === main) return;
+    qqeBound = true;
+    qqeBoundMain = main;
+    main.on('datazoom', function(ev){ if (qwrap.style.display !== 'none') werZoomTo(qqeCh, ev); });
+    qqeCh.on('datazoom', function(ev){ werZoomTo(main, ev); if (werCh) werZoomTo(werCh, ev); if (slpCh) werZoomTo(slpCh, ev); });
+    if (werCh) werCh.on('datazoom', function(ev){ werZoomTo(qqeCh, ev); });
+    if (slpCh) slpCh.on('datazoom', function(ev){ werZoomTo(qqeCh, ev); });
+    main.on('updateAxisPointer', function(ev){
+      if (qwrap.style.display === 'none') return;
+      var idx = werTipIdx(ev, true);
+      if (idx >= 0) werShowTip(qqeCh, 0, idx); else werHideTip(qqeCh);
+    });
+    qqeCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) { if (werMainSIdx >= 0) werShowTip(main, werMainSIdx, idx); if (werCh) werShowTip(werCh, 0, idx); if (slpCh) werShowTip(slpCh, 0, idx); } else { werHideTip(main); if (werCh) werHideTip(werCh); if (slpCh) werHideTip(slpCh); }
+    });
+    if (werCh) werCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) werShowTip(qqeCh, 0, idx); else werHideTip(qqeCh);
+    });
+    if (slpCh) slpCh.on('updateAxisPointer', function(ev){
+      var idx = werTipIdx(ev, false);
+      if (idx >= 0) werShowTip(qqeCh, 0, idx); else werHideTip(qqeCh);
+    });
+    main.on('globalout', function(){ werHideTip(qqeCh); });
+    qqeCh.on('globalout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); if (slpCh) werHideTip(slpCh); });
+    main.on('mouseout', function(){ werHideTip(qqeCh); });
+    qqeCh.on('mouseout', function(){ werHideTip(main); if (werCh) werHideTip(werCh); if (slpCh) werHideTip(slpCh); });
+    if (werCh) werCh.on('globalout', function(){ werHideTip(qqeCh); });
+    if (werCh) werCh.on('mouseout', function(){ werHideTip(qqeCh); });
+    if (slpCh) slpCh.on('globalout', function(){ werHideTip(qqeCh); });
+    if (slpCh) slpCh.on('mouseout', function(){ werHideTip(qqeCh); });
+  }
+  window._qqeRefresh = function(){ if (qqeCh) qqeCh.setOption(qqeOpt()); };
+  window._werRefresh = function(){ var _t = document.getElementById('werTitle'); if (_t && window._envWerTitle) _t.textContent = window._envWerTitle; evIn = {}; evOut = {}; ENVELOPE_WER.entries.forEach(function(e){ evIn[ENVELOPE_TIMES1M[e[0]]] = e[2]; }); ENVELOPE_WER.exits.forEach(function(e){ evOut[ENVELOPE_TIMES1M[e[0]]] = 1; }); if (werCh) werCh.setOption(werOpt()); };
+  window._werSync = function(show){
+    wrap.style.display = show ? 'block' : 'none';
+    if (qwrap) qwrap.style.display = show ? 'block' : 'none';
+    if (swrap) swrap.style.display = show ? 'block' : 'none';
+    if (show) { if (!werCh) { werCh = echarts.init(document.getElementById('werCh')); werCh.setOption(werOpt()); } else { werCh.resize(); } werBind(); if (swrap) { if (!slpCh) { slpCh = echarts.init(document.getElementById('slpCh')); slpCh.setOption(slpOpt()); } else { slpCh.resize(); } werBindSlp(); } if (qwrap) { if (!qqeCh) { qqeCh = echarts.init(document.getElementById('qqe1mCh')); qqeCh.setOption(qqeOpt()); } else { qqeCh.resize(); } werBindQqe(); } werSyncZoom(); }
+  };
+})();
+switchVersion3((function(){ var _v = null; try { _v = localStorage.getItem('waveVer3'); } catch(e) {} return ['live','vh','qqe','ce','envelope','stvx','hama'].indexOf(_v) >= 0 ? _v : 'live'; })());
+</script></body></html>
