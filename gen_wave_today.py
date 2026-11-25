@@ -3415,11 +3415,19 @@ def main():
             hama_ohlc = hama_ohlc + [[None, None, None, None]] * (390 - _hn)
             hama_qqe = hama_qqe + [None] * (390 - _hn)
         _RSN_CN = {"DECAY": "衰减出场", "DECAYF": "衰减加速出场",
+                   "CTRX": "逆势衰减出场",
                    "D4": "连减4根出场", "GREY": "QQE转灰",
                    "FLIP": "新波反向", "HB": "回补门槛平仓", "BG": "背景破",
                    "SL": "止损", "EOD": "日终平仓"}
         _SRC_CN = {"STD": "顺势凑齐", "REV": "衰减反转·等确认",
-                   "REVF": "衰减反转·加速"}
+                   "REVF": "衰减反转·加速", "HB": "回补进场"}
+
+        def _src_cn(_t):
+            # 逆势单按子路分标签 (定版 2026-11-24), 其余走 _SRC_CN
+            if _t.get("src") == "CTR":
+                return "逆势·" + {"F": "标准跟随", "DF": "衰减快速"}.get(
+                    _t.get("csub"), "衰减翻仓")
+            return _SRC_CN.get(_t["src"], _t["src"])
         _htrds = _hpl["trades"]
         # 事件按 1m bar 归并: 同根平+开 (翻仓) 合成一个翻标记 (同 STVX)
         _hev = {}
@@ -3431,7 +3439,7 @@ def main():
             _hev.setdefault(_t["eb"] - 1, {})["open"] = _t
             hama_acts.setdefault(hama_times1m[_t["eb"] - 1], []).append(
                 f"开{'call' if _t['dir'] == 1 else 'put'}@{_t['ep']:.2f} "
-                f"{_SRC_CN.get(_t['src'], _t['src'])}".replace("'", ""))
+                f"{_src_cn(_t)}".replace("'", ""))
             hama_acts.setdefault(hama_times1m[_t["xs"]], []).append(
                 f"平{'call' if _t['dir'] == 1 else 'put'}@{_t['xp']:.2f} "
                 f"{_RSN_CN.get(_t['rsn'], _t['rsn'])}".replace("'", ""))
@@ -3491,12 +3499,16 @@ def main():
                 "why": "<br/>".join(hama_acts.get(_ts, []))}
 
         def _hama_pin(bar, value, color, rs_txt, rev_edge=False,
-                      wait=False):
+                      wait=False, ctr_edge=False):
             _h = _hpl["hist"][bar]
             _yq = (round(_h * 1.15 + (0.5 if _h > 0 else -0.5), 1)
                    if _h is not None else 5)
             _ist = {"color": color}
-            if rev_edge:
+            if ctr_edge:
+                # 逆势单亮蓝边圈 (定版 2026-11-24, 与研究页同式)
+                _ist["borderColor"] = "#3b82f6"
+                _ist["borderWidth"] = 3
+            elif rev_edge:
                 _ist["borderColor"] = "#111"
                 _ist["borderWidth"] = 2.6
             if wait:
@@ -3523,8 +3535,9 @@ def main():
                 _ndr = "call" if _nt["dir"] == 1 else "put"
                 _hama_pin(_bar, "翻" + ("C" if _nt["dir"] == 1 else "P"),
                           _dir_color(_ndr, "翻"),
-                          _SRC_CN.get(_nt["src"], _nt["src"]),
-                          rev_edge=_nt["src"] in ("REV", "REVF"))
+                          _src_cn(_nt),
+                          rev_edge=_nt["src"] in ("REV", "REVF"),
+                          ctr_edge=bool(_nt.get("ctr0")))
                 continue
             if "open" in _e:
                 _t = _e["open"]
@@ -3532,8 +3545,9 @@ def main():
                 _hama_pin(_t["eb"] - 1,
                           "开" + ("C" if _t["dir"] == 1 else "P"),
                           _dir_color(_dr, "开"),
-                          _SRC_CN.get(_t["src"], _t["src"]),
-                          rev_edge=_t["src"] in ("REV", "REVF"))
+                          _src_cn(_t),
+                          rev_edge=_t["src"] in ("REV", "REVF"),
+                          ctr_edge=bool(_t.get("ctr0")))
             if "close" in _e:
                 _t = _e["close"]
                 _lbl = ("止损" if _t["rsn"] == "SL" else "平") + \
@@ -3660,7 +3674,7 @@ def main():
             + "".join(_hrows) + "</table></div>"
             "<div style=\"font-size:11px;color:#888;margin-top:4px\">"
             "预估=30%杠杆真0DTE公式ROI×$100k/笔、合计逐笔相加（非复利）；"
-            "背景=SSL 1m+HAMA 1m/3m 与 QQE 同色即进场，衰减反转 REV、出场 DECAY/D4/HB/FLIP/BG，"
+            "背景=SSL 1m+HAMA 1m/3m 与 QQE 同色即进场，衰减反转 REV、逆势单 CTR（蓝边圈），出场 DECAY/D4/HB/FLIP/BG，"
             "午间斜率门，FOMC 日不做；非实际成交</div>")
         _hsum = _hpl["sum"]
         _htot2 = _hsum * 1000.0
