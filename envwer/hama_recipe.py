@@ -97,6 +97,7 @@ BG_H3 = False
 BG3_SOFT = True
 SLP_N = 30
 SLP_T = 0.75
+CTR_SLP_T = 0.30  # 逆势路专用斜率门槛 (定版, user 2026-11-24 采纳; 顺势仍 0.75)
 FOMC = {"2024-01-31", "2024-03-20", "2024-05-01", "2024-06-12",
         "2024-07-31", "2024-09-18", "2024-11-07", "2024-12-18",
         "2025-01-29", "2025-03-19", "2025-05-07", "2025-06-18",
@@ -446,6 +447,19 @@ def _run(c):
             if "12:00" <= _h < "14:30":
                 MID_ON[_i] = _state
 
+    # ---- 逆势路专用门 (定版 0.30, 形态与 MID_ON 同, 只换门槛) ----
+    MID_CTR = np.ones(N, dtype=bool)
+    if SLP_N > 0:
+        _CP = {"12:00", "12:30", "13:00", "13:30", "14:00"}
+        _state = True
+        for _i in range(N):
+            _h = HM[_i]
+            if _h in _CP:
+                _state = (_i - SLP_N >= 0) and \
+                    abs(C[_i] - C[_i - SLP_N]) >= CTR_SLP_T * atr1m[_i]
+            if "12:00" <= _h < "14:30":
+                MID_CTR[_i] = _state
+
     day_idx = {d: np.where(DSTR == d)[0] for d in DAYS}
     out_days = {}
     for d in DAYS:
@@ -621,7 +635,7 @@ def _run(c):
                         _ed = -dr
                         if bg_r[gi] != _ed \
                                 and "09:31" <= hm <= "15:54" \
-                                and MID_ON[gi]:
+                                and MID_CTR[gi]:
                             eb = gi + 1
                             if eb <= i1:
                                 stop = float(
@@ -860,7 +874,7 @@ def _run(c):
                             _ed = -_wv
                             if bg_r[gi] == _ed:
                                 ctr_pend = None
-                            elif "09:31" <= hm <= "15:54" and MID_ON[gi]:
+                            elif "09:31" <= hm <= "15:54" and MID_CTR[gi]:
                                 eb = gi + 1
                                 if eb <= i1:
                                     stop = float(
@@ -896,7 +910,7 @@ def _run(c):
                                         < abs(hist[gi - 2])
                                         and bg_r[gi] != _ed
                                         and "09:31" <= hm <= "15:54"
-                                        and MID_ON[gi]):
+                                        and MID_CTR[gi]):
                                     eb = gi + 1
                                     if eb <= i1:
                                         stop = float(
@@ -931,7 +945,7 @@ def _run(c):
                                  and abs(hist[gi]) > abs(hist[gi - 1])
                                  and bg[gi] != _s
                                  and "09:31" <= hm <= "15:54"
-                                 and MID_ON[gi])
+                                 and MID_CTR[gi])
                         if _f_ev and _fw_ok(gi):
                             eb = gi + 1
                             if eb <= i1:
