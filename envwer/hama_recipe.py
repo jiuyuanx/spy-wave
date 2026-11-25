@@ -98,6 +98,7 @@ BG3_SOFT = True
 SLP_N = 30
 SLP_T = 0.75
 CTR_SLP_T = 0.30  # 逆势路专用斜率门槛 (定版, user 2026-11-24 采纳; 顺势仍 0.75)
+CTR_START = "09:40"  # 逆势四路专用开仓起点 (定版, user 2026-11-24 晚采纳; 顺势仍 09:31)
 FOMC = {"2024-01-31", "2024-03-20", "2024-05-01", "2024-06-12",
         "2024-07-31", "2024-09-18", "2024-11-07", "2024-12-18",
         "2025-01-29", "2025-03-19", "2025-05-07", "2025-06-18",
@@ -301,7 +302,7 @@ def _run(c):
                 if j < i and DSTR[j] != DSTR[i]:
                     seg_lo = j + 1
                     break
-                if opp[j] or (j < i and abs(hist[j]) <= 3):
+                if opp[j]:  # 定版 (2026-11-24): 峰看 LB10 内全部同向真色柱, |h|<=3 不断段 (与 sim DEC_PEAK_NOCUT 一致)
                     seg_lo = j + 1
                     break
             peaks = [abs(hist[j]) for j in range(seg_lo, i + 1)
@@ -634,7 +635,7 @@ def _run(c):
                         # 平仓同为次根开盘 (真翻仓)
                         _ed = -dr
                         if bg_r[gi] != _ed \
-                                and "09:31" <= hm <= "15:54" \
+                                and CTR_START <= hm <= "15:54" \
                                 and MID_CTR[gi]:
                             eb = gi + 1
                             if eb <= i1:
@@ -874,7 +875,7 @@ def _run(c):
                             _ed = -_wv
                             if bg_r[gi] == _ed:
                                 ctr_pend = None
-                            elif "09:31" <= hm <= "15:54" and MID_CTR[gi]:
+                            elif CTR_START <= hm <= "15:54" and MID_CTR[gi]:
                                 eb = gi + 1
                                 if eb <= i1:
                                     stop = float(
@@ -909,7 +910,7 @@ def _run(c):
                                         < abs(hist[gi - 1])
                                         < abs(hist[gi - 2])
                                         and bg_r[gi] != _ed
-                                        and "09:31" <= hm <= "15:54"
+                                        and CTR_START <= hm <= "15:54"
                                         and MID_CTR[gi]):
                                     eb = gi + 1
                                     if eb <= i1:
@@ -944,7 +945,7 @@ def _run(c):
                                  and abs(hist[gi - 1]) >= 8
                                  and abs(hist[gi]) > abs(hist[gi - 1])
                                  and bg[gi] != _s
-                                 and "09:31" <= hm <= "15:54"
+                                 and CTR_START <= hm <= "15:54"
                                  and MID_CTR[gi])
                         if _f_ev and _fw_ok(gi):
                             eb = gi + 1
