@@ -34,6 +34,18 @@ REV_ON=1 (sim_out.json 2026-11-22 15:49 生成口径, src 含 REV/REVF):
   REV/REVF 背景凑齐、执行开仓那根, 确认根 hist 已过零到新波侧时,
   |hist| <= 同侧连续段紧邻前 2 根同侧柱较大者 x0.7 -> 不开、
   pending 作废; 不足 2 根不查、未过零不查; 双侧对称。
+- 逆势单 CTR (定版, user 2026-11-24 晚定版; 研究
+  research/ssl_hama_qqe_20261122/ctr_report.md 追加13): 标准 QQE
+  信号 (F 标准跟随 = 两根真色 >=8 递增 / D 衰减翻仓确认 / DF 深度
+  衰减快速支) 出现但背景不允许顺势开时照开、打逆势身份 (ctr);
+  衰减路峰值门 11 (CTR_PEAK_MIN); F 支带同波递进门 (同波上一个
+  F 开仓触发根 |hist| 为锚、须严格大于); 退场只吃特殊衰减
+  CTRX (自己波同向柱 <=前根 90% 登记、按 dec_pend 同款确认) +
+  HB 回补平 + 新波反向 FLIP (带 WM 同波门) + SL/EOD; 背景转
+  同边 -> 转普通顺势单 (conv); 普通单 (STD/HB) 被 DECAY/DECAYF
+  平掉的决策根上背景没齐反方向 -> 同根翻逆势 (CTR_FLIP);
+  逆势单平仓决策根整根按空仓根处理、全进场路放行
+  (CTR_REOPEN_ALL)。渲染: 逆势单亮蓝边圈 (#3b82f6)。
 - 午间斜率门: 12:00 起每半小时检查点, |近30根位移| >= 0.75xATR
   才开下半小时, 14:30 解除 (MID_ON, 全因果)。
 - 开仓窗口: 09:31–15:54 (起点 09:31 = 提前进场, user 2026-11-24 采纳:
@@ -76,6 +88,7 @@ FIRST_PR = 0.5
 HB_ENTRY_MULT = (1.4, 1.0)  # 回补进场门槛 (小档/大档), 定版常数
 HB_MIN = 15.0               # 回补进场触发根 |hist| 下限, 定版常数
 WILT_R = 0.7                # 确认根「新波已蔫」门定版常数 (user 2026-11-24 落地)
+CTR_PEAK_MIN = 11.0         # 逆势衰减路 (D/DF) 峰值门定版常数 (user 2026-11-24 晚定版)
 REV_FAST = True
 HY_W = 0
 HY_ALL = False
@@ -345,6 +358,15 @@ def _run(c):
         base = max(prev)
         return abs(float(hv)) <= base * WILT_R, base, prev
 
+    _FW_ANCHOR = {}  # 逆势跟随递进门锚: WAVE_ID -> 同波最近一次 CTR F
+    # 开仓触发根 |hist| (全程一本账, 与 sim.py 同口径)
+
+    def _fw_ok(gi):
+        """递进门 (定版): 同波无 F 开仓锚时恒过; 有锚时触发根
+        |hist| 须严格大于锚。"""
+        _a = _FW_ANCHOR.get(int(WAVE_ID[gi]))
+        return _a is None or abs(hist[gi]) > _a
+
     def _hb_true(j, sgn):
         return bool(qup[j]) and abs(hist[j]) >= 4 if sgn > 0 else \
             bool(qdn[j]) and abs(hist[j]) >= 4
@@ -436,6 +458,8 @@ def _run(c):
             prev_conj = False
             dec_pend = None
             rev_pend = None
+            ctr_pend = None   # 逆势路衰减翻仓待确认: (登记根, |hist|, 衰减波方向)
+            ctr_xpend = None  # 逆势单特殊退场待确认: (触发根, 触发根 |hist|)
             hb_arm = {1: None, -1: None}   # 回补进场: 各方向已登记 marker
             hb_next = {1: False, -1: False}  # 上一根有衰减登记 -> 本根落 marker
             for gi in range(i0, i1 + 1):
@@ -458,6 +482,8 @@ def _run(c):
                 if pos is not None:
                     dr = pos["dir"]
                     exited = False
+                    _pos_src = pos.get("src")
+                    _dp_t0 = dec_pend[0] if dec_pend is not None else None
                     if dr == 1 and L[gi] <= pos["stop"]:
                         xp, rsn, xb = pos["stop"], "SL", gi
                         trades.append({**pos, "xb": xb, "xp": xp,
@@ -474,6 +500,37 @@ def _run(c):
                         exited = True
                     if pos is not None:
                         rsn = None
+                        if pos.get("ctr"):
+                            # 逆势单特殊退场 (定版, 同 sim): 只吃本支
+                            # —— 特殊衰减 CTRX (确认规则同 dec_pend) +
+                            # HB 回补平 + 新波反向 FLIP (带 WM 同波门)
+                            # + EOD; DECAY/D4/BG/转色 FLIP 不管逆势单
+                            # (下方各支已加 not ctr 守卫), SL 在本支
+                            # 之前与全策略同款。
+                            if ctr_xpend is not None:
+                                _th = ctr_xpend[1]
+                                _hv = hist[gi]
+                                if _hv * dr < 0 or abs(_hv) <= 0.9 * _th:
+                                    rsn = "CTRX"
+                                    ctr_xpend = None
+                                elif _hv * dr > 0 and abs(_hv) > _th:
+                                    ctr_xpend = None
+                            if rsn is None and _hb_trigger(
+                                    gi, -dr, pos.get("marker", 0.0)):
+                                rsn = "HB"
+                            if rsn is None and hist[gi] * dr < 0 \
+                                    and abs(hist[gi]) > 3:
+                                if WAVE_ID[gi] != pos.get("src_wave", -1):
+                                    rsn = "FLIP"
+                            if rsn is None and hm == "15:55":
+                                rsn = "EOD"
+                            if rsn is None and ctr_xpend is None \
+                                    and gi - 1 >= i0 \
+                                    and hist[gi] * dr > 0 \
+                                    and hist[gi - 1] * dr > 0 \
+                                    and abs(hist[gi]) <= 0.9 \
+                                    * abs(hist[gi - 1]):
+                                ctr_xpend = (gi, abs(hist[gi]))
                         if dec_pend is not None:
                             _th = dec_pend[1]
                             _hv = hist[gi]
@@ -483,7 +540,8 @@ def _run(c):
                             elif _hv * dr > 0 and abs(_hv) > _th:
                                 events.append((gi, "衰减确认失败·取消"))
                                 dec_pend = None
-                        if rsn is None and abs(hist[gi]) < 16 \
+                        if rsn is None and not pos.get("ctr") \
+                                and abs(hist[gi]) < 16 \
                                 and gi - 3 >= i0:
                             _d4 = all(hist[_j] * dr > 0
                                       for _j in range(gi - 3, gi + 1)) and \
@@ -499,15 +557,17 @@ def _run(c):
                                 # 「新波反向」 (原波反长由 HB 门槛管)
                                 if WAVE_ID[gi] != pos.get("src_wave", -1):
                                     rsn = "FLIP"
-                        elif rsn is None and ecol[gi] == -dr \
+                        elif rsn is None and not pos.get("ctr") \
+                                and ecol[gi] == -dr \
                                 and ecol[gi] != 0:
                             rsn = "FLIP"
-                        if rsn is None and bg[gi] != dr \
+                        if rsn is None and not pos.get("ctr") \
+                                and bg[gi] != dr \
                                 and not pos.get("wave"):
                             rsn = "BG"
                         if rsn is None and hm == "15:55":
                             rsn = "EOD"
-                        if rsn is None:
+                        if rsn is None and not pos.get("ctr"):
                             _sig = (dec_up if dr == 1 else dec_dn).get(gi)
                             if _sig is not None and _sig >= 12 \
                                     and dec_pend is None:
@@ -544,9 +604,56 @@ def _run(c):
                             if _w5d > 0 and abs(hist[gi]) >= _w5d:
                                 pos["wave"] = False
                                 pos["conv"] = True
+                    if pos is not None and pos.get("ctr"):
+                        # 逆势单身份转换 (定版, 同 sim): 背景三件套
+                        # 转到持仓同边 -> 转普通顺势单, 自次根起按
+                        # 标准退场管理 (DECAY/D4/BG/FLIP 恢复)
+                        if bg[gi] == dr:
+                            pos["ctr"] = False
+                            pos["conv"] = True
+                            ctr_xpend = None
+                    if exited and pos is None \
+                            and rsn in ("DECAY", "DECAYF") \
+                            and _pos_src in ("STD", "HB"):
+                        # 衰减平仓同根翻逆势 (定版, 同 sim): 决策根
+                        # 上背景 (bg_r) 没齐到反方向才翻; 执行与
+                        # 平仓同为次根开盘 (真翻仓)
+                        _ed = -dr
+                        if bg_r[gi] != _ed \
+                                and "09:31" <= hm <= "15:54" \
+                                and MID_ON[gi]:
+                            eb = gi + 1
+                            if eb <= i1:
+                                stop = float(
+                                    O[eb] - STOP_K * atr1m[gi]) \
+                                    if _ed == 1 else float(
+                                        O[eb] + STOP_K * atr1m[gi])
+                                if rsn == "DECAYF":
+                                    _csub, _sw = "DF", int(WAVE_ID[gi])
+                                else:
+                                    _csub, _sw = "D", int(
+                                        WAVE_ID[_dp_t0]) \
+                                        if _dp_t0 is not None else int(
+                                            WAVE_ID[gi])
+                                pos = {"dir": _ed, "trig": gi, "eb": eb,
+                                       "ep": float(O[eb]), "stop": stop,
+                                       "grey": bool(qcol[gi] == 0),
+                                       "src": "CTR", "ctr": True,
+                                       "ctr0": True, "csub": _csub,
+                                       "marker": float(abs(hist[eb])),
+                                       "src_wave": _sw, "flipborn": True}
+                                rev_pend = None
                     if exited:
                         dec_pend = None
-                        continue
+                        ctr_xpend = None
+                        if _pos_src == "CTR":
+                            # 逆势单平仓根全放行 (定版, 同 sim):
+                            # 本根整根按空仓根处理, 不跳过进场段,
+                            # ctr_pend 保留
+                            pass
+                        else:
+                            ctr_pend = None
+                            continue
                 if pos is not None:
                     continue
                 # ---- 触发 ----
@@ -733,6 +840,117 @@ def _run(c):
                                         (gi, "回补进场·翻仓等待取消"))
                                 rev_pend = None
                             break
+                # ---- 逆势进场路 CTR (定版, 同 sim): 标准 QQE 信号
+                # 出现但背景不允许顺势开时照开、打逆势身份。
+                # STD/REV/HB 已在本路之前处理, 本路只补空位; 开仓
+                # 窗/午间斜率门与各路同款, FIRST_PR/WILT/HS_MIN
+                # 不套本路。
+                if pos is None:
+                    # (a) 衰减翻仓支: ctr_pend 与 rev_pend 同款状态机
+                    # (登记峰 >= CTR_PEAK_MIN、反长超登记根作废、过零
+                    # 或再衰减 >=10% 确认), 差别只在背景条件取反 ——
+                    # 确认时背景已齐到进场方向 -> 归 REV 路 (清 pend
+                    # 不抢); 没齐 -> 逆势开。
+                    if ctr_pend is not None:
+                        _t0, _th, _wv = ctr_pend
+                        _hv = hist[gi]
+                        if _hv * _wv > 0 and abs(_hv) > _th:
+                            ctr_pend = None
+                        elif _hv * _wv < 0 or abs(_hv) <= 0.9 * _th:
+                            _ed = -_wv
+                            if bg_r[gi] == _ed:
+                                ctr_pend = None
+                            elif "09:31" <= hm <= "15:54" and MID_ON[gi]:
+                                eb = gi + 1
+                                if eb <= i1:
+                                    stop = float(
+                                        O[eb] - STOP_K * atr1m[gi]) \
+                                        if _ed == 1 else float(
+                                            O[eb] + STOP_K * atr1m[gi])
+                                    pos = {"dir": _ed, "trig": gi,
+                                           "eb": eb,
+                                           "ep": float(O[eb]),
+                                           "stop": stop,
+                                           "grey": bool(qcol[gi] == 0),
+                                           "src": "CTR", "ctr": True,
+                                           "ctr0": True, "csub": "D",
+                                           "marker": float(
+                                               abs(hist[eb])),
+                                           "src_wave": int(
+                                               WAVE_ID[_t0])}
+                                    dec_pend = None
+                                    rev_pend = None
+                                ctr_pend = None
+                    if pos is None:
+                        # (b) 登记/快速支: 与 REV 同点 (衰减信号峰
+                        # >= CTR_PEAK_MIN); 深度衰减快速支 (<=50% 峰
+                        # + 三根递减) 在背景不允许时当根直接开
+                        # (允许归 REVF), 否则登记 ctr_pend。
+                        for _wv, _sg in ((1, dec_up.get(gi)),
+                                         (-1, dec_dn.get(gi))):
+                            if _sg is not None and _sg >= CTR_PEAK_MIN:
+                                _ed = -_wv
+                                if (abs(hist[gi]) <= 0.5 * _sg
+                                        and abs(hist[gi])
+                                        < abs(hist[gi - 1])
+                                        < abs(hist[gi - 2])
+                                        and bg_r[gi] != _ed
+                                        and "09:31" <= hm <= "15:54"
+                                        and MID_ON[gi]):
+                                    eb = gi + 1
+                                    if eb <= i1:
+                                        stop = float(
+                                            O[eb] - STOP_K * atr1m[gi]) \
+                                            if _ed == 1 else float(
+                                                O[eb] + STOP_K * atr1m[gi])
+                                        pos = {"dir": _ed, "trig": gi,
+                                               "eb": eb,
+                                               "ep": float(O[eb]),
+                                               "stop": stop,
+                                               "grey": bool(
+                                                   qcol[gi] == 0),
+                                               "src": "CTR", "ctr": True,
+                                               "ctr0": True, "csub": "DF",
+                                               "marker": float(
+                                                   abs(hist[eb])),
+                                               "src_wave": int(
+                                                   WAVE_ID[gi])}
+                                        dec_pend = None
+                                        rev_pend = None
+                                else:
+                                    ctr_pend = (gi, abs(hist[gi]), _wv)
+                                break
+                    if pos is None:
+                        # (c) 标准跟随支: 连续两根真色柱 |hist|>=8、
+                        # 第二根更长; 严格背景没站到波方向 -> 逆势
+                        # 开 (站到了归 STD 路); 带同波递进门。
+                        _s = qcol[gi]
+                        _f_ev = (_s != 0 and gi - 1 >= i0
+                                 and qcol[gi - 1] == _s
+                                 and abs(hist[gi - 1]) >= 8
+                                 and abs(hist[gi]) > abs(hist[gi - 1])
+                                 and bg[gi] != _s
+                                 and "09:31" <= hm <= "15:54"
+                                 and MID_ON[gi])
+                        if _f_ev and _fw_ok(gi):
+                            eb = gi + 1
+                            if eb <= i1:
+                                stop = float(
+                                    O[eb] - STOP_K * atr1m[gi]) \
+                                    if _s == 1 else float(
+                                        O[eb] + STOP_K * atr1m[gi])
+                                pos = {"dir": _s, "trig": gi, "eb": eb,
+                                       "ep": float(O[eb]), "stop": stop,
+                                       "grey": False, "src": "CTR",
+                                       "ctr": True, "ctr0": True,
+                                       "csub": "F",
+                                       "marker": float(abs(hist[eb])),
+                                       "src_wave": int(WAVE_ID[gi])}
+                                _FW_ANCHOR[int(WAVE_ID[gi])] = \
+                                    abs(hist[gi])
+                                dec_pend = None
+                                rev_pend = None
+                                ctr_pend = None
             if pos is not None:  # 日终兜底
                 gi = i1
                 trades.append({**pos, "xb": gi, "xp": float(C[gi]),
@@ -832,8 +1050,9 @@ _RENDER_JS = """
   var marks = [], xmarks = [];
   dd.trades.forEach(function(t){
     var isRev = t.src === 'REV' || t.src === 'REVF';
+    var isCtr = !!t.ctr0;
     marks.push({coord: [t.trig, close[t.trig]], symbol: 'circle', symbolSize: 17,
-      itemStyle: {color: t.dir === 1 ? '#16a34a' : '#dc2626', borderColor: isRev ? '#111' : '#fff', borderWidth: isRev ? 2.6 : 1.2},
+      itemStyle: {color: t.dir === 1 ? '#16a34a' : '#dc2626', borderColor: isCtr ? '#3b82f6' : (isRev ? '#111' : '#fff'), borderWidth: isCtr ? 3 : (isRev ? 2.6 : 1.2)},
       label: {show: true, formatter: t.dir === 1 ? 'C' : 'P', color: '#fff', fontSize: 10, fontWeight: 700}});
     xmarks.push({coord: [t.xs, close[t.xs]], symbol: 'circle', symbolSize: 14,
       itemStyle: {color: '#6b7280', borderColor: '#fff', borderWidth: 1.2},
@@ -842,8 +1061,9 @@ _RENDER_JS = """
   var qmarks = [], qxmarks = [];
   dd.trades.forEach(function(t){
     var isRevQ = t.src === 'REV' || t.src === 'REVF';
+    var isCtrQ = !!t.ctr0;
     qmarks.push({coord: [t.trig, dd.hist[t.trig]], symbol: 'circle', symbolSize: 15,
-      itemStyle: {color: t.dir === 1 ? '#16a34a' : '#dc2626', borderColor: isRevQ ? '#111' : '#fff', borderWidth: isRevQ ? 2.4 : 1.2},
+      itemStyle: {color: t.dir === 1 ? '#16a34a' : '#dc2626', borderColor: isCtrQ ? '#3b82f6' : (isRevQ ? '#111' : '#fff'), borderWidth: isCtrQ ? 3 : (isRevQ ? 2.4 : 1.2)},
       label: {show: true, formatter: t.dir === 1 ? 'C' : 'P', color: '#fff', fontSize: 9, fontWeight: 700}});
     qxmarks.push({coord: [t.xs, dd.hist[t.xs]], symbol: 'circle', symbolSize: 12,
       itemStyle: {color: '#6b7280', borderColor: '#fff', borderWidth: 1.2},
@@ -892,10 +1112,10 @@ _RENDER_JS = """
   pushHama('hama', 'hama_shade', 2.6, 'HAMA');
   pushHama('hama3_line', 'hama3_shade', 1.6, 'HAMA3');
   var qqe = dd.bars.map(function(b, i){ return {value: dd.hist[i], itemStyle: {color: dd.qcol[i] === 1 ? '#2563eb' : (dd.qcol[i] === -1 ? '#dc2626' : '#9ca3af')}}; });
-  var RSN_CN = {DECAY: '衰减出场', DECAYF: '衰减加速出场', D4: '连减4根出场', GREY: 'QQE转灰', FLIP: '新波反向', HB: '回补门槛平仓', BG: '背景破', SL: '止损', EOD: '日终平仓'};
+  var RSN_CN = {DECAY: '衰减出场', DECAYF: '衰减加速出场', CTRX: '逆势衰减出场', D4: '连减4根出场', GREY: 'QQE转灰', FLIP: '新波反向', HB: '回补门槛平仓', BG: '背景破', SL: '止损', EOD: '日终平仓'};
   var ev = {};
   dd.trades.forEach(function(t){
-    var srcTxt = t.src === 'REV' ? '衰减trigger·等确认' : (t.src === 'REVF' ? '衰减trigger·加速' : (t.src === 'HB' ? '回补进场' : '顺势凑齐'));
+    var srcTxt = t.src === 'REV' ? '衰减trigger·等确认' : (t.src === 'REVF' ? '衰减trigger·加速' : (t.src === 'HB' ? '回补进场' : (t.src === 'CTR' ? '逆势·' + (t.csub === 'F' ? '标准跟随' : (t.csub === 'DF' ? '衰减快速' : '衰减翻仓')) : '顺势凑齐')));
     (ev[t.trig] = ev[t.trig] || []).push('开' + (t.dir === 1 ? ' Call' : ' Put') + ' · ' + srcTxt);
     (ev[t.xs] = ev[t.xs] || []).push('平仓 · ' + (RSN_CN[t.rsn] || t.rsn) + ' · 本笔 ' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%' + (t.conv ? ' · 中途转顺势单' : ''));
   });
@@ -930,10 +1150,10 @@ _RENDER_JS = """
   document.getElementById('hamaInfo').innerHTML =
     '<b>' + HAMA_DATE + '</b> | ' + dd.n + ' 单 · 胜 ' + win + ' 负 ' + (dd.n - win) +
     ' · 当日收益率 <b>' + (dd.sum >= 0 ? '+' : '') + dd.sum.toFixed(2) + '%</b> (逐笔相加, 非复利)' +
-    ' <span class="leg">| 底纹: 每笔单开仓→平仓段, 绿=赚 红=亏, 深浅随盈亏幅度 · SSL: SMA200通道, 两线同为状态色 (绿=多头/红=空头) + 中间淡填充 · 粗线=HAMA 1m均线, 细线=HAMA 3m均线 (均 WMA55(hl2), NSDT渐变染色: 翻转根黄, 之后由浅到深) · 圈: 绿C/红P=触发根, 灰平=出场根 (价格图与QQE图同步画) · 黑边圈=QQE衰减trigger反转进场 · 进场背景: SSL+HAMA1m同向且HAMA3m不反向 (HAMA3黄色不卡进场) · 结算: 30%杠杆真0DTE口径</span>';
+    ' <span class="leg">| 底纹: 每笔单开仓→平仓段, 绿=赚 红=亏, 深浅随盈亏幅度 · SSL: SMA200通道, 两线同为状态色 (绿=多头/红=空头) + 中间淡填充 · 粗线=HAMA 1m均线, 细线=HAMA 3m均线 (均 WMA55(hl2), NSDT渐变染色: 翻转根黄, 之后由浅到深) · 圈: 绿C/红P=触发根, 灰平=出场根 (价格图与QQE图同步画) · 黑边圈=QQE衰减trigger反转进场 · 蓝边圈=逆势单 (背景不允许顺势时按QQE信号开) · 进场背景: SSL+HAMA1m同向且HAMA3m不反向 (HAMA3黄色不卡进场) · 结算: 30%杠杆真0DTE口径</span>';
   document.getElementById('hamaTrades').innerHTML = dd.trades.map(function(t){
     return xs[t.trig] + ' 触发 → ' + xs[t.eb] + ' 开' + (t.dir === 1 ? ' Call' : ' Put') + ' @' + t.ep.toFixed(2) +
-    ' → ' + xs[t.xb] + ' 平 @' + t.xp.toFixed(2) + ' <b>' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%</b> (' + t.rsn + (t.src === 'HB' ? ', 回补进场' : (t.src && t.src !== 'STD' ? ', 衰减trigger' + (t.src === 'REVF' ? '·加速' : '') : '')) + (t.conv ? ', 中途转顺势单' : '') + ', 止损位 ' + t.stop.toFixed(2) + ')';
+    ' → ' + xs[t.xb] + ' 平 @' + t.xp.toFixed(2) + ' <b>' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%</b> (' + t.rsn + (t.src === 'HB' ? ', 回补进场' : (t.src === 'CTR' ? ', 逆势' + (t.csub === 'F' ? '·跟随' : (t.csub === 'DF' ? '·衰减快速' : '·衰减翻仓')) + (t.flipborn ? '·同根翻' : '') : (t.src && t.src !== 'STD' ? ', 衰减trigger' + (t.src === 'REVF' ? '·加速' : '') : ''))) + (t.conv ? ', 中途转顺势单' : '') + ', 止损位 ' + t.stop.toFixed(2) + ')';
   }).join('<br>');
 })();
 """
