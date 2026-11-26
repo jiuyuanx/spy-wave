@@ -89,7 +89,14 @@ FIRST_PR = 0.5
 HB_ENTRY_MULT = (1.4, 1.0)  # 回补进场门槛 (小档/大档), 定版常数
 HB_MIN = 15.0               # 回补进场触发根 |hist| 下限, 定版常数
 WILT_R = 0.7                # 确认根「新波已蔫」门定版常数 (user 2026-11-24 落地)
-CTR_PEAK_MIN = 11.0         # 逆势衰减路 (D/DF) 峰值门定版常数 (user 2026-11-24 晚定版)
+CTR_PEAK_MIN = 11.7         # 逆势衰减路 (D/DF) 峰值门 (user 2026-11-26 定: 与 DEC_PEAK_MIN 同步同值 11.7; 原 11)
+DEC_CONF = 0.925            # 衰减确认比 (user 2026-11-26 定; dec/rev/ctr 三处确认同款; 原 0.9 写死从未扫过, 细扫峰值)
+DEC_PEAK_MIN = 11.7         # 衰减登记峰门 (user 2026-11-26 定; dec/rev/HB 三处登记同款; 原 12)
+FWX_W = 10                  # 开盘波加速出场 (user 2026-11-26 定): 只管开盘后 10 根内
+FWX_S = 3                   # 自己波连缩步数 (四柱严格递减)
+FWX_P = 30.0                # 开盘以来自己波峰值门
+FWX_H0R = 21.0              # 红波 09:30 首根门 (分向细扫峰)
+FWX_H0B = 33.0              # 蓝波 09:30 首根门 (user 选 33 厚样本, 非细扫峰 35)
 REV_FAST = True
 HY_W = 0
 HY_ALL = False
@@ -491,6 +498,7 @@ def _run(c):
             rev_pend = None
             ctr_pend = None   # 逆势路衰减翻仓待确认: (登记根, |hist|, 衰减波方向)
             ctr_xpend = None  # 逆势单特殊退场待确认: (触发根, 触发根 |hist|)
+            fwx_watch = None  # 开盘快出砍后重开监视: (方向, 来源波 id, 登记时已平笔数)
             hb_arm = {1: None, -1: None}   # 回补进场: 各方向已登记 marker
             hb_next = {1: False, -1: False}  # 上一根有衰减登记 -> 本根落 marker
             for gi in range(i0, i1 + 1):
@@ -507,7 +515,7 @@ def _run(c):
                     if hb_next[_s]:
                         hb_arm[_s] = abs(hist[gi])
                         hb_next[_s] = False
-                    if _decd.get(gi) is not None and _decd[gi] >= 12:
+                    if _decd.get(gi) is not None and _decd[gi] >= DEC_PEAK_MIN:
                         hb_next[_s] = True
                 # ---- 持仓管理 ----
                 if pos is not None:
@@ -562,10 +570,35 @@ def _run(c):
                                     and abs(hist[gi]) <= 0.875 \
                                     * abs(hist[gi - 1]):  # CTRX 触发比定版 0.875 (user 2026-11-25; 与 sim CTRX_TR 一致)
                                 ctr_xpend = (gi, abs(hist[gi]))
+                        # 开盘波加速出场 FWX (定版, 同 sim; user
+                        # 2026-11-26): 开盘 10 根内、开盘以来自己波
+                        # 峰值 >= 30、09:30 首根同向且够大 (红 > 21 /
+                        # 蓝 > 33)、自己波四柱连缩 -> 只平不翻; 幅度
+                        # 门定版不设 (跟峰值比细扫判负); 逆势单不走
+                        # 本路。位置在 dec_pend 确认之前, 与 sim 同:
+                        # 同根确认成立时 DECAY 仍可盖过 FWX。
+                        if rsn is None and not pos.get("ctr") \
+                                and (gi - i0) < FWX_W:
+                            _s = 0
+                            _j = gi
+                            while _j > i0 and hist[_j] * dr > 0 \
+                                    and hist[_j - 1] * dr > 0 \
+                                    and abs(hist[_j]) < abs(hist[_j - 1]):
+                                _s += 1
+                                _j -= 1
+                            _pk = 0.0
+                            for _k in range(i0, gi + 1):
+                                if hist[_k] * dr > 0:
+                                    _pk = max(_pk, abs(hist[_k]))
+                            _h0x = FWX_H0R if dr < 0 else FWX_H0B
+                            if _s >= FWX_S and _pk >= FWX_P \
+                                    and (_h0x <= 0
+                                         or hist[i0] * dr > _h0x):
+                                rsn = "FWX"
                         if dec_pend is not None:
                             _th = dec_pend[1]
                             _hv = hist[gi]
-                            if _hv * dr < 0 or abs(_hv) <= 0.9 * _th:
+                            if _hv * dr < 0 or abs(_hv) <= DEC_CONF * _th:
                                 rsn = "DECAY"
                                 dec_pend = None
                             elif _hv * dr > 0 and abs(_hv) > _th:
@@ -600,7 +633,7 @@ def _run(c):
                             rsn = "EOD"
                         if rsn is None and not pos.get("ctr"):
                             _sig = (dec_up if dr == 1 else dec_dn).get(gi)
-                            if _sig is not None and _sig >= 12 \
+                            if _sig is not None and _sig >= DEC_PEAK_MIN \
                                     and dec_pend is None:
                                 if abs(hist[gi]) <= 0.5 * _sig and \
                                         abs(hist[gi]) < abs(hist[gi - 1]) \
@@ -618,6 +651,12 @@ def _run(c):
                             trades.append({**pos, "xb": xb, "xp": xp,
                                            "rsn": rsn,
                                            "r": roi(dr, pos["ep"], xp)})
+                            if rsn == "FWX":
+                                # 砍后登记重开监视 (同 sim): 第三元 =
+                                # 登记时当日已平笔数, 其后任何一笔
+                                # 平仓 (=中间有别的操作) 即作废
+                                fwx_watch = (dr, int(WAVE_ID[gi]),
+                                             len(trades))
                             pos = None
                             exited = True
                     if pos is not None and pos.get("wave"):
@@ -687,6 +726,34 @@ def _run(c):
                             continue
                 if pos is not None:
                     continue
+                # ---- 开盘快出砍后递增重开 (定版, 同 sim FWXR) ----
+                # 监视中且本根自己波真色柱严格递增于前根 -> 同向
+                # 开回来 (次根开盘, src=FWXR, 一砍只开一次); 波断
+                # 或中间有过别的操作 (任何一笔平仓) -> 监视作废;
+                # 监视只读不拦, 不挡任何其他信号。
+                if fwx_watch is not None:
+                    _wd, _wv, _wn = fwx_watch
+                    if len(trades) != _wn:
+                        fwx_watch = None
+                    elif int(WAVE_ID[gi]) != _wv:
+                        fwx_watch = None
+                    elif ecol[gi] == _wd and gi > i0 \
+                            and abs(hist[gi]) > abs(hist[gi - 1]) \
+                            and "09:31" <= hm <= "15:54" and MID_ON[gi]:
+                        eb = gi + 1
+                        if eb <= i1:
+                            stop = float(O[eb] - STOP_K * atr1m[gi]) \
+                                if _wd == 1 else float(
+                                    O[eb] + STOP_K * atr1m[gi])
+                            pos = {"dir": _wd, "trig": gi, "eb": eb,
+                                   "ep": float(O[eb]), "stop": stop,
+                                   "grey": bool(qcol[gi] == 0),
+                                   "src": "FWXR"}
+                            dec_pend = None
+                            rev_pend = None
+                        fwx_watch = None
+                    if pos is not None:
+                        continue
                 # ---- 触发 ----
                 _w5 = 0.0
                 for _j in range(max(i0, gi - 5), gi):
@@ -746,7 +813,7 @@ def _run(c):
                             rev_pend = None
                         else:
                             if not _qc and (_hv * _wv < 0
-                                            or abs(_hv) <= 0.9 * _th):
+                                            or abs(_hv) <= DEC_CONF * _th):
                                 _qc = True
                                 events.append((gi, "衰减已确认"))
                             if _qc and bg_r[gi] == -_wv \
@@ -785,7 +852,7 @@ def _run(c):
                     if pos is None:
                         for _wv, _sg in ((1, dec_up.get(gi)),
                                          (-1, dec_dn.get(gi))):
-                            if _sg is not None and _sg >= 12:
+                            if _sg is not None and _sg >= DEC_PEAK_MIN:
                                 _ed = -_wv
                                 if (abs(hist[gi]) <= 0.5 * _sg
                                         and abs(hist[gi]) < abs(hist[gi - 1])
@@ -887,7 +954,7 @@ def _run(c):
                         _hv = hist[gi]
                         if _hv * _wv > 0 and abs(_hv) > _th:
                             ctr_pend = None
-                        elif _hv * _wv < 0 or abs(_hv) <= 0.9 * _th:
+                        elif _hv * _wv < 0 or abs(_hv) <= DEC_CONF * _th:
                             _ed = -_wv
                             if bg_r[gi] == _ed:
                                 ctr_pend = None
@@ -1143,10 +1210,10 @@ _RENDER_JS = """
   pushHama('hama', 'hama_shade', 2.6, 'HAMA');
   pushHama('hama3_line', 'hama3_shade', 1.6, 'HAMA3');
   var qqe = dd.bars.map(function(b, i){ return {value: dd.hist[i], itemStyle: {color: dd.qcol[i] === 1 ? '#2563eb' : (dd.qcol[i] === -1 ? '#dc2626' : '#9ca3af')}}; });
-  var RSN_CN = {DECAY: '衰减出场', DECAYF: '衰减加速出场', CTRX: '逆势衰减出场', D4: '连减4根出场', GREY: 'QQE转灰', FLIP: '新波反向', HB: '回补门槛平仓', BG: '背景破', SL: '止损', EOD: '日终平仓'};
+  var RSN_CN = {DECAY: '衰减出场', DECAYF: '衰减加速出场', FWX: '开盘波加速出场', CTRX: '逆势衰减出场', D4: '连减4根出场', GREY: 'QQE转灰', FLIP: '新波反向', HB: '回补门槛平仓', BG: '背景破', SL: '止损', EOD: '日终平仓'};
   var ev = {};
   dd.trades.forEach(function(t){
-    var srcTxt = t.src === 'REV' ? '衰减trigger·等确认' : (t.src === 'REVF' ? '衰减trigger·加速' : (t.src === 'HB' ? '回补进场' : (t.src === 'CTR' ? '逆势·' + (t.csub === 'F' ? '标准跟随' : (t.csub === 'DF' ? '衰减快速' : '衰减翻仓')) : '顺势凑齐')));
+    var srcTxt = t.src === 'REV' ? '衰减trigger·等确认' : (t.src === 'REVF' ? '衰减trigger·加速' : (t.src === 'HB' ? '回补进场' : (t.src === 'FWXR' ? '开盘快出·砍后重开' : (t.src === 'CTR' ? '逆势·' + (t.csub === 'F' ? '标准跟随' : (t.csub === 'DF' ? '衰减快速' : '衰减翻仓')) : '顺势凑齐'))));
     (ev[t.trig] = ev[t.trig] || []).push('开' + (t.dir === 1 ? ' Call' : ' Put') + ' · ' + srcTxt);
     (ev[t.xs] = ev[t.xs] || []).push('平仓 · ' + (RSN_CN[t.rsn] || t.rsn) + ' · 本笔 ' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%' + (t.conv ? ' · 中途转顺势单' : ''));
   });
@@ -1184,7 +1251,7 @@ _RENDER_JS = """
     ' <span class="leg">| 底纹: 每笔单开仓→平仓段, 绿=赚 红=亏, 深浅随盈亏幅度 · SSL: SMA200通道, 两线同为状态色 (绿=多头/红=空头) + 中间淡填充 · 粗线=HAMA 1m均线, 细线=HAMA 3m均线 (均 WMA55(hl2), NSDT渐变染色: 翻转根黄, 之后由浅到深) · 圈: 绿C/红P=触发根, 灰平=出场根 (价格图与QQE图同步画) · 黑边圈=QQE衰减trigger反转进场 · 蓝边圈=逆势单 (背景不允许顺势时按QQE信号开) · 进场背景: SSL+HAMA1m同向且HAMA3m不反向 (HAMA3黄色不卡进场) · 结算: 30%杠杆真0DTE口径</span>';
   document.getElementById('hamaTrades').innerHTML = dd.trades.map(function(t){
     return xs[t.trig] + ' 触发 → ' + xs[t.eb] + ' 开' + (t.dir === 1 ? ' Call' : ' Put') + ' @' + t.ep.toFixed(2) +
-    ' → ' + xs[t.xb] + ' 平 @' + t.xp.toFixed(2) + ' <b>' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%</b> (' + t.rsn + (t.src === 'HB' ? ', 回补进场' : (t.src === 'CTR' ? ', 逆势' + (t.csub === 'F' ? '·跟随' : (t.csub === 'DF' ? '·衰减快速' : '·衰减翻仓')) + (t.flipborn ? '·同根翻' : '') : (t.src && t.src !== 'STD' ? ', 衰减trigger' + (t.src === 'REVF' ? '·加速' : '') : ''))) + (t.conv ? ', 中途转顺势单' : '') + ', 止损位 ' + t.stop.toFixed(2) + ')';
+    ' → ' + xs[t.xb] + ' 平 @' + t.xp.toFixed(2) + ' <b>' + (t.r >= 0 ? '+' : '') + t.r.toFixed(2) + '%</b> (' + t.rsn + (t.src === 'HB' ? ', 回补进场' : (t.src === 'CTR' ? ', 逆势' + (t.csub === 'F' ? '·跟随' : (t.csub === 'DF' ? '·衰减快速' : '·衰减翻仓')) + (t.flipborn ? '·同根翻' : '') : (t.src === 'FWXR' ? ', 开盘快出重开' : (t.src && t.src !== 'STD' ? ', 衰减trigger' + (t.src === 'REVF' ? '·加速' : '') : '')))) + (t.conv ? ', 中途转顺势单' : '') + ', 止损位 ' + t.stop.toFixed(2) + ')';
   }).join('<br>');
 })();
 """
