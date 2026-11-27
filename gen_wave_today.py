@@ -3846,13 +3846,18 @@ def main():
         # 原生家族缩放, 30 倍列与 _hsum/_gsum 同口径; 颜色按 30 倍符号)
         def _lev3(_d):
             return "/".join(f"{_d[_lev]:+.1f}%" for _lev in _LEVS)
+
+        def _lev3e(_d):
+            # echart 版: 每个收益率按自己符号上色, 中间的斜线留在
+            # rich 段外走标题默认黑字 (user 2026-11-27 令)
+            return "/".join(
+                ("{pnl_pos|" if _d[_lev] >= 0 else "{pnl_neg|")
+                + f"{_d[_lev]:+.1f}%" + "}" for _lev in _LEVS)
         hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | "
                           f"收益(10/20/30倍) {_lev3(_fam_base)}"
                           f" | 止盈 {_lev3(_fam_gb)}")
-        _hpnl_e = (("{pnl_pos|" if _hsum >= 0 else "{pnl_neg|")
-                   + _lev3(_fam_base) + "}")
-        _gpnl_e = (("{pnl_pos|" if _gsum >= 0 else "{pnl_neg|")
-                   + _lev3(_fam_gb) + "}")
+        _hpnl_e = _lev3e(_fam_base)
+        _gpnl_e = _lev3e(_fam_gb)
         hama_title_echart = (day_str + " ({hama|hama}版) | " + gap_e
                              + " | 收益(10/20/30倍) " + _hpnl_e
                              + "\n止盈 " + _gpnl_e)
