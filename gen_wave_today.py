@@ -3469,14 +3469,36 @@ def main():
                 (-30.0 * _dd + 2.4 * _dd * _dd)
             return max(_r, -100.0)
 
+        def _fam(_dir, _p0, _p1, _lev):
+            # 原生家族缩放 (user 2026-11-27 定标题三杠杆口径): 直线按
+            # 杠杆等比、弯曲按杠杆平方, 锚点 = 策略原生 30 倍 (30/2.4),
+            # 故 _lev=30 与 _gb_settle/引擎口径一致; 下限 -100。
+            _dd = _p1 - _p0
+            _a = float(_lev)
+            _b = 2.4 * (_lev / 30.0) ** 2
+            _r = (_a * _dd + _b * _dd * _dd) if _dir == 1 else \
+                (-_a * _dd + _b * _dd * _dd)
+            return max(_r, -100.0)
+
+        _LEVS = (10, 20, 30)
+        _fam_base = {10: 0.0, 20: 0.0, 30: 0.0}
+        _fam_gb = {10: 0.0, 20: 0.0, 30: 0.0}
+
         _gb_pts = []
         _gb_sum = 0.0
         for _j, _t in enumerate(_htrds):
+            _fb = {_lev: _fam(_t["dir"], _t["ep"], _t["xp"], _lev)
+                   for _lev in _LEVS}
+            for _lev in _LEVS:
+                _fam_base[_lev] += _fb[_lev]
             if not _t.get("ctr"):
                 _gb_sum += _t["r"]
+                for _lev in _LEVS:
+                    _fam_gb[_lev] += _fb[_lev]
                 continue
             _lots = [[1.0, _t["ep"]]]
             _real = 0.0
+            _real_fam = {10: 0.0, 20: 0.0, 30: 0.0}
             _touched = False
             _nxt = _htrds[_j + 1]["trig"] if _j + 1 < len(_htrds) else None
             _eb, _xs, _xb = _t["eb"], _t["xs"], _t["xb"]
@@ -3513,6 +3535,9 @@ def main():
                                     if _h0 > 0 else 0.0
                                 _real += _si * _gb_settle(
                                     _t["dir"], _lp, _hclose[_i])
+                                for _lev in _LEVS:
+                                    _real_fam[_lev] += _si * _fam(
+                                        _t["dir"], _lp, _hclose[_i], _lev)
                                 if _lf - _si > 1e-12:
                                     _new_lots.append([_lf - _si, _lp])
                             _lots = _new_lots
@@ -3573,8 +3598,14 @@ def main():
                 _gb_sum += _real + sum(
                     _lf * _gb_settle(_t["dir"], _lp, _t["xp"])
                     for _lf, _lp in _lots)
+                for _lev in _LEVS:
+                    _fam_gb[_lev] += _real_fam[_lev] + sum(
+                        _lf * _fam(_t["dir"], _lp, _t["xp"], _lev)
+                        for _lf, _lp in _lots)
             else:
                 _gb_sum += _t["r"]
+                for _lev in _LEVS:
+                    _fam_gb[_lev] += _fb[_lev]
         hama_gb_js = json.dumps(_gb_pts, ensure_ascii=False)
 
         # 非成交事件 (pending/午间门, recipe 仪表化输出) 并入 acts,
@@ -3810,21 +3841,20 @@ def main():
             "背景=SSL 1m+HAMA 1m/3m 与 QQE 同色即进场，衰减反转 REV、逆势单 CTR（蓝边圈），出场 DECAY/D4/HB/FLIP/BG，"
             "午间斜率门，FOMC 日不做；非实际成交</div>")
         _hsum = _hpl["sum"]
-        _htot2 = _hsum * 1000.0
         _gsum = round(_gb_sum, 2)
-        _gtot2 = _gsum * 1000.0
+        # 标题三杠杆收益率 (user 2026-11-27 定: 只写收益率、不写金额;
+        # 原生家族缩放, 30 倍列与 _hsum/_gsum 同口径; 颜色按 30 倍符号)
+        def _lev3(_d):
+            return " / ".join(f"{_d[_lev]:+.1f}%" for _lev in _LEVS)
         hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | "
-                          f"{'+' if _hsum >= 0 else '-'}${abs(_htot2):,.0f} "
-                          f"({_hsum:+.1f}%)"
-                          f" | 止盈 "
-                          f"{'+' if _gsum >= 0 else '-'}${abs(_gtot2):,.0f} "
-                          f"({_gsum:+.1f}%)")
-        _hpnl_e = (("{pnl_pos|+" if _hsum >= 0 else "{pnl_neg|-")
-                   + f"${abs(_htot2):,.0f} ({_hsum:+.1f}%)" + "}")
-        _gpnl_e = (("{pnl_pos|+" if _gsum >= 0 else "{pnl_neg|-")
-                   + f"${abs(_gtot2):,.0f} ({_gsum:+.1f}%)" + "}")
+                          f"收益(10/20/30倍) {_lev3(_fam_base)}"
+                          f" | 止盈 {_lev3(_fam_gb)}")
+        _hpnl_e = (("{pnl_pos|" if _hsum >= 0 else "{pnl_neg|")
+                   + _lev3(_fam_base) + "}")
+        _gpnl_e = (("{pnl_pos|" if _gsum >= 0 else "{pnl_neg|")
+                   + _lev3(_fam_gb) + "}")
         hama_title_echart = (day_str + " ({hama|hama}版) | " + gap_e
-                             + " | " + _hpnl_e
+                             + " | 收益(10/20/30倍) " + _hpnl_e
                              + " | 止盈 " + _gpnl_e)
         print(f"  hama: {_hpl['n']} 单, 当日收益率(逐笔相加) {_hsum:+.2f}%",
               flush=True)
