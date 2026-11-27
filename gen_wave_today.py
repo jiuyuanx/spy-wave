@@ -3845,7 +3845,7 @@ def main():
         # 标题三杠杆收益率 (user 2026-11-27 定: 只写收益率、不写金额;
         # 原生家族缩放, 30 倍列与 _hsum/_gsum 同口径; 颜色按 30 倍符号)
         def _lev3(_d):
-            return " / ".join(f"{_d[_lev]:+.1f}%" for _lev in _LEVS)
+            return "/".join(f"{_d[_lev]:+.1f}%" for _lev in _LEVS)
         hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | "
                           f"收益(10/20/30倍) {_lev3(_fam_base)}"
                           f" | 止盈 {_lev3(_fam_gb)}")
