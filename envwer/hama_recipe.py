@@ -1064,10 +1064,18 @@ def _run(c):
                         # 第二根更长; 严格背景没站到波方向 -> 逆势
                         # 开 (站到了归 STD 路); 带同波递进门。
                         _s = qcol[gi]
+                        _f_via_flex = False
+                        if _s != 0 and gi - 1 >= i0 and qcol[gi - 1] == _s:
+                            _a1, _a2 = abs(hist[gi - 1]), abs(hist[gi])
+                            _f_via_flex = (_a2 > _a1 and not (_a1 >= 8)
+                                           and ((_a1 >= 5 and _a2 >= 11)
+                                                or (_a1 >= 6.5
+                                                    and _a2 >= 8.5)))
                         _f_ev = (_s != 0 and gi - 1 >= i0
                                  and qcol[gi - 1] == _s
-                                 and abs(hist[gi - 1]) >= 8
-                                 and abs(hist[gi]) > abs(hist[gi - 1])
+                                 and ((abs(hist[gi - 1]) >= 8
+                                       and abs(hist[gi]) > abs(hist[gi - 1]))
+                                      or _f_via_flex)
                                  and bg[gi] != _s
                                  and CTR_START <= hm <= "15:54"
                                  and MID_CTR[gi])
@@ -1085,6 +1093,8 @@ def _run(c):
                                        "csub": "F",
                                        "marker": float(abs(hist[eb])),
                                        "src_wave": int(WAVE_ID[gi])}
+                                if _f_via_flex:
+                                    pos["flexf"] = 1
                                 _FW_ANCHOR[int(WAVE_ID[gi])] = \
                                     abs(hist[gi])
                                 dec_pend = None
