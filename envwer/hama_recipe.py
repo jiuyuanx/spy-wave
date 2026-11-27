@@ -724,6 +724,47 @@ def _run(c):
                         else:
                             ctr_pend = None
                             continue
+                # ---- 回补翻仓 (定版, 同 sim): 持仓根上回补触发
+                # 成立且仓里是未转换的逆势反向单 -> 当根判定、
+                # 次根开盘平旧开新 (旧单 rsn=HB 带 hbflip 标);
+                # 触发门与空仓回补开仓完全同款。必须放在持仓根
+                # 总闸 (下方 continue) 之前, 否则够不着持仓根。
+                # pos["eb"]<=gi 守卫: 本根刚挂上的待开仓不许同根
+                # 再翻。
+                if pos is not None and pos["eb"] <= gi:
+                    for _s in (1, -1):
+                        if pos["dir"] != -_s:
+                            continue
+                        if not pos.get("ctr"):
+                            continue
+                        if (hb_arm[_s] is not None and bg[gi] == _s
+                                and abs(hist[gi]) >= HB_MIN
+                                and _hb_trigger(gi, _s, hb_arm[_s],
+                                                HB_ENTRY_MULT)
+                                and abs(hama1_shade[gi]) >= HS_MIN
+                                and "09:31" <= hm <= "15:54"
+                                and MID_ON[gi]):
+                            eb = gi + 1
+                            if eb <= i1:
+                                trades.append({**pos, "xb": eb,
+                                               "xp": float(O[eb]),
+                                               "rsn": "HB",
+                                               "r": roi(pos["dir"],
+                                                        pos["ep"],
+                                                        float(O[eb])),
+                                               "hbflip": 1})
+                                hb_arm[_s] = None
+                                dec_pend = None
+                                rev_pend = None
+                                stop = float(O[eb] - STOP_K * atr1m[gi]) \
+                                    if _s == 1 else \
+                                    float(O[eb] + STOP_K * atr1m[gi])
+                                pos = {"dir": _s, "trig": gi, "eb": eb,
+                                       "ep": float(O[eb]), "stop": stop,
+                                       "grey": bool(qcol[gi] == 0),
+                                       "src": "HB", "hbflip": 1}
+                                events.append((gi, "回补翻仓"))
+                            break
                 if pos is not None:
                     continue
                 # ---- 开盘快出砍后递增重开 (定版, 同 sim FWXR) ----
