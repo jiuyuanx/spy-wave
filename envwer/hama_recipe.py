@@ -296,6 +296,18 @@ def _run(c):
     for i in range(N):
         _a = TR[i] if i == 0 else (_a * 13 + TR[i]) / 14
         atr1m[i] = _a
+    # 去跳空 ATR (回吐止盈/回补点专用, 与研究 overlay_yield 同构造:
+    # 每日首根 TR 用今开代替昨收, 其余同 atr1m 的种子/平滑)
+    _TRG = TR.copy()
+    for _i in range(1, N):
+        if DSTR[_i] != DSTR[_i - 1]:
+            _TRG[_i] = max(H[_i] - L[_i], abs(H[_i] - O[_i]),
+                           abs(L[_i] - O[_i]))
+    atr_gb = np.zeros(N)
+    _a = float(_TRG[:14].mean())
+    for i in range(N):
+        _a = _TRG[i] if i == 0 else (_a * 13 + _TRG[i]) / 14
+        atr_gb[i] = _a
 
     def _trig_line(peak):
         return peak * 0.80 ** (1.0 + max(0.0, float(peak) - 12.0) / 16.0)
@@ -1142,6 +1154,7 @@ def _run(c):
             "hama_shade": _arr(hama1_shade, rnd=False),
             "bg": _arr((bg_e if BG3_SOFT else bg), rnd=False),
             "hist": _arr(hist),
+            "atr": [round(float(atr_gb[i]), 4) for i in ii],
             "qcol": _arr(qcol, rnd=False),
             "trades": [{k: (int(v) - int(i0)
                             if k in ("trig", "trig0", "eb", "xb", "xs")

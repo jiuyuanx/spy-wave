@@ -3370,6 +3370,7 @@ def main():
     # (hama 口径)。计算失败回退空数据集 + 标题标注, 页面不挂。----
     hama_pins, hama_spins = [], []
     hama_scat_js = "[]"
+    hama_gb_js = "[]"
     hama_mark_area_js = "[]"
     hama_acts = {}
     hama_tip = {}
@@ -3443,6 +3444,107 @@ def main():
             hama_acts.setdefault(hama_times1m[_t["xs"]], []).append(
                 f"平{'call' if _t['dir'] == 1 else 'put'}@{_t['xp']:.2f} "
                 f"{_RSN_CN.get(_t['rsn'], _t['rsn'])}".replace("'", ""))
+
+        # ---- 回吐止盈/回补红绿点 (user 2026-11-27 令; 上线口径, 只画点
+        # 不算钱, 与研究 overlay_yield 状态机逐式一致): 只挂出场时仍逆势
+        # 的单; 峰值门 4, 回吐线 = 固定 0.25 + 峰值 x 8.75%, 窗口第 3..99
+        # 根 (进场根 = 第 1 根); 红点 = 止盈 (全卖口径), 止盈根去跳空
+        # ATR <= 0.2125 才有回补资格, 其后顺向走满 3.0 个 ATR 一次全补
+        # (绿点); 峰值从开仓起算、回补后不重置, 绿点后须先收复到回吐
+        # 小于触发线才重新待发; 绿点上限 = min(平仓信号根-1, 下一笔
+        # 信号根-1)。----
+        _gb_atr = _hpl.get("atr") or []
+
+        def _gb_roi(_dir, _ep, _px):
+            _dd = _px - _ep
+            _r = (9.88 * _dd + 0.311 * _dd * _dd) if _dir == 1 else \
+                (-9.88 * _dd + 0.311 * _dd * _dd)
+            return max(_r, -100.0)
+
+        _gb_pts = []
+        for _j, _t in enumerate(_htrds):
+            if not _t.get("ctr"):
+                continue
+            _nxt = _htrds[_j + 1]["trig"] if _j + 1 < len(_htrds) else None
+            _eb, _xs, _xb = _t["eb"], _t["xs"], _t["xb"]
+            _lim = min(_xs - 1, (_nxt - 1) if _nxt is not None else _hn - 1)
+            _pk = -1e18
+            _stage = 0
+            _red = -1
+            _held = 1.0
+            _sold = 0.0
+            _pend = []
+            _cyc = 0
+            for _i in range(_eb, _xs + 1):
+                _px = _hclose[_i] if _i < _xb else _t["xp"]
+                _rt = _gb_roi(_t["dir"], _t["ep"], _px)
+                if _rt > _pk:
+                    _pk = _rt
+                if _pk <= 0:
+                    continue
+                _line = 0.25 + 0.0875 * _pk
+                _gbv = _pk - _rt
+                _age = _i - _eb + 1
+                if _stage == 0:
+                    if _pk >= 4 and _gbv >= _line and 3 <= _age <= 99:
+                        _red = _i
+                        if _held > 1e-12:
+                            _cyc += 1
+                            _sold = _held
+                            _held = 0.0
+                            _gate_ok = (_i < len(_gb_atr)
+                                        and _gb_atr[_i] is not None
+                                        and _gb_atr[_i] <= 0.2125)
+                            _pend = [3.0] if _gate_ok else []
+                            _gb_pts.append({
+                                "value": [hama_times1m[_i],
+                                          round(_hclose[_i], 2)],
+                                "itemStyle": {"color": "#dc2626"}})
+                            _gtxt = ("回吐止盈 · 回吐 %.1f ≥ 线 %.1f "
+                                     "(峰值 %.1f)" % (_gbv, _line, _pk))
+                            if _cyc > 1:
+                                _gtxt += " · 第 %d 轮" % _cyc
+                            if not _gate_ok:
+                                _gtxt += (" · 止盈根 ATR %.3f 超 0.2125, "
+                                          "不回补" % (_gb_atr[_i]
+                                                     if _i < len(_gb_atr)
+                                                     else -1))
+                            hama_acts.setdefault(
+                                hama_times1m[_i], []).append(
+                                _gtxt.replace("'", ""))
+                        else:
+                            _sold = 0.0
+                            _pend = []
+                        _stage = 1
+                elif _stage == 1:
+                    if _i > _lim:
+                        break
+                    _ar = (_gb_atr[_red]
+                           if _red < len(_gb_atr) else None)
+                    if _ar:
+                        _mv = (_hclose[_i] - _hclose[_red]) * _t["dir"]
+                        _still = []
+                        for _k in _pend:
+                            if _mv >= _k * _ar:
+                                _gb_pts.append({
+                                    "value": [hama_times1m[_i],
+                                              round(_hclose[_i], 2)],
+                                    "itemStyle": {"color": "#16a34a"}})
+                                hama_acts.setdefault(
+                                    hama_times1m[_i], []).append(
+                                    ("止盈回补 · 顺向走满 3.0 个 ATR"
+                                     + (" · 第 %d 轮" % _cyc if _cyc > 1
+                                        else "")).replace("'", ""))
+                                _held = _sold
+                            else:
+                                _still.append(_k)
+                        _pend = _still
+                        if not _pend:
+                            _stage = 2
+                else:
+                    if _gbv < _line:
+                        _stage = 0
+        hama_gb_js = json.dumps(_gb_pts, ensure_ascii=False)
 
         # 非成交事件 (pending/午间门, recipe 仪表化输出) 并入 acts,
         # 与开/平行同根合并; 再据合并后的 acts 建悬浮窗 TIP (每 1m bar
@@ -3776,6 +3878,7 @@ def main():
     _sw.append("const STVX_MAINFLIPS = " + stvx_main_flips_js + ";")
     _sw.append("const HAMA_PINS = " + json.dumps(hama_pins, ensure_ascii=False) + ";")
     _sw.append("const HAMA_SPINS = " + json.dumps(hama_spins, ensure_ascii=False) + ";")
+    _sw.append("const HAMA_GB = " + hama_gb_js + ";")
     _sw.append("const HAMA_SCAT = " + hama_scat_js + ";")
     _sw.append("const HAMA_MARKAREA = " + hama_mark_area_js + ";")
     _sw.append("const HAMA_INNER = " + json.dumps(hama_inner, ensure_ascii=False) + ";")
@@ -3887,6 +3990,7 @@ return _origEnvTip(ps, barInfo);
     _sw.append("      {name: '3mK线', data: isHAMA ? [] : (K3_DEF_DATA ? K3_DEF_DATA : undefined), markArea: {silent: true, data: (isENVELOPE || isHAMA) ? [] : (isCE ? CE_MARKAREA : (isSTVX ? STVX_MARKAREA : (useVH ? VH_MARKAREA : QQE_MARKAREA)))}, markLine: {silent: true, symbol: 'none', label: {show: false}, lineStyle: {color: 'rgba(0,0,0,0.20)', width: 1, type: 'solid'}, data: useVH ? VH_MARKLINE : []}},")
     _sw.append("      {name: '段收益率', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, opacity: 1, fontSize: 8, fontWeight: 'bold', position: 'top', distance: 1, formatter: function(p){return p.data.lbl;}}, data: useVH ? VH_SEG : []},")
     _sw.append("      {id: 'ce-signal', name: 'CE信号', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 1, itemStyle: {opacity: 0}, label: {show: true, fontSize: 12}, z: 6, data: isCE ? CE_BS : []},")
+    _sw.append("      {id: 'hama-gb', name: '回吐止盈回补', type: 'scatter', xAxisIndex: 0, yAxisIndex: 0, symbol: 'circle', symbolSize: 10, itemStyle: {borderColor: '#fff', borderWidth: 1.2}, z: 7, tooltip: {show: false}, data: isHAMA ? HAMA_GB : []},")
     _sw.append("      {id: 'env-upper', name: 'Envelope上轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.upper, width: 2}, data: isENVELOPE ? ENVELOPE_UPPER_1M : []},")
     _sw.append("      {id: 'env-lower', name: 'Envelope下轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.lower, width: 2}, data: isENVELOPE ? ENVELOPE_LOWER_1M : []},")
     _sw.append("      {id: 'env-chanmid', name: 'Envelope中轨', type: 'line', xAxisIndex: 0, yAxisIndex: 0, symbolSize: 0, showSymbol: false, lineStyle: {color: THEME.envelope.chanmid, width: 2}, data: isENVELOPE ? ENVELOPE_CHANMID_1M : []},")
