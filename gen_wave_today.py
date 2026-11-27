@@ -3816,7 +3816,7 @@ def main():
         hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | "
                           f"{'+' if _hsum >= 0 else '-'}${abs(_htot2):,.0f} "
                           f"({_hsum:+.1f}%)"
-                          f" | 止盈回吐回补 "
+                          f" | 止盈 "
                           f"{'+' if _gsum >= 0 else '-'}${abs(_gtot2):,.0f} "
                           f"({_gsum:+.1f}%)")
         _hpnl_e = (("{pnl_pos|+" if _hsum >= 0 else "{pnl_neg|-")
@@ -3825,7 +3825,7 @@ def main():
                    + f"${abs(_gtot2):,.0f} ({_gsum:+.1f}%)" + "}")
         hama_title_echart = (day_str + " ({hama|hama}版) | " + gap_e
                              + " | " + _hpnl_e
-                             + " | 止盈回吐回补 " + _gpnl_e)
+                             + " | 止盈 " + _gpnl_e)
         print(f"  hama: {_hpl['n']} 单, 当日收益率(逐笔相加) {_hsum:+.2f}%",
               flush=True)
     except Exception as _he2:  # noqa: BLE001
