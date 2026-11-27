@@ -3461,10 +3461,23 @@ def main():
                 (-9.88 * _dd + 0.311 * _dd * _dd)
             return max(_r, -100.0)
 
+        def _gb_settle(_dir, _p0, _p1):
+            # 结算口径与引擎单一致: 30 倍 gamma, 下限 -100 (只算带回吐
+            # 层的钱时用; 触发判定用上面的 L10 公式, 与研究页同分工)
+            _dd = _p1 - _p0
+            _r = (30.0 * _dd + 2.4 * _dd * _dd) if _dir == 1 else \
+                (-30.0 * _dd + 2.4 * _dd * _dd)
+            return max(_r, -100.0)
+
         _gb_pts = []
+        _gb_sum = 0.0
         for _j, _t in enumerate(_htrds):
             if not _t.get("ctr"):
+                _gb_sum += _t["r"]
                 continue
+            _lots = [[1.0, _t["ep"]]]
+            _real = 0.0
+            _touched = False
             _nxt = _htrds[_j + 1]["trig"] if _j + 1 < len(_htrds) else None
             _eb, _xs, _xb = _t["eb"], _t["xs"], _t["xb"]
             _lim = min(_xs - 1, (_nxt - 1) if _nxt is not None else _hn - 1)
@@ -3492,6 +3505,17 @@ def main():
                             _cyc += 1
                             _sold = _held
                             _held = 0.0
+                            _touched = True
+                            _h0 = sum(_lf for _lf, _ in _lots)
+                            _new_lots = []
+                            for _lf, _lp in _lots:
+                                _si = _sold * (_lf / _h0) \
+                                    if _h0 > 0 else 0.0
+                                _real += _si * _gb_settle(
+                                    _t["dir"], _lp, _hclose[_i])
+                                if _lf - _si > 1e-12:
+                                    _new_lots.append([_lf - _si, _lp])
+                            _lots = _new_lots
                             _gate_ok = (_i < len(_gb_atr)
                                         and _gb_atr[_i] is not None
                                         and _gb_atr[_i] <= 0.2125)
@@ -3526,6 +3550,7 @@ def main():
                         _still = []
                         for _k in _pend:
                             if _mv >= _k * _ar:
+                                _lots.append([_sold, _hclose[_i]])
                                 _gb_pts.append({
                                     "value": [hama_times1m[_i],
                                               round(_hclose[_i], 2)],
@@ -3544,6 +3569,12 @@ def main():
                 else:
                     if _gbv < _line:
                         _stage = 0
+            if _touched:
+                _gb_sum += _real + sum(
+                    _lf * _gb_settle(_t["dir"], _lp, _t["xp"])
+                    for _lf, _lp in _lots)
+            else:
+                _gb_sum += _t["r"]
         hama_gb_js = json.dumps(_gb_pts, ensure_ascii=False)
 
         # 非成交事件 (pending/午间门, recipe 仪表化输出) 并入 acts,
@@ -3780,13 +3811,21 @@ def main():
             "午间斜率门，FOMC 日不做；非实际成交</div>")
         _hsum = _hpl["sum"]
         _htot2 = _hsum * 1000.0
-        hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | 全天Hama | "
+        _gsum = round(_gb_sum, 2)
+        _gtot2 = _gsum * 1000.0
+        hama_title_txt = (f"{day_str} (Hama版) | {gap_txt} | "
                           f"{'+' if _hsum >= 0 else '-'}${abs(_htot2):,.0f} "
-                          f"({_hsum:+.1f}%)")
+                          f"({_hsum:+.1f}%)"
+                          f" | 止盈回吐回补 "
+                          f"{'+' if _gsum >= 0 else '-'}${abs(_gtot2):,.0f} "
+                          f"({_gsum:+.1f}%)")
         _hpnl_e = (("{pnl_pos|+" if _hsum >= 0 else "{pnl_neg|-")
                    + f"${abs(_htot2):,.0f} ({_hsum:+.1f}%)" + "}")
+        _gpnl_e = (("{pnl_pos|+" if _gsum >= 0 else "{pnl_neg|-")
+                   + f"${abs(_gtot2):,.0f} ({_gsum:+.1f}%)" + "}")
         hama_title_echart = (day_str + " ({hama|hama}版) | " + gap_e
-                             + " | 全天{hama|hama} | " + _hpnl_e)
+                             + " | " + _hpnl_e
+                             + " | 止盈回吐回补 " + _gpnl_e)
         print(f"  hama: {_hpl['n']} 单, 当日收益率(逐笔相加) {_hsum:+.2f}%",
               flush=True)
     except Exception as _he2:  # noqa: BLE001
